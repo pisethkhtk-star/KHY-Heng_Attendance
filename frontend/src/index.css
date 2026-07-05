@@ -1,0 +1,254 @@
+@import "tailwindcss";
+
+@theme {
+  --color-slate-950: var(--slate-950);
+  --color-slate-900: var(--slate-900);
+  --color-slate-800: var(--slate-800);
+  --color-slate-700: var(--slate-700);
+  --color-slate-600: var(--slate-600);
+  --color-slate-500: var(--slate-500);
+  --color-slate-400: var(--slate-400);
+  --color-slate-300: var(--slate-300);
+  --color-slate-100: var(--slate-100);
+}
+
+:root {
+  /* BankDash Dark Mode Variables */
+  --bg-app: #0A0E1A;
+  --bg-card: #151D30;
+  --border-card: #222B3C;
+  --shadow-glow: 0 8px 32px 0 rgba(0, 0, 0, 0.4);
+  --bg-panel: #111827;
+  --border-panel: #1F2937;
+  --bg-table-header: #0F172A;
+
+  --slate-950: #151D30;
+  --slate-900: #1C263C;
+  --slate-800: #25334E;
+  --slate-700: #2F4160;
+  --slate-600: #4B5563;
+  --slate-500: #6B7280;
+  --slate-400: #9CA3AF;
+  --slate-300: #D1D5DB;
+  --slate-100: #F3F4F6;
+  
+  --brand-blue: #1814F3;
+  --accent-blue: #2D60FF;
+  --text-primary: #F3F4F6;
+  --text-secondary: #9CA3AF;
+}
+
+html.light {
+  /* BankDash Light Mode Variables */
+  --bg-app: #F5F7FA;
+  --bg-card: #FFFFFF;
+  --border-card: #E6EFF5;
+  --shadow-glow: 0 10px 25px -5px rgba(113, 142, 191, 0.1), 0 8px 10px -6px rgba(113, 142, 191, 0.1);
+  --bg-panel: #FFFFFF;
+  --border-panel: #E6EFF5;
+  --bg-table-header: #F5F7FA;
+
+  --slate-950: #FFFFFF;
+  --slate-900: #FFFFFF;
+  --slate-800: #F5F7FA;
+  --slate-700: #E6EFF5;
+  --slate-600: #718EBF;
+  --slate-500: #718EBF;
+  --slate-400: #B1B1B1;
+  --slate-300: #343C6A;
+  --slate-100: #343C6A;
+
+  --brand-blue: #1814F3;
+  --accent-blue: #2D60FF;
+  --text-primary: #343C6A;
+  --text-secondary: #718EBF;
+}
+
+/* Global transitions for clean theme switching */
+body, header, aside, main, div, p, span, table, th, td, input, select, textarea, button {
+  transition-property: background-color, border-color, color, box-shadow;
+  transition-duration: 200ms;
+  transition-timing-function: ease-in-out;
+}
+
+body {
+  background: var(--bg-app) !important;
+  color: var(--text-primary) !important;
+  font-family: "Inter", "Kantumruy Pro", sans-serif;
+}
+
+/* Custom scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: rgba(113, 142, 191, 0.1);
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(113, 142, 191, 0.3);
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--brand-blue);
+}
+
+/* Glassmorphism custom classes updated to match BankDash Cards */
+.glass-panel {
+  background: var(--bg-panel);
+  border-right: 1px solid var(--border-panel);
+}
+
+.glass-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-card);
+  box-shadow: var(--shadow-glow);
+  border-radius: 25px; /* BankDash standard card radius */
+  padding: 24px;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.glass-card-hover:hover {
+  border-color: var(--accent-blue);
+  box-shadow: 0 15px 30px rgba(113, 142, 191, 0.15);
+  transform: translateY(-2px);
+}
+
+/* Glowing utilities updated */
+.glow-indigo {
+  box-shadow: 0 10px 25px rgba(24, 20, 243, 0.05);
+}
+
+.glow-emerald {
+  box-shadow: 0 10px 25px rgba(16, 185, 129, 0.05);
+}
+
+.glow-rose {
+  box-shadow: 0 10px 25px rgba(244, 63, 94, 0.05);
+}
+
+/* Custom Table Layout utilities for dark/light mode */
+.glass-table {
+  background: var(--bg-card);
+}
+.glass-table th {
+  background: var(--bg-table-header);
+  color: var(--text-secondary);
+  font-weight: 500;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border-bottom: 1px solid var(--border-card);
+}
+.glass-table td {
+  border-bottom: 1px solid var(--border-card);
+  color: var(--text-primary);
+}
+.glass-table tr:hover {
+  background: rgba(113, 142, 191, 0.04);
+}
+
+/* Light mode overrides for transparent components and specific text tags */
+html.light .text-white {
+  color: var(--text-primary) !important;
+}
+html.light h1.text-white,
+html.light h2.text-white,
+html.light h3.text-white,
+html.light h4.text-white,
+html.light p.text-white,
+html.light span.text-white,
+html.light td.text-white {
+  color: var(--text-primary) !important;
+}
+
+/* Maintain proper white color on primary components like button labels, icons in status badges, etc. */
+html.light button.bg-gradient-to-r .text-white,
+html.light button.bg-indigo-600 .text-white,
+html.light button.bg-rose-600 .text-white,
+html.light .bg-indigo-600 .text-white,
+html.light .bg-rose-600 .text-white,
+html.light .bg-indigo-500 .text-white,
+html.light .bg-emerald-500 .text-white,
+html.light .bg-purple-600 .text-white,
+html.light .bg-indigo-600,
+html.light .bg-rose-600,
+html.light .bg-amber-500,
+html.light .bg-emerald-500,
+html.light .bg-purple-600,
+html.light .text-indigo-300,
+html.light .text-rose-300,
+html.light .text-emerald-300 {
+  color: inherit;
+}
+
+/* Specific class utility overrides */
+html.light .border-white\/10 {
+  border-color: var(--border-card) !important;
+}
+html.light .border-white\/5 {
+  border-color: var(--border-card) !important;
+}
+html.light .border-white\/20 {
+  border-color: var(--border-card) !important;
+}
+html.light .divide-white\/5 > * + * {
+  border-color: var(--border-card) !important;
+}
+html.light .bg-white\/5 {
+  background-color: rgba(113, 142, 191, 0.05) !important;
+}
+html.light .bg-white\/10 {
+  background-color: rgba(113, 142, 191, 0.1) !important;
+}
+html.light .hover\:bg-white\/5:hover {
+  background-color: rgba(113, 142, 191, 0.08) !important;
+}
+html.light .bg-slate-950\/60 {
+  background-color: var(--bg-card) !important;
+}
+html.light .bg-slate-950\/40 {
+  background-color: var(--bg-card) !important;
+}
+html.light .bg-slate-950\/80 {
+  background-color: var(--bg-table-header) !important;
+}
+html.light .bg-slate-950 {
+  background-color: var(--bg-card) !important;
+}
+html.light .text-slate-400 {
+  color: var(--text-secondary) !important;
+}
+html.light .text-slate-300 {
+  color: var(--text-secondary) !important;
+}
+html.light .text-slate-100 {
+  color: var(--text-primary) !important;
+}
+
+/* Input Fields matching BankDash pill/rounded styling */
+input, select, textarea {
+  border-radius: 15px !important;
+  background-color: var(--bg-card) !important;
+  border: 1px solid var(--border-card) !important;
+  color: var(--text-primary) !important;
+}
+
+input:focus, select:focus, textarea:focus {
+  border-color: var(--brand-blue) !important;
+  outline: none;
+}
+
+/* Print Overrides */
+@media print {
+  .no-print {
+    display: none !important;
+  }
+  .print-only {
+    display: block !important;
+  }
+  body {
+    background: white !important;
+    color: black !important;
+  }
+}

@@ -1,0 +1,248 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum Role {
+  Admin
+  HR
+  Manager
+  Employee
+}
+
+enum Status {
+  Active
+  Inactive
+  Suspended
+}
+
+enum LeaveStatus {
+  Pending
+  Approved
+  Rejected
+}
+
+model Department {
+  id          String     @id @default(uuid()) @db.Uuid
+  nameEn      String     @map("name_en")
+  nameKh      String     @map("name_kh")
+  description String?
+  createdAt   DateTime   @default(now()) @map("created_at")
+  updatedAt   DateTime   @updatedAt @map("updated_at")
+  positions   Position[]
+  employees   Employee[]
+
+  @@map("departments")
+}
+
+model Position {
+  id           String     @id @default(uuid()) @db.Uuid
+  titleEn      String     @map("title_en")
+  titleKh      String     @map("title_kh")
+  departmentId String     @map("department_id") @db.Uuid
+  department   Department @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  createdAt    DateTime   @default(now()) @map("created_at")
+  updatedAt    DateTime   @updatedAt @map("updated_at")
+  employees    Employee[]
+
+  @@map("positions")
+}
+
+model Employee {
+  id            String       @id @default(uuid()) @db.Uuid
+  staffId       String       @unique @map("staff_id")
+  nameEn        String       @map("name_en")
+  nameKh        String       @map("name_kh")
+  gender        String       // Male, Female, Other
+  positionId    String       @map("position_id") @db.Uuid
+  position      Position     @relation(fields: [positionId], references: [id])
+  departmentId  String       @map("department_id") @db.Uuid
+  department    Department   @relation(fields: [departmentId], references: [id])
+  branch        String       @default("")
+  joinDate      DateTime     @map("join_date") @db.Date
+  status        Status       @default(Active)
+  shift1Start   String       @default("") @map("shift_1_start") // e.g. "08:00"
+  shift1End     String       @default("") @map("shift_1_end")   // e.g. "12:00"
+  shift2Start   String       @default("") @map("shift_2_start") // e.g. "13:00"
+  shift2End     String       @default("") @map("shift_2_end")   // e.g. "17:00"
+  address       String?      @default("") @map("address")
+  idCardPassport String?      @default("") @map("id_card_passport")
+  photoUrl      String?      @map("photo_url")
+  
+  // Auth credentials
+  email         String       @unique
+  password      String
+  role          Role         @default(Employee)
+  
+  createdAt     DateTime     @default(now()) @map("created_at")
+  updatedAt     DateTime     @updatedAt @map("updated_at")
+  attendances    Attendance[]
+  leaves         Leave[]
+  faceData       EmployeeFaceData[]
+  qrCodes        EmployeeQRCode[]
+  attendanceLogs AttendanceLog[]
+  leaveLimits    EmployeeLeaveLimit[]
+
+  @@map("employees")
+}
+
+model Attendance {
+  id             String   @id @default(uuid()) @db.Uuid
+  staffId        String   @map("staff_id")
+  employee       Employee @relation(fields: [staffId], references: [staffId], onDelete: Cascade)
+  attendanceDate DateTime @map("attendance_date") @db.Date
+  checkin1       String?  @map("checkin_1")
+  checkout1      String?  @map("checkout_1")
+  checkin2       String?  @map("checkin_2")
+  checkout2      String?  @map("checkout_2")
+  isLate         Boolean  @default(false) @map("is_late")
+  isEarlyLeave   Boolean  @default(false) @map("is_early_leave")
+  note           String?  @db.Text
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  @@unique([staffId, attendanceDate])
+  @@index([staffId])
+  @@index([attendanceDate])
+  @@map("attendances")
+}
+
+model Leave {
+  id          String      @id @default(uuid()) @db.Uuid
+  staffId     String      @map("staff_id")
+  employee    Employee    @relation(fields: [staffId], references: [staffId], onDelete: Cascade)
+  leaveDate   DateTime    @map("leave_date") @db.Date
+  leaveType   String      @map("leave_type")
+  amountDays  Decimal     @map("amount_days") @db.Decimal(5, 2)
+  reason      String?     @db.Text
+  status      LeaveStatus @default(Pending)
+  managerName String?     @map("manager_name")
+  requestedAt DateTime    @default(now()) @map("requested_at")
+  approvedAt  DateTime?   @map("approved_at")
+  createdAt   DateTime    @default(now()) @map("created_at")
+  updatedAt   DateTime    @updatedAt @map("updated_at")
+
+  @@index([staffId])
+  @@index([leaveDate])
+  @@map("leaves")
+}
+
+model EmployeeFaceData {
+  id             String   @id @default(uuid()) @db.Uuid
+  staffId        String   @map("staff_id")
+  employee       Employee @relation(fields: [staffId], references: [staffId], onDelete: Cascade)
+  faceDescriptor Json     @map("face_descriptor") // stores embedding array [128 floats]
+  photoUrl       String?  @map("photo_url")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  @@map("employee_face_data")
+}
+
+model EmployeeQRCode {
+  id        String    @id @default(uuid()) @db.Uuid
+  staffId   String    @map("staff_id")
+  employee  Employee  @relation(fields: [staffId], references: [staffId], onDelete: Cascade)
+  qrToken   String    @unique @map("qr_token")
+  isActive  Boolean   @default(true) @map("is_active")
+  expiresAt DateTime? @map("expires_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+
+  @@map("employee_qr_codes")
+}
+
+model AttendanceLog {
+  id               String    @id @default(uuid()) @db.Uuid
+  staffId          String?   @map("staff_id")
+  employee         Employee? @relation(fields: [staffId], references: [staffId], onDelete: Cascade)
+  method           String   // 'face', 'qrcode', 'manual'
+  action           String   // 'checkin_1', 'checkout_1', 'checkin_2', 'checkout_2'
+  capturedAt       DateTime @default(now()) @map("captured_at")
+  deviceInfo       String?  @map("device_info")
+  location         String?
+  photoSnapshotUrl String?  @map("photo_snapshot_url")
+  status           String   // 'success', 'failed'
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  @@map("attendance_logs")
+}
+
+model RolePermission {
+  id        String   @id @default(uuid()) @db.Uuid
+  role      Role
+  resource  String   // e.g. "departments", "positions", "employees", "attendance", "leaves", "reports", "facescan", "qrscan"
+  canAccess Boolean  @default(true) @map("can_access")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@unique([role, resource])
+  @@map("role_permissions")
+}
+
+model KioskSetting {
+  id        String   @id @default(uuid()) @db.Uuid
+  name      String   @default("Branch Location")
+  latitude  Float    @default(11.5564)
+  longitude Float    @default(104.9282)
+  radius    Float    @default(100.0) // Allowed radius in meters
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("kiosk_settings")
+}
+
+model LeaveType {
+  id          String   @id @default(uuid()) @db.Uuid
+  nameEn      String   @map("name_en")
+  nameKh      String   @map("name_kh")
+  code        String   @unique // e.g. AL, SL, PL, ML
+  maxDays     Float    @default(18.0) @map("max_days")
+  description String?  @db.Text
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  leaveLimits EmployeeLeaveLimit[]
+
+  @@map("leave_types")
+}
+
+
+model EmployeeLeaveLimit {
+  id          String     @id @default(uuid()) @db.Uuid
+  staffId     String     @map("staff_id")
+  employee    Employee   @relation(fields: [staffId], references: [staffId], onDelete: Cascade)
+  leaveCode   String     @map("leave_code")
+  leaveType   LeaveType  @relation(fields: [leaveCode], references: [code], onDelete: Cascade)
+  maxDays     Float      @map("max_days")
+  createdAt   DateTime   @default(now()) @map("created_at")
+  updatedAt   DateTime   @updatedAt @map("updated_at")
+
+  @@unique([staffId, leaveCode])
+  @@map("employee_leave_limits")
+}
+
+model CompanyWorkHour {
+  id          String   @id @default(uuid()) @db.Uuid
+  shift1Start String   @map("shift_1_start") @default("08:00")
+  shift1End   String   @map("shift_1_end") @default("12:00")
+  shift2Start String   @map("shift_2_start") @default("13:00")
+  shift2End   String   @map("shift_2_end") @default("17:00")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@map("company_work_hours")
+}
+
+model LeaveApprovalRule {
+  id           String      @id @default(uuid()) @db.Uuid
+  approverId   String      @map("approver_id")
+  scope        String      @default("Employee") // "Department" or "Employee"
+  targetDeptId String?     @map("target_dept_id") @db.Uuid
+  targetStaffId String?    @map("target_staff_id")
+  createdAt    DateTime    @default(now()) @map("created_at")
+  updatedAt    DateTime    @updatedAt @map("updated_at")
+
+  @@map("leave_approval_rules")
+}

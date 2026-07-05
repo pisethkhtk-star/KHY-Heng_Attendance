@@ -1,0 +1,32 @@
+# Dependencies
+node_modules/
+
+# Environment files (SENSITIVE - never commit)
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Prisma generated client
+node_modules/.prisma/
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+*.log
+
+# OS Files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Build artifacts
+dist/
+build/
