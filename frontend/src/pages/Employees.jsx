@@ -544,7 +544,7 @@ const Employees = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!staffId || !nameEn || !nameKh || !email || !departmentId || !positionId || !address || !idCardPassport || (!editId && !password)) {
+    if (!staffId || !nameEn || !nameKh || !email || !departmentId || !positionId || (!editId && !password)) {
       setErrorMsg('Required fields are missing');
       return;
     }
@@ -557,8 +557,8 @@ const Employees = () => {
         gender,
         positionId,
         departmentId,
-        branch,
-        joinDate,
+        branch: branch || '',
+        joinDate: joinDate || new Date().toISOString().split('T')[0],
         status,
         shift1Start,
         shift1End,
@@ -566,12 +566,13 @@ const Employees = () => {
         shift2End,
         email,
         role,
-        address,
-        idCardPassport,
+        address: address || '',
+        idCardPassport: idCardPassport || '',
         facePhoto: formPhotoStatus === 'success' ? formPhoto : undefined,
         faceDescriptor: formFaceDescriptor || undefined,
         profilePhoto: profilePhoto || undefined,
       };
+
 
       if (password) payload.password = password;
 

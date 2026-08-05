@@ -103,7 +103,7 @@ export const create = async (req, res) => {
     profilePhoto,
   } = req.body;
 
-  if (!staffId || !nameEn || !nameKh || !email || !password || !positionId || !departmentId || !address || !idCardPassport) {
+  if (!staffId || !nameEn || !nameKh || !email || !password || !positionId || !departmentId) {
     return res.status(400).json({ message: 'Required fields are missing' });
   }
 
@@ -135,15 +135,15 @@ export const create = async (req, res) => {
         gender,
         positionId,
         departmentId,
-        branch,
-        joinDate: new Date(joinDate),
+        branch: branch || "",
+        joinDate: joinDate ? new Date(joinDate) : new Date(),
         status: status || 'Active',
         shift1Start: shift1Start || '08:00',
         shift1End: shift1End || '12:00',
         shift2Start: shift2Start || '13:00',
         shift2End: shift2End || '17:00',
-        address,
-        idCardPassport,
+        address: address || "",
+        idCardPassport: idCardPassport || "",
         email,
         password: hashedPassword,
         role: role || 'Employee',
@@ -197,7 +197,7 @@ export const update = async (req, res) => {
     profilePhoto,
   } = req.body;
 
-  if (!staffId || !nameEn || !nameKh || !email || !positionId || !departmentId || !address || !idCardPassport) {
+  if (!staffId || !nameEn || !nameKh || !email || !positionId || !departmentId) {
     return res.status(400).json({ message: 'Required fields are missing' });
   }
 
@@ -239,17 +239,18 @@ export const update = async (req, res) => {
       gender,
       positionId,
       departmentId,
-      branch,
+      branch: branch !== undefined ? branch : existingEmployee.branch,
       status,
       shift1Start,
       shift1End,
       shift2Start,
       shift2End,
-      address,
-      idCardPassport,
+      address: address !== undefined ? address : existingEmployee.address,
+      idCardPassport: idCardPassport !== undefined ? idCardPassport : existingEmployee.idCardPassport,
       email,
       role,
     };
+
 
     if (profilePhoto !== undefined) {
       updateData.photoUrl = profilePhoto || null;

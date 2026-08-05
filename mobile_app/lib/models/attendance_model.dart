@@ -1,0 +1,102 @@
+class AttendanceRecord {
+  final String id;
+  final String staffId;
+  final String employeeName;
+  final String department;
+  final String date;
+  final String? checkIn1;
+  final String? checkOut1;
+  final String? checkIn2;
+  final String? checkOut2;
+  final String status; // Present, Late, Absent, On Leave, Early Leave
+  final String totalHours;
+  final String location;
+  final bool isVerified;
+
+  AttendanceRecord({
+    required this.id,
+    this.staffId = 'EMP-001',
+    this.employeeName = '',
+    this.department = '',
+    required this.date,
+    this.checkIn1,
+    this.checkOut1,
+    this.checkIn2,
+    this.checkOut2,
+    required this.status,
+    required this.totalHours,
+    this.location = 'Phnom Penh HQ Office',
+    this.isVerified = true,
+  });
+
+  static String formatTime12Hour(String? timeStr) {
+    if (timeStr == null || timeStr.isEmpty || timeStr == '--:--' || timeStr == '-') return '-';
+    if (timeStr.contains('AM') || timeStr.contains('PM')) return timeStr;
+
+    try {
+      final parts = timeStr.split(':');
+      if (parts.length >= 2) {
+        int hours = int.parse(parts[0]);
+        final minutes = parts[1];
+        final ampm = hours >= 12 ? 'PM' : 'AM';
+        hours = hours % 12;
+        if (hours == 0) hours = 12;
+        final formattedHours = hours.toString().padLeft(2, '0');
+        return '$formattedHours:$minutes $ampm';
+      }
+    } catch (_) {}
+    return timeStr;
+  }
+
+  factory AttendanceRecord.fromJson(Map<String, dynamic> json) {
+    String dateVal = '';
+    if (json['attendanceDate'] != null) {
+      dateVal = json['attendanceDate'].toString().split('T')[0];
+    } else if (json['date'] != null) {
+      dateVal = json['date'].toString();
+    } else if (json['createdAt'] != null) {
+      dateVal = json['createdAt'].toString().split('T')[0];
+    }
+
+    final isLateBool = json['isLate'] == true;
+    final isEarlyBool = json['isEarlyLeave'] == true;
+    String calculatedStatus = 'Present';
+    if (isLateBool) {
+      calculatedStatus = 'Late';
+    } else if (isEarlyBool) {
+      calculatedStatus = 'Early Leave';
+    } else if (json['status'] != null) {
+      calculatedStatus = json['status'].toString();
+    }
+
+    final empObj = json['employee'];
+    String name = '';
+    String dept = '';
+    String stId = json['staffId'] ?? empObj?['staffId'] ?? 'EMP-001';
+
+    if (empObj != null) {
+      name = empObj['nameEn'] ?? empObj['nameKh'] ?? '';
+      if (empObj['department'] != null) {
+        dept = empObj['department']['nameEn'] ?? empObj['department']['nameKh'] ?? '';
+      }
+    }
+
+    return AttendanceRecord(
+      id: json['id']?.toString() ?? '',
+      staffId: stId,
+      employeeName: name,
+      department: dept,
+      date: dateVal,
+      checkIn1: formatTime12Hour(json['checkin1'] ?? json['checkIn1'] ?? json['checkIn']),
+      checkOut1: formatTime12Hour(json['checkout1'] ?? json['checkOut1'] ?? json['checkOut']),
+      checkIn2: formatTime12Hour(json['checkin2'] ?? json['checkIn2']),
+      checkOut2: formatTime12Hour(json['checkout2'] ?? json['checkOut2']),
+      status: calculatedStatus,
+      totalHours: json['totalHours'] ?? (isLateBool ? '7.5 hrs' : '8.0 hrs'),
+      location: json['location'] ?? json['employee']?['branch'] ?? 'HQ Office Geofence',
+      isVerified: json['isVerified'] ?? true,
+    );
+  }
+}
+
+

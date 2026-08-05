@@ -1,0 +1,250 @@
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:lucide_icons/lucide_icons.dart';
+import '../core/constants/app_colors.dart';
+import '../providers/attendance_provider.dart';
+import '../providers/language_provider.dart';
+import '../widgets/custom_card.dart';
+import '../widgets/status_badge.dart';
+
+class AttendanceScreen extends StatefulWidget {
+  const AttendanceScreen({super.key});
+
+  @override
+  State<AttendanceScreen> createState() => _AttendanceScreenState();
+}
+
+class _AttendanceScreenState extends State<AttendanceScreen> {
+  String _selectedFilter = 'All';
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      Provider.of<AttendanceProvider>(context, listen: false).fetchRemoteHistory();
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final attendanceProvider = Provider.of<AttendanceProvider>(context);
+    final langProvider = Provider.of<LanguageProvider>(context);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    final records = attendanceProvider.historyRecords.where((record) {
+      if (_selectedFilter == 'All') return true;
+      return record.status.toLowerCase() == _selectedFilter.toLowerCase();
+    }).toList();
+
+    return RefreshIndicator(
+      onRefresh: () async {
+        await attendanceProvider.fetchRemoteHistory();
+      },
+      color: AppColors.primary,
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      langProvider.tr('attendance_logs'),
+                      style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 2),
+                    const Text(
+                      "Today's Live Attendance History",
+                      style: TextStyle(fontSize: 12, color: Colors.grey),
+                    ),
+                  ],
+                ),
+                IconButton(
+                  onPressed: () => attendanceProvider.fetchRemoteHistory(),
+                  icon: const Icon(LucideIcons.refreshCw, size: 20, color: AppColors.primary),
+                  tooltip: 'Refresh Live Data',
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+
+            // Filter Chips Row
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: ['All', 'Present', 'Late', 'On Leave'].map((filter) {
+                  final isSelected = _selectedFilter == filter;
+                  return Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: ChoiceChip(
+                      label: Text(filter),
+                      selected: isSelected,
+                      selectedColor: AppColors.primary,
+                      labelStyle: TextStyle(
+                        color: isSelected ? Colors.white : Colors.black87,
+                        fontWeight: FontWeight.bold,
+                      ),
+                      onSelected: (selected) {
+                        if (selected) setState(() => _selectedFilter = filter);
+                      },
+                    ),
+                  );
+                }).toList(),
+              ),
+            ),
+            const SizedBox(height: 20),
+
+            // Logs List (Matching Frontend Live Attendance Structure)
+            if (records.isEmpty) ...[
+              const Center(
+                child: Padding(
+                  padding: EdgeInsets.all(40.0),
+                  child: Text('No attendance records found', style: TextStyle(color: Colors.grey)),
+                ),
+              ),
+            ] else ...[
+              ListView.separated(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: records.length,
+                separatorBuilder: (context, index) => const SizedBox(height: 14),
+                itemBuilder: (context, index) {
+                  final record = records[index];
+                  return CustomCard(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Header Row: Date & Status Badge
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Row(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.all(8),
+                                  decoration: BoxDecoration(
+                                    color: AppColors.primary.withOpacity(0.12),
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  child: const Icon(LucideIcons.calendarCheck, color: AppColors.primary, size: 20),
+                                ),
+                                const SizedBox(width: 10),
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      record.date,
+                                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                                    ),
+                                    if (record.staffId.isNotEmpty)
+                                      Text(
+                                        'Staff ID: ${record.staffId} ${record.employeeName.isNotEmpty ? "• ${record.employeeName}" : ""}',
+                                        style: const TextStyle(fontSize: 11, color: AppColors.primary, fontWeight: FontWeight.w600),
+                                      ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                            StatusBadge(status: record.status, label: record.status),
+                          ],
+                        ),
+                        const SizedBox(height: 14),
+
+                        // Single Box Body: Check-in 1, Check-out 1, Check-in 2, Check-out 2
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: isDark ? Colors.black.withOpacity(0.3) : Colors.grey.shade100,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: isDark ? AppColors.borderDark : AppColors.borderLight),
+                          ),
+                          child: Column(
+                            children: [
+                              // Shift 1 (Morning)
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  const Row(
+                                    children: [
+                                      Icon(LucideIcons.sun, size: 14, color: AppColors.warning),
+                                      SizedBox(width: 6),
+                                      Text('Shift 1 (Morning):', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12)),
+                                    ],
+                                  ),
+                                  Row(
+                                    children: [
+                                      _buildSessionPill('Check-in 1', record.checkIn1 ?? '-', AppColors.success),
+                                      const SizedBox(width: 6),
+                                      _buildSessionPill('Check-out 1', record.checkOut1 ?? '-', AppColors.danger),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                              const Padding(
+                                padding: EdgeInsets.symmetric(vertical: 8),
+                                child: Divider(height: 1),
+                              ),
+
+                              // Shift 2 (Afternoon)
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  const Row(
+                                    children: [
+                                      Icon(LucideIcons.sunset, size: 14, color: AppColors.accent),
+                                      SizedBox(width: 6),
+                                      Text('Shift 2 (Afternoon):', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12)),
+                                    ],
+                                  ),
+                                  Row(
+                                    children: [
+                                      _buildSessionPill('Check-in 2', record.checkIn2 ?? '-', AppColors.success),
+                                      const SizedBox(width: 6),
+                                      _buildSessionPill('Check-out 2', record.checkOut2 ?? '-', AppColors.danger),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSessionPill(String label, String time, Color color) {
+    final displayTime = time.isEmpty ? '-' : time;
+    final isLogged = displayTime != '-';
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: isLogged ? color.withOpacity(0.12) : Colors.grey.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Text(
+        '$label: $displayTime',
+        style: TextStyle(
+          fontSize: 10,
+          color: isLogged ? color : Colors.grey,
+          fontWeight: isLogged ? FontWeight.bold : FontWeight.normal,
+        ),
+      ),
+    );
+  }
+}
+
