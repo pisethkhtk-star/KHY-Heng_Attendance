@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
+import 'package:get/get.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import '../core/constants/app_colors.dart';
-import '../providers/auth_provider.dart';
-import '../providers/language_provider.dart';
+import '../controllers/auth_controller.dart';
+import '../controllers/language_controller.dart';
 import '../widgets/scanner_modal_sheet.dart';
 import 'main_layout.dart';
 
@@ -27,16 +27,14 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   void _handleLogin() async {
-    final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    final success = await authProvider.login(
+    final authController = Get.find<AuthController>();
+    final success = await authController.login(
       _emailController.text,
       _passwordController.text,
     );
 
     if (success && mounted) {
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => const MainLayout()),
-      );
+      Get.offAll(() => const MainLayout());
     }
   }
 
@@ -49,8 +47,8 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final langProvider = Provider.of<LanguageProvider>(context);
-    final authProvider = Provider.of<AuthProvider>(context);
+    final langController = Get.find<LanguageController>();
+    final authController = Get.find<AuthController>();
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
@@ -73,41 +71,45 @@ class _LoginScreenState extends State<LoginScreen> {
                     child: const Icon(LucideIcons.userCheck, size: 36, color: AppColors.primary),
                   ),
                   // Language Switch Button
-                  TextButton.icon(
-                    onPressed: () {
-                      final newLang = langProvider.currentLanguage == 'km' ? 'en' : 'km';
-                      langProvider.setLanguage(newLang);
-                    },
-                    icon: const Icon(LucideIcons.globe, size: 18),
-                    label: Text(
-                      langProvider.currentLanguage == 'km' ? 'English' : 'ភាសាខ្មែរ',
-                      style: const TextStyle(fontWeight: FontWeight.bold),
+                  Obx(
+                    () => TextButton.icon(
+                      onPressed: () {
+                        final newLang = langController.currentLanguage == 'km' ? 'en' : 'km';
+                        langController.setLanguage(newLang);
+                      },
+                      icon: const Icon(LucideIcons.globe, size: 18),
+                      label: Text(
+                        langController.currentLanguage == 'km' ? 'English' : 'ភាសាខ្មែរ',
+                        style: const TextStyle(fontWeight: FontWeight.bold),
+                      ),
                     ),
                   ),
                 ],
               ),
               const SizedBox(height: 24),
-              Text(
-                langProvider.tr('welcome_back'),
+              Obx(() => Text(
+                langController.tr('welcome_back'),
                 style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
-              ),
+              )),
               const SizedBox(height: 6),
-              Text(
-                langProvider.tr('login_subtitle'),
+              Obx(() => Text(
+                langController.tr('login_subtitle'),
                 style: TextStyle(
                   fontSize: 13,
                   color: isDark ? AppColors.textSecondaryDark : AppColors.textSecondaryLight,
                 ),
-              ),
+              )),
               const SizedBox(height: 24),
 
-              if (authProvider.errorMessage != null) ...[
-                Container(
+              Obx(() {
+                if (authController.errorMessage == null) return const SizedBox.shrink();
+                return Container(
+                  margin: const EdgeInsets.only(bottom: 20),
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
                     color: AppColors.dangerBg,
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: AppColors.danger.withOpacity(0.4)),
+                    border: Border.all(color: AppColors.danger.withValues(alpha: 0.4)),
                   ),
                   child: Row(
                     children: [
@@ -115,18 +117,17 @@ class _LoginScreenState extends State<LoginScreen> {
                       const SizedBox(width: 10),
                       Expanded(
                         child: Text(
-                          authProvider.errorMessage!,
+                          authController.errorMessage!,
                           style: const TextStyle(color: AppColors.danger, fontSize: 13, fontWeight: FontWeight.bold),
                         ),
                       ),
                     ],
                   ),
-                ),
-                const SizedBox(height: 20),
-              ],
+                );
+              }),
 
               // Email Input
-              Text(langProvider.tr('email'), style: const TextStyle(fontWeight: FontWeight.w600)),
+              Obx(() => Text(langController.tr('email'), style: const TextStyle(fontWeight: FontWeight.w600))),
               const SizedBox(height: 8),
               TextField(
                 controller: _emailController,
@@ -138,7 +139,7 @@ class _LoginScreenState extends State<LoginScreen> {
               const SizedBox(height: 16),
 
               // Password Input
-              Text(langProvider.tr('password'), style: const TextStyle(fontWeight: FontWeight.w600)),
+              Obx(() => Text(langController.tr('password'), style: const TextStyle(fontWeight: FontWeight.w600))),
               const SizedBox(height: 8),
               TextField(
                 controller: _passwordController,
@@ -163,7 +164,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         onChanged: (val) {},
                         activeColor: AppColors.primary,
                       ),
-                      Text(langProvider.tr('remember_me'), style: const TextStyle(fontSize: 13)),
+                      Obx(() => Text(langController.tr('remember_me'), style: const TextStyle(fontSize: 13))),
                     ],
                   ),
                   TextButton(
@@ -178,19 +179,21 @@ class _LoginScreenState extends State<LoginScreen> {
               SizedBox(
                 width: double.infinity,
                 height: 52,
-                child: ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primary,
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                child: Obx(
+                  () => ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.primary,
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                    ),
+                    onPressed: authController.isLoading ? null : _handleLogin,
+                    child: authController.isLoading
+                        ? const CircularProgressIndicator(color: Colors.white)
+                        : Text(
+                            langController.tr('login'),
+                            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                          ),
                   ),
-                  onPressed: authProvider.isLoading ? null : _handleLogin,
-                  child: authProvider.isLoading
-                      ? const CircularProgressIndicator(color: Colors.white)
-                      : Text(
-                          langProvider.tr('login'),
-                          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                        ),
                 ),
               ),
               const SizedBox(height: 16),
@@ -209,13 +212,15 @@ class _LoginScreenState extends State<LoginScreen> {
                       shape: const RoundedRectangleBorder(
                         borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
                       ),
-                      builder: (_) => const ScannerModalSheet(initialTab: 1),
+                      builder: (_) => const ScannerModalSheet(initialTab: 0),
                     );
                   },
-                  icon: const Icon(LucideIcons.scanFace, color: AppColors.primary, size: 22),
-                  label: Text(
-                    langProvider.tr('login_biometric'),
-                    style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.w600),
+                  icon: const Icon(LucideIcons.qrCode, color: AppColors.primary, size: 22),
+                  label: Obx(
+                    () => Text(
+                      langController.tr('scan_qr_tab'),
+                      style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.w600),
+                    ),
                   ),
                 ),
               ),

@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
+import 'package:get/get.dart';
 import 'package:intl/intl.dart';
 import '../core/constants/app_colors.dart';
-import '../providers/language_provider.dart';
-import '../providers/leave_provider.dart';
+import '../controllers/language_controller.dart';
+import '../controllers/leave_controller.dart';
+import '../controllers/auth_controller.dart';
 
 class ApplyLeaveSheet extends StatefulWidget {
   const ApplyLeaveSheet({super.key});
@@ -30,8 +31,8 @@ class _ApplyLeaveSheetState extends State<ApplyLeaveSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final langProvider = Provider.of<LanguageProvider>(context);
-    final leaveProvider = Provider.of<LeaveProvider>(context);
+    final langController = Get.find<LanguageController>();
+    final leaveController = Get.find<LeaveController>();
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Padding(
@@ -57,14 +58,14 @@ class _ApplyLeaveSheetState extends State<ApplyLeaveSheet> {
               ),
             ),
             const SizedBox(height: 16),
-            Text(
-              langProvider.tr('request_leave'),
+            Obx(() => Text(
+              langController.tr('request_leave'),
               style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-            ),
+            )),
             const SizedBox(height: 20),
             
             // Leave Type Dropdown
-            Text(langProvider.tr('leave_type'), style: const TextStyle(fontWeight: FontWeight.w600)),
+            Obx(() => Text(langController.tr('leave_type'), style: const TextStyle(fontWeight: FontWeight.w600))),
             const SizedBox(height: 8),
             DropdownButtonFormField<String>(
               initialValue: _selectedType,
@@ -88,7 +89,7 @@ class _ApplyLeaveSheetState extends State<ApplyLeaveSheet> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(langProvider.tr('start_date'), style: const TextStyle(fontWeight: FontWeight.w600)),
+                      Obx(() => Text(langController.tr('start_date'), style: const TextStyle(fontWeight: FontWeight.w600))),
                       const SizedBox(height: 8),
                       InkWell(
                         onTap: () async {
@@ -122,7 +123,7 @@ class _ApplyLeaveSheetState extends State<ApplyLeaveSheet> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(langProvider.tr('end_date'), style: const TextStyle(fontWeight: FontWeight.w600)),
+                      Obx(() => Text(langController.tr('end_date'), style: const TextStyle(fontWeight: FontWeight.w600))),
                       const SizedBox(height: 8),
                       InkWell(
                         onTap: () async {
@@ -166,7 +167,7 @@ class _ApplyLeaveSheetState extends State<ApplyLeaveSheet> {
             const SizedBox(height: 16),
 
             // Reason field
-            Text(langProvider.tr('reason'), style: const TextStyle(fontWeight: FontWeight.w600)),
+            Obx(() => Text(langController.tr('reason'), style: const TextStyle(fontWeight: FontWeight.w600))),
             const SizedBox(height: 8),
             TextField(
               controller: _reasonController,
@@ -183,34 +184,38 @@ class _ApplyLeaveSheetState extends State<ApplyLeaveSheet> {
             SizedBox(
               width: double.infinity,
               height: 52,
-              child: ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primary,
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                ),
-                onPressed: leaveProvider.isSubmitting
-                    ? null
-                    : () async {
-                        final navigator = Navigator.of(context);
-                        final messenger = ScaffoldMessenger.of(context);
-                        final success = await leaveProvider.submitLeave(
-                          type: _selectedType,
-                          startDate: DateFormat('yyyy-MM-dd').format(_startDate),
-                          endDate: DateFormat('yyyy-MM-dd').format(_endDate),
-                          days: _calculatedDays,
-                          reason: _reasonController.text.isEmpty ? 'Leave application' : _reasonController.text,
-                        );
-                        if (success) {
-                          navigator.pop();
-                          messenger.showSnackBar(
-                            const SnackBar(content: Text('Leave request submitted successfully!')),
+              child: Obx(
+                () => ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  ),
+                  onPressed: leaveController.isSubmitting
+                      ? null
+                      : () async {
+                          final user = Get.find<AuthController>().user;
+                          final navigator = Navigator.of(context);
+                          final messenger = ScaffoldMessenger.of(context);
+                          final success = await leaveController.submitLeave(
+                            type: _selectedType,
+                            startDate: DateFormat('yyyy-MM-dd').format(_startDate),
+                            endDate: DateFormat('yyyy-MM-dd').format(_endDate),
+                            days: _calculatedDays,
+                            reason: _reasonController.text.isEmpty ? 'Leave application' : _reasonController.text,
+                            staffId: user?.employeeId,
                           );
-                        }
-                      },
-                child: leaveProvider.isSubmitting
-                    ? const CircularProgressIndicator(color: Colors.white)
-                    : Text(langProvider.tr('submit'), style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                          if (success) {
+                            navigator.pop();
+                            messenger.showSnackBar(
+                              const SnackBar(content: Text('Leave request submitted successfully!')),
+                            );
+                          }
+                        },
+                  child: leaveController.isSubmitting
+                      ? const CircularProgressIndicator(color: Colors.white)
+                      : Text(langController.tr('submit'), style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                ),
               ),
             ),
             const SizedBox(height: 24),

@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
+import 'package:get/get.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import '../core/constants/app_colors.dart';
-import '../providers/attendance_provider.dart';
-import '../providers/language_provider.dart';
+import '../controllers/attendance_controller.dart';
+import '../controllers/auth_controller.dart';
+import '../controllers/language_controller.dart';
 import '../widgets/custom_card.dart';
 import '../widgets/status_badge.dart';
 
@@ -21,30 +22,37 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      Provider.of<AttendanceProvider>(context, listen: false).fetchRemoteHistory();
+      _loadHistory();
     });
+  }
+
+  void _loadHistory() {
+    final user = Get.find<AuthController>().user;
+    Get.find<AttendanceController>().fetchRemoteHistory(staffId: user?.employeeId);
   }
 
   @override
   Widget build(BuildContext context) {
-    final attendanceProvider = Provider.of<AttendanceProvider>(context);
-    final langProvider = Provider.of<LanguageProvider>(context);
+    final attendanceController = Get.find<AttendanceController>();
+    final langController = Get.find<LanguageController>();
     final isDark = Theme.of(context).brightness == Brightness.dark;
-
-    final records = attendanceProvider.historyRecords.where((record) {
-      if (_selectedFilter == 'All') return true;
-      return record.status.toLowerCase() == _selectedFilter.toLowerCase();
-    }).toList();
 
     return RefreshIndicator(
       onRefresh: () async {
-        await attendanceProvider.fetchRemoteHistory();
+        final user = Get.find<AuthController>().user;
+        await attendanceController.fetchRemoteHistory(staffId: user?.employeeId);
       },
       color: AppColors.primary,
       child: SingleChildScrollView(
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-        child: Column(
+        child: Obx(() {
+          final records = attendanceController.historyRecords.where((record) {
+            if (_selectedFilter == 'All') return true;
+            return record.status.toLowerCase() == _selectedFilter.toLowerCase();
+          }).toList();
+
+          return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
@@ -54,7 +62,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      langProvider.tr('attendance_logs'),
+                      langController.tr('attendance_logs'),
                       style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
                     ),
                     const SizedBox(height: 2),
@@ -65,7 +73,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                   ],
                 ),
                 IconButton(
-                  onPressed: () => attendanceProvider.fetchRemoteHistory(),
+                  onPressed: _loadHistory,
                   icon: const Icon(LucideIcons.refreshCw, size: 20, color: AppColors.primary),
                   tooltip: 'Refresh Live Data',
                 ),
@@ -221,7 +229,8 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
               ),
             ],
           ],
-        ),
+        );
+      }),
       ),
     );
   }
@@ -233,7 +242,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: isLogged ? color.withOpacity(0.12) : Colors.grey.withOpacity(0.1),
+        color: isLogged ? color.withValues(alpha: 0.12) : Colors.grey.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(6),
       ),
       child: Text(

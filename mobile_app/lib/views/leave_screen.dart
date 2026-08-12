@@ -1,158 +1,205 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
+import 'package:get/get.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import '../core/constants/app_colors.dart';
-import '../providers/leave_provider.dart';
-import '../providers/language_provider.dart';
+import '../controllers/leave_controller.dart';
+import '../controllers/auth_controller.dart';
+import '../controllers/language_controller.dart';
 import '../widgets/custom_card.dart';
 import '../widgets/status_badge.dart';
 import '../widgets/apply_leave_sheet.dart';
 
-class LeaveScreen extends StatelessWidget {
+class LeaveScreen extends StatefulWidget {
   const LeaveScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    final leaveProvider = Provider.of<LeaveProvider>(context);
-    final langProvider = Provider.of<LanguageProvider>(context);
+  State<LeaveScreen> createState() => _LeaveScreenState();
+}
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                langProvider.tr('leave_balance'),
-                style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-              ),
-              ElevatedButton.icon(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primary,
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+class _LeaveScreenState extends State<LeaveScreen> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadLeaveData();
+    });
+  }
+
+  void _loadLeaveData() {
+    final user = Get.find<AuthController>().user;
+    Get.find<LeaveController>().fetchRemoteLeaves(staffId: user?.employeeId);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final leaveController = Get.find<LeaveController>();
+    final langController = Get.find<LanguageController>();
+
+    return RefreshIndicator(
+      onRefresh: () async {
+        final user = Get.find<AuthController>().user;
+        await leaveController.fetchRemoteLeaves(staffId: user?.employeeId);
+      },
+      color: AppColors.primary,
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+        child: Obx(
+          () => Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  langController.tr('leave_balance'),
+                  style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
                 ),
-                onPressed: () {
-                  showModalBottomSheet(
-                    context: context,
-                    isScrollControlled: true,
-                    shape: const RoundedRectangleBorder(
-                      borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+                ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                  onPressed: () {
+                    showModalBottomSheet(
+                      context: context,
+                      isScrollControlled: true,
+                      shape: const RoundedRectangleBorder(
+                        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+                      ),
+                      builder: (_) => const ApplyLeaveSheet(),
+                    );
+                  },
+                  icon: const Icon(LucideIcons.plus, size: 18),
+                  label: Text(langController.tr('apply_leave')),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+
+            // Leave Balance Horizontal Scroll Cards
+            SizedBox(
+              height: 130,
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                itemCount: leaveController.balances.length,
+                separatorBuilder: (context, index) => const SizedBox(width: 12),
+                itemBuilder: (context, index) {
+                  final item = leaveController.balances[index];
+                  return SizedBox(
+                    width: 160,
+                    child: CustomCard(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            item.typeName,
+                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                          ),
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.baseline,
+                            textBaseline: TextBaseline.alphabetic,
+                            children: [
+                              Text(
+                                '${item.remainingDays}',
+                                style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: AppColors.primary),
+                              ),
+                              Text(
+                                ' / ${item.totalDays} days',
+                                style: const TextStyle(fontSize: 12, color: Colors.grey),
+                              ),
+                            ],
+                          ),
+                          LinearProgressIndicator(
+                            value: item.percentageUsed,
+                            backgroundColor: Colors.grey.shade200,
+                            valueColor: const AlwaysStoppedAnimation<Color>(AppColors.primary),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                        ],
+                      ),
                     ),
-                    builder: (_) => const ApplyLeaveSheet(),
                   );
                 },
-                icon: const Icon(LucideIcons.plus, size: 18),
-                label: Text(langProvider.tr('apply_leave')),
               ),
-            ],
-          ),
-          const SizedBox(height: 16),
+            ),
+            const SizedBox(height: 24),
 
-          // Leave Balance Horizontal Scroll Cards
-          SizedBox(
-            height: 130,
-            child: ListView.separated(
-              scrollDirection: Axis.horizontal,
-              itemCount: leaveProvider.balances.length,
-              separatorBuilder: (context, index) => const SizedBox(width: 12),
-              itemBuilder: (context, index) {
-                final item = leaveProvider.balances[index];
-                return SizedBox(
-                  width: 160,
-                  child: CustomCard(
-                    padding: const EdgeInsets.all(16),
+            // Request History Header
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text(
+                  'My Leave Applications',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                ),
+                IconButton(
+                  onPressed: _loadLeaveData,
+                  icon: const Icon(LucideIcons.refreshCw, size: 18, color: AppColors.primary),
+                  tooltip: 'Sync Realtime Leaves',
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+
+            if (leaveController.leaveRequests.isEmpty) ...[
+              const Center(
+                child: Padding(
+                  padding: EdgeInsets.all(32.0),
+                  child: Text('No leave applications found', style: TextStyle(color: Colors.grey)),
+                ),
+              ),
+            ] else ...[
+              ListView.separated(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: leaveController.leaveRequests.length,
+                separatorBuilder: (context, index) => const SizedBox(height: 12),
+                itemBuilder: (context, index) {
+                  final request = leaveController.leaveRequests[index];
+                  return CustomCard(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text(
-                          item.typeName,
-                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-                        ),
                         Row(
-                          crossAxisAlignment: CrossAxisAlignment.baseline,
-                          textBaseline: TextBaseline.alphabetic,
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
                             Text(
-                              '${item.remainingDays}',
-                              style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: AppColors.primary),
+                              request.leaveType,
+                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                             ),
+                            StatusBadge(status: request.status, label: request.status),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        Row(
+                          children: [
+                            const Icon(LucideIcons.calendar, size: 14, color: Colors.grey),
+                            const SizedBox(width: 6),
                             Text(
-                              ' / ${item.totalDays} days',
-                              style: const TextStyle(fontSize: 12, color: Colors.grey),
+                              '${request.startDate} to ${request.endDate} (${request.totalDays} day${request.totalDays > 1 ? "s" : ""})',
+                              style: const TextStyle(fontSize: 13, color: Colors.grey),
                             ),
                           ],
                         ),
-                        LinearProgressIndicator(
-                          value: item.percentageUsed,
-                          backgroundColor: Colors.grey.shade200,
-                          valueColor: const AlwaysStoppedAnimation<Color>(AppColors.primary),
-                          borderRadius: BorderRadius.circular(4),
-                        ),
+                        if (request.reason.isNotEmpty) ...[
+                          const SizedBox(height: 8),
+                          Text(
+                            'Reason: ${request.reason}',
+                            style: const TextStyle(fontSize: 13),
+                          ),
+                        ],
                       ],
                     ),
-                  ),
-                );
-              },
-            ),
-          ),
-          const SizedBox(height: 24),
-
-          // Request History Header
-          const Text(
-            'My Leave Applications',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 12),
-
-          ListView.separated(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            itemCount: leaveProvider.leaveRequests.length,
-            separatorBuilder: (context, index) => const SizedBox(height: 12),
-            itemBuilder: (context, index) {
-              final request = leaveProvider.leaveRequests[index];
-              return CustomCard(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          request.leaveType,
-                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                        ),
-                        StatusBadge(status: request.status, label: request.status),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        const Icon(LucideIcons.calendar, size: 14, color: Colors.grey),
-                        const SizedBox(width: 6),
-                        Text(
-                          '${request.startDate} to ${request.endDate} (${request.totalDays} day${request.totalDays > 1 ? "s" : ""})',
-                          style: const TextStyle(fontSize: 13, color: Colors.grey),
-                        ),
-                      ],
-                    ),
-                    if (request.reason.isNotEmpty) ...[
-                      const SizedBox(height: 8),
-                      Text(
-                        'Reason: ${request.reason}',
-                        style: const TextStyle(fontSize: 13),
-                      ),
-                    ],
-                  ],
-                ),
-              );
-            },
-          ),
-        ],
+                  );
+                },
+              ),
+            ],
+          ],
+        )),
       ),
     );
   }

@@ -29,15 +29,24 @@ class AuthProvider extends ChangeNotifier {
         final userData = jsonDecode(userDataString);
         _user = UserModel.fromJson(userData);
         _isAuthenticated = true;
+        notifyListeners();
+
+        // Fetch live updated profile & branch from database
+        final meResult = await ApiService.getMe();
+        if (meResult['success'] == true && meResult['user'] != null) {
+          _user = UserModel.fromJson(meResult['user']);
+          notifyListeners();
+        }
       } catch (_) {
         _isAuthenticated = false;
         _user = null;
+        notifyListeners();
       }
     } else {
       _isAuthenticated = false;
       _user = null;
+      notifyListeners();
     }
-    notifyListeners();
   }
 
   Future<bool> login(String email, String password) async {

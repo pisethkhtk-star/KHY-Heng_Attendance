@@ -5,6 +5,7 @@ class UserModel {
   final String email;
   final String department;
   final String position;
+  final String branch;
   final String avatarUrl;
   final String shiftName;
   final String shiftStartTime;
@@ -17,6 +18,7 @@ class UserModel {
     required this.email,
     required this.department,
     required this.position,
+    this.branch = 'Phnom Penh HQ',
     this.avatarUrl = '',
     this.shiftName = 'Standard Day Shift',
     this.shiftStartTime = '08:00 AM',
@@ -42,6 +44,9 @@ class UserModel {
       }
     }
 
+    String parsedBranch = json['branch']?.toString() ?? 'Phnom Penh HQ';
+    if (parsedBranch.trim().isEmpty) parsedBranch = 'Phnom Penh HQ';
+
     return UserModel(
       id: json['id']?.toString() ?? '',
       employeeId: json['staffId']?.toString() ?? json['employeeId']?.toString() ?? 'EMP-2026',
@@ -49,6 +54,7 @@ class UserModel {
       email: json['email'] ?? '',
       department: parsedDept,
       position: parsedPos,
+      branch: parsedBranch,
       avatarUrl: json['avatarUrl'] ?? json['photo'] ?? '',
       shiftName: json['shiftName'] ?? 'Standard Day Shift (08:00 AM - 05:00 PM)',
       shiftStartTime: json['shiftStartTime'] ?? '08:00 AM',
@@ -64,6 +70,7 @@ class UserModel {
       'email': email,
       'department': department,
       'position': position,
+      'branch': branch,
       'avatarUrl': avatarUrl,
       'shiftName': shiftName,
       'shiftStartTime': shiftStartTime,

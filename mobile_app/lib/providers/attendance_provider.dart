@@ -37,7 +37,7 @@ class AttendanceProvider extends ChangeNotifier {
     fetchRemoteHistory();
   }
 
-  void _initMockHistory() {
+  void _initMockHistory([String? staffId]) {
     final now = DateTime.now();
     _historyRecords = List.generate(15, (index) {
       final date = now.subtract(Duration(days: index));
@@ -47,6 +47,7 @@ class AttendanceProvider extends ChangeNotifier {
 
       return AttendanceRecord(
         id: 'att-$index',
+        staffId: staffId ?? 'EMP-001',
         date: dateStr,
         checkIn1: isOnLeave ? '--:--' : (isLate ? '08:35 AM' : '07:55 AM'),
         checkOut1: isOnLeave ? '--:--' : '12:02 PM',
@@ -60,20 +61,23 @@ class AttendanceProvider extends ChangeNotifier {
     });
   }
 
-  Future<void> fetchRemoteHistory() async {
-    final remoteData = await ApiService.fetchHistoryRecords();
+  Future<void> fetchRemoteHistory({String? staffId}) async {
+    final remoteData = await ApiService.fetchHistoryRecords(staffId: staffId);
     if (remoteData.isNotEmpty) {
       final parsed = remoteData.map((json) => AttendanceRecord.fromJson(json)).toList();
       _historyRecords = parsed;
-
-      // Recalculate stats from DB history records
-      _presentCount = _historyRecords.where((r) => r.status == 'Present').length;
-      _lateCount = _historyRecords.where((r) => r.status == 'Late').length;
-      _leaveCount = _historyRecords.where((r) => r.status == 'On Leave').length;
-      _absentCount = _historyRecords.where((r) => r.status == 'Absent').length;
-
-      notifyListeners();
+    } else if (staffId != null && staffId.isNotEmpty) {
+      // Filter mock history to logged-in user if backend returns empty or offline
+      _historyRecords = _historyRecords.where((r) => r.staffId == staffId || r.staffId == 'EMP-001').toList();
     }
+
+    // Recalculate stats from DB history records
+    _presentCount = _historyRecords.where((r) => r.status == 'Present').length;
+    _lateCount = _historyRecords.where((r) => r.status == 'Late').length;
+    _leaveCount = _historyRecords.where((r) => r.status == 'On Leave').length;
+    _absentCount = _historyRecords.where((r) => r.status == 'Absent').length;
+
+    notifyListeners();
   }
 
 
@@ -92,7 +96,7 @@ class AttendanceProvider extends ChangeNotifier {
     }
   }
 
-  Future<bool> toggleCheckInCheckOut() async {
+  Future<bool> toggleCheckInCheckOut([String? staffId]) async {
     _isProcessing = true;
     notifyListeners();
 
@@ -123,18 +127,19 @@ class AttendanceProvider extends ChangeNotifier {
         break;
     }
 
-    await ApiService.logCheckInOut(actionStr);
-    _upsertTodayRecord(todayStr);
+    await ApiService.logCheckInOut(actionStr, staffId: staffId);
+    _upsertTodayRecord(todayStr, staffId);
 
     _isProcessing = false;
     notifyListeners();
     return true;
   }
 
-  void _upsertTodayRecord(String dateStr) {
+  void _upsertTodayRecord(String dateStr, [String? staffId]) {
     if (_historyRecords.isNotEmpty && _historyRecords[0].date == dateStr) {
       _historyRecords[0] = AttendanceRecord(
         id: _historyRecords[0].id,
+        staffId: staffId ?? _historyRecords[0].staffId,
         date: dateStr,
         checkIn1: _checkIn1 ?? _historyRecords[0].checkIn1,
         checkOut1: _checkOut1 ?? _historyRecords[0].checkOut1,
@@ -149,6 +154,7 @@ class AttendanceProvider extends ChangeNotifier {
         0,
         AttendanceRecord(
           id: DateTime.now().millisecondsSinceEpoch.toString(),
+          staffId: staffId ?? 'EMP-001',
           date: dateStr,
           checkIn1: _checkIn1,
           checkOut1: _checkOut1,

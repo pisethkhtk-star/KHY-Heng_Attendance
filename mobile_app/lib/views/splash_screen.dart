@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:lucide_icons/lucide_icons.dart';
+import 'package:get/get.dart';
 import '../core/constants/app_colors.dart';
-import 'package:provider/provider.dart';
-import '../providers/auth_provider.dart';
+import '../controllers/auth_controller.dart';
 import 'login_screen.dart';
 import 'main_layout.dart';
 
@@ -20,15 +20,11 @@ class _SplashScreenState extends State<SplashScreen> {
     super.initState();
     Future.delayed(const Duration(seconds: 2), () {
       if (mounted) {
-        final authProvider = Provider.of<AuthProvider>(context, listen: false);
-        if (authProvider.isAuthenticated) {
-          Navigator.of(context).pushReplacement(
-            MaterialPageRoute(builder: (_) => const MainLayout()),
-          );
+        final authController = Get.find<AuthController>();
+        if (authController.isAuthenticated) {
+          Get.offAll(() => const MainLayout());
         } else {
-          Navigator.of(context).pushReplacement(
-            MaterialPageRoute(builder: (_) => const LoginScreen()),
-          );
+          Get.offAll(() => const LoginScreen());
         }
       }
     });

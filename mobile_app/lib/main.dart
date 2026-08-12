@@ -1,27 +1,24 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
+import 'package:get/get.dart';
 import 'core/constants/app_theme.dart';
-import 'providers/language_provider.dart';
-import 'providers/theme_provider.dart';
-import 'providers/auth_provider.dart';
-import 'providers/attendance_provider.dart';
-import 'providers/leave_provider.dart';
+import 'controllers/language_controller.dart';
+import 'controllers/theme_controller.dart';
+import 'controllers/auth_controller.dart';
+import 'controllers/attendance_controller.dart';
+import 'controllers/leave_controller.dart';
 import 'views/splash_screen.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
-  runApp(
-    MultiProvider(
-      providers: [
-        ChangeNotifierProvider(create: (_) => LanguageProvider()),
-        ChangeNotifierProvider(create: (_) => ThemeProvider()),
-        ChangeNotifierProvider(create: (_) => AuthProvider()),
-        ChangeNotifierProvider(create: (_) => AttendanceProvider()),
-        ChangeNotifierProvider(create: (_) => LeaveProvider()),
-      ],
-      child: const HrAttendanceApp(),
-    ),
-  );
+  
+  // Register GetX Controllers globally
+  Get.put(LanguageController());
+  Get.put(ThemeController());
+  Get.put(AuthController());
+  Get.put(AttendanceController());
+  Get.put(LeaveController());
+
+  runApp(const HrAttendanceApp());
 }
 
 class HrAttendanceApp extends StatelessWidget {
@@ -29,15 +26,17 @@ class HrAttendanceApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final themeProvider = Provider.of<ThemeProvider>(context);
+    final themeController = Get.find<ThemeController>();
 
-    return MaterialApp(
-      title: 'HR Employee Attendance Management System',
-      debugShowCheckedModeBanner: false,
-      theme: AppTheme.lightTheme,
-      darkTheme: AppTheme.darkTheme,
-      themeMode: themeProvider.themeMode,
-      home: const SplashScreen(),
+    return Obx(
+      () => GetMaterialApp(
+        title: 'HR Employee Attendance Management System',
+        debugShowCheckedModeBanner: false,
+        theme: AppTheme.lightTheme,
+        darkTheme: AppTheme.darkTheme,
+        themeMode: themeController.themeMode,
+        home: const SplashScreen(),
+      ),
     );
   }
 }

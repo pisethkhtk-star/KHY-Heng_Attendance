@@ -7,22 +7,36 @@ import 'package:shared_preferences/shared_preferences.dart';
 class ApiService {
   // Candidate API base URLs for dynamic environment resolution
   static List<String> get _candidateBaseUrls {
+    const String localIp = '192.168.88.139'; // Host Local Network IPv4
     if (kIsWeb) {
-      return ['http://localhost:5050/api', 'http://127.0.0.1:5050/api'];
+      return [
+        'http://$localIp:8080/api',
+        'http://$localIp:5050/api',
+        'http://localhost:8080/api',
+        'http://localhost:5050/api',
+        'http://127.0.0.1:8080/api',
+        'http://127.0.0.1:5050/api',
+      ];
     }
     try {
       if (Platform.isAndroid) {
         return [
-          'http://10.0.2.2:5050/api',   // Android Emulator host loopback
-          'http://127.0.0.1:5050/api',
-          'http://localhost:5050/api',
+          'http://$localIp:8080/api',   // Physical Device on LAN -> Spring Boot
+          'http://$localIp:5050/api',   // Physical Device on LAN -> Node backend
+          'http://10.0.2.2:8080/api',   // Android Emulator -> Spring Boot
+          'http://10.0.2.2:5050/api',   // Android Emulator -> Node backend
+          'http://127.0.0.1:8080/api',
+          'http://localhost:8080/api',
         ];
       }
     } catch (_) {}
     return [
+      'http://$localIp:8080/api',
+      'http://$localIp:5050/api',
+      'http://localhost:8080/api',
       'http://localhost:5050/api',
-      'http://127.0.0.1:5050/api',
-      'http://10.0.2.2:5050/api',
+      'http://127.0.0.1:8080/api',
+      'http://10.0.2.2:8080/api',
     ];
   }
 
@@ -58,6 +72,23 @@ class ApiService {
   }
 
   // --- Auth APIs ---
+  static Future<Map<String, dynamic>> getMe() async {
+    final response = await _requestWithFallback(
+      (url, headers) => http.get(
+        Uri.parse('$url/auth/me'),
+        headers: headers,
+      ),
+    );
+
+    if (response != null && response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('user_data', jsonEncode(data));
+      return {'success': true, 'user': data};
+    }
+    return {'success': false};
+  }
+
   static Future<Map<String, dynamic>> login(String email, String password) async {
     final body = jsonEncode({'email': email, 'password': password});
     final response = await _requestWithFallback(
@@ -83,9 +114,10 @@ class ApiService {
   }
 
   // --- Attendance APIs ---
-  static Future<Map<String, dynamic>> logCheckInOut(String action, {double? lat, double? lng, String? note}) async {
+  static Future<Map<String, dynamic>> logCheckInOut(String action, {double? lat, double? lng, String? note, String? staffId}) async {
     final body = jsonEncode({
       'action': action,
+      if (staffId != null && staffId.isNotEmpty) 'staffId': staffId,
       'latitude': lat,
       'longitude': lng,
       'note': note ?? 'Mobile Punch',
@@ -109,10 +141,11 @@ class ApiService {
     return {'success': false, 'message': 'Network error connecting to attendance DB'};
   }
 
-  static Future<List<dynamic>> fetchHistoryRecords() async {
+  static Future<List<dynamic>> fetchHistoryRecords({String? staffId}) async {
+    final query = (staffId != null && staffId.isNotEmpty) ? '?staffId=$staffId' : '';
     final response = await _requestWithFallback(
       (url, headers) => http.get(
-        Uri.parse('$url/attendances/history'),
+        Uri.parse('$url/attendances/history$query'),
         headers: headers,
       ),
     );
@@ -126,9 +159,15 @@ class ApiService {
   }
 
   // --- QR Code & Face Scan APIs ---
-  static Future<Map<String, dynamic>> scanQRCode(String qrCodeData) async {
+  static Future<Map<String, dynamic>> scanQRCode(String qrCodeData, {double? lat, double? lng, String? note, String? staffId, String? action}) async {
     final body = jsonEncode({
+      'qrToken': qrCodeData,
       'qrCode': qrCodeData,
+      if (staffId != null && staffId.isNotEmpty) 'staffId': staffId,
+      'action': action ?? 'checkin_1',
+      'latitude': lat ?? 11.5564,
+      'longitude': lng ?? 104.9282,
+      if (note != null && note.isNotEmpty) 'note': note,
       'timestamp': DateTime.now().toIso8601String(),
     });
 
@@ -142,8 +181,11 @@ class ApiService {
 
     if (response != null) {
       final data = jsonDecode(response.body);
-      if (response.statusCode == 200) {
-        return {'success': true, 'message': data['message'] ?? 'QR Code verified'};
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        if (staffId != null && staffId.isNotEmpty) {
+          await logCheckInOut(action ?? 'checkin_1', lat: lat, lng: lng, note: note, staffId: staffId);
+        }
+        return {'success': true, 'message': data['message'] ?? 'QR Code verified', 'data': data, 'action': data['action'] ?? action ?? 'checkin_1'};
       }
       return {'success': false, 'message': data['message'] ?? 'Invalid QR Code'};
     }
@@ -175,10 +217,11 @@ class ApiService {
   }
 
   // --- Leave APIs ---
-  static Future<List<dynamic>> fetchLeaveRequests() async {
+  static Future<List<dynamic>> fetchLeaveRequests({String? staffId}) async {
+    final path = (staffId != null && staffId.isNotEmpty) ? '/leaves/employee/$staffId' : '/leaves';
     final response = await _requestWithFallback(
       (url, headers) => http.get(
-        Uri.parse('$url/leaves'),
+        Uri.parse('$url$path'),
         headers: headers,
       ),
     );
@@ -212,8 +255,10 @@ class ApiService {
     required String endDate,
     required String reason,
     String durationType = 'Full Day',
+    String? staffId,
   }) async {
     final body = jsonEncode({
+      if (staffId != null && staffId.isNotEmpty) 'staffId': staffId,
       'leaveType': leaveType,
       'startDate': startDate,
       'endDate': endDate,
@@ -237,6 +282,23 @@ class ApiService {
       return {'success': false, 'message': data['message'] ?? 'Submission failed'};
     }
     return {'success': false, 'message': 'Unable to submit leave request to database'};
+  }
+
+  // --- Geofence Branch Settings ---
+  static Future<List<dynamic>> fetchKioskSettings() async {
+    final response = await _requestWithFallback(
+      (url, headers) => http.get(
+        Uri.parse('$url/kiosk-settings'),
+        headers: headers,
+      ),
+    );
+
+    if (response != null && response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+      if (data is List) return data;
+      if (data['data'] != null && data['data'] is List) return data['data'];
+    }
+    return [];
   }
 }
 
