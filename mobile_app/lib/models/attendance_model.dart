@@ -1,9 +1,12 @@
+import 'package:intl/intl.dart';
+
 class AttendanceRecord {
   final String id;
   final String staffId;
   final String employeeName;
   final String department;
   final String date;
+  final String rawDate;
   final String? checkIn1;
   final String? checkOut1;
   final String? checkIn2;
@@ -12,6 +15,7 @@ class AttendanceRecord {
   final String totalHours;
   final String location;
   final bool isVerified;
+  final String? note;
 
   AttendanceRecord({
     required this.id,
@@ -19,6 +23,7 @@ class AttendanceRecord {
     this.employeeName = '',
     this.department = '',
     required this.date,
+    this.rawDate = '',
     this.checkIn1,
     this.checkOut1,
     this.checkIn2,
@@ -27,6 +32,7 @@ class AttendanceRecord {
     required this.totalHours,
     this.location = 'Phnom Penh HQ Office',
     this.isVerified = true,
+    this.note,
   });
 
   static String formatTime12Hour(String? timeStr) {
@@ -50,13 +56,24 @@ class AttendanceRecord {
 
   factory AttendanceRecord.fromJson(Map<String, dynamic> json) {
     String dateVal = '';
+    String rawDateVal = '';
     if (json['attendanceDate'] != null) {
-      dateVal = json['attendanceDate'].toString().split('T')[0];
+      rawDateVal = json['attendanceDate'].toString().split('T')[0];
     } else if (json['date'] != null) {
-      dateVal = json['date'].toString();
+      rawDateVal = json['date'].toString().split('T')[0];
     } else if (json['createdAt'] != null) {
-      dateVal = json['createdAt'].toString().split('T')[0];
+      rawDateVal = json['createdAt'].toString().split('T')[0];
     }
+
+    try {
+      if (rawDateVal.isNotEmpty) {
+        final parsedDate = DateTime.parse(rawDateVal);
+        dateVal = DateFormat('EEE, dd MMM yyyy').format(parsedDate);
+      }
+    } catch (_) {
+      dateVal = rawDateVal;
+    }
+    if (dateVal.isEmpty) dateVal = rawDateVal;
 
     final isLateBool = json['isLate'] == true;
     final isEarlyBool = json['isEarlyLeave'] == true;
@@ -86,7 +103,8 @@ class AttendanceRecord {
       staffId: stId,
       employeeName: name,
       department: dept,
-      date: dateVal,
+      date: dateVal.isNotEmpty ? dateVal : rawDateVal,
+      rawDate: rawDateVal,
       checkIn1: formatTime12Hour(json['checkin1'] ?? json['checkIn1'] ?? json['checkIn']),
       checkOut1: formatTime12Hour(json['checkout1'] ?? json['checkOut1'] ?? json['checkOut']),
       checkIn2: formatTime12Hour(json['checkin2'] ?? json['checkIn2']),
@@ -95,6 +113,7 @@ class AttendanceRecord {
       totalHours: json['totalHours'] ?? (isLateBool ? '7.5 hrs' : '8.0 hrs'),
       location: json['location'] ?? json['employee']?['branch'] ?? 'HQ Office Geofence',
       isVerified: json['isVerified'] ?? true,
+      note: json['note']?.toString(),
     );
   }
 }

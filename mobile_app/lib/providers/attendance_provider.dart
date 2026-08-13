@@ -33,32 +33,7 @@ class AttendanceProvider extends ChangeNotifier {
   List<AttendanceRecord> get historyRecords => _historyRecords;
 
   AttendanceProvider() {
-    _initMockHistory();
     fetchRemoteHistory();
-  }
-
-  void _initMockHistory([String? staffId]) {
-    final now = DateTime.now();
-    _historyRecords = List.generate(15, (index) {
-      final date = now.subtract(Duration(days: index));
-      final dateStr = DateFormat('yyyy-MM-dd').format(date);
-      final isLate = index % 5 == 2;
-      final isOnLeave = index == 7;
-
-      return AttendanceRecord(
-        id: 'att-$index',
-        staffId: staffId ?? 'EMP-001',
-        date: dateStr,
-        checkIn1: isOnLeave ? '--:--' : (isLate ? '08:35 AM' : '07:55 AM'),
-        checkOut1: isOnLeave ? '--:--' : '12:02 PM',
-        checkIn2: isOnLeave ? '--:--' : '01:00 PM',
-        checkOut2: isOnLeave ? '--:--' : '05:05 PM',
-        status: isOnLeave ? 'On Leave' : (isLate ? 'Late' : 'Present'),
-        totalHours: isOnLeave ? '0.0 hrs' : '8.1 hrs',
-        location: 'HQ Office Geofence',
-        isVerified: true,
-      );
-    });
   }
 
   Future<void> fetchRemoteHistory({String? staffId}) async {
@@ -66,9 +41,8 @@ class AttendanceProvider extends ChangeNotifier {
     if (remoteData.isNotEmpty) {
       final parsed = remoteData.map((json) => AttendanceRecord.fromJson(json)).toList();
       _historyRecords = parsed;
-    } else if (staffId != null && staffId.isNotEmpty) {
-      // Filter mock history to logged-in user if backend returns empty or offline
-      _historyRecords = _historyRecords.where((r) => r.staffId == staffId || r.staffId == 'EMP-001').toList();
+    } else {
+      _historyRecords = [];
     }
 
     // Recalculate stats from DB history records

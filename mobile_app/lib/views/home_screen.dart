@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:lucide_icons/lucide_icons.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import '../core/constants/app_colors.dart';
 import '../controllers/auth_controller.dart';
@@ -127,8 +127,17 @@ class HomeScreen extends StatelessWidget {
                 Obx(
                   () => GestureDetector(
                     onTap: attendanceController.isProcessing
-                        ? null
-                        : () => attendanceController.toggleCheckInCheckOut(authController.user?.employeeId),
+                      ? null
+                      : () {
+                          showModalBottomSheet(
+                            context: context,
+                            isScrollControlled: true,
+                            shape: const RoundedRectangleBorder(
+                              borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+                            ),
+                            builder: (_) => const ScannerModalSheet(),
+                          );
+                        },
                     child: Container(
                       width: 140,
                       height: 140,

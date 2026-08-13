@@ -9,16 +9,26 @@ class AuthController extends GetxController {
   final RxBool _isAuthenticated = false.obs;
   final RxBool _isLoading = false.obs;
   final RxnString _errorMessage = RxnString();
+  final RxList<Map<String, dynamic>> _branchSettings = <Map<String, dynamic>>[].obs;
 
   UserModel? get user => _user.value;
   bool get isAuthenticated => _isAuthenticated.value;
   bool get isLoading => _isLoading.value;
   String? get errorMessage => _errorMessage.value;
+  List<Map<String, dynamic>> get branchSettings => _branchSettings;
 
   @override
   void onInit() {
     super.onInit();
     checkSavedSession();
+  }
+
+  /// Immediately fetch branch location settings from Database upon login/session load
+  Future<void> fetchBranchLocationsFromDb() async {
+    try {
+      final settingsRaw = await ApiService.fetchKioskSettings();
+      _branchSettings.value = settingsRaw.map((s) => Map<String, dynamic>.from(s)).toList();
+    } catch (_) {}
   }
 
   Future<void> checkSavedSession() async {
@@ -37,6 +47,7 @@ class AuthController extends GetxController {
         if (meResult['success'] == true && meResult['user'] != null) {
           _user.value = UserModel.fromJson(meResult['user']);
         }
+        await fetchBranchLocationsFromDb();
       } catch (_) {
         _isAuthenticated.value = false;
         _user.value = null;
@@ -58,6 +69,9 @@ class AuthController extends GetxController {
       _user.value = UserModel.fromJson(result['user'] ?? {});
       _isAuthenticated.value = true;
       _errorMessage.value = null;
+
+      // Immediately fetch branch locations from database upon successful login!
+      await fetchBranchLocationsFromDb();
       return true;
     } else {
       _isAuthenticated.value = false;
@@ -70,6 +84,7 @@ class AuthController extends GetxController {
   Future<void> logout() async {
     _isAuthenticated.value = false;
     _user.value = null;
+    _branchSettings.clear();
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('auth_token');
     await prefs.remove('user_data');

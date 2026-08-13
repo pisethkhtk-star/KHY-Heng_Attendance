@@ -7,36 +7,34 @@ import 'package:shared_preferences/shared_preferences.dart';
 class ApiService {
   // Candidate API base URLs for dynamic environment resolution
   static List<String> get _candidateBaseUrls {
-    const String localIp = '192.168.88.139'; // Host Local Network IPv4
+    const String currentWifiIp = '192.168.88.16'; // Current Wi-Fi IPv4 Address
+    const String fallbackIp = '192.168.88.139';    // Previous Wi-Fi IPv4 Address
     if (kIsWeb) {
       return [
-        'http://$localIp:8080/api',
-        'http://$localIp:5050/api',
-        'http://localhost:8080/api',
         'http://localhost:5050/api',
-        'http://127.0.0.1:8080/api',
         'http://127.0.0.1:5050/api',
+        'http://$currentWifiIp:5050/api',
+        'http://$fallbackIp:5050/api',
       ];
     }
     try {
       if (Platform.isAndroid) {
         return [
-          'http://$localIp:8080/api',   // Physical Device on LAN -> Spring Boot
-          'http://$localIp:5050/api',   // Physical Device on LAN -> Node backend
-          'http://10.0.2.2:8080/api',   // Android Emulator -> Spring Boot
-          'http://10.0.2.2:5050/api',   // Android Emulator -> Node backend
-          'http://127.0.0.1:8080/api',
-          'http://localhost:8080/api',
+          'http://10.0.2.2:5050/api',        // Android Emulator -> Node backend (Port 5050)
+          'http://$currentWifiIp:5050/api', // Physical Device on LAN -> Node backend (Port 5050)
+          'http://$fallbackIp:5050/api',    // Fallback LAN IP -> Node backend (Port 5050)
+          'http://127.0.0.1:5050/api',
+          'http://10.0.2.2:8080/api',
+          'http://$currentWifiIp:8080/api',
         ];
       }
     } catch (_) {}
     return [
-      'http://$localIp:8080/api',
-      'http://$localIp:5050/api',
-      'http://localhost:8080/api',
+      'http://10.0.2.2:5050/api',
+      'http://$currentWifiIp:5050/api',
+      'http://127.0.0.1:5050/api',
       'http://localhost:5050/api',
-      'http://127.0.0.1:8080/api',
-      'http://10.0.2.2:8080/api',
+      'http://$fallbackIp:5050/api',
     ];
   }
 
@@ -59,7 +57,7 @@ class ApiService {
     final headers = await _getHeaders();
     for (final candidate in _candidateBaseUrls) {
       try {
-        final res = await reqFn(candidate, headers).timeout(const Duration(seconds: 6));
+        final res = await reqFn(candidate, headers).timeout(const Duration(seconds: 3));
         if (res.statusCode >= 200 && res.statusCode < 500) {
           baseUrl = candidate; // Remember working host
           return res;

@@ -165,7 +165,7 @@ const Attendance = () => {
       if (user.role === 'Employee') {
         query += `&staffId=${user.staffId}`;
       } else {
-        if (search) query += `&staffId=${search}`;
+        if (search && search.trim()) query += `&search=${encodeURIComponent(search.trim())}`;
         if (filterDept) query += `&departmentId=${filterDept}`;
         if (filterBranch) query += `&branch=${filterBranch}`;
       }
@@ -423,6 +423,15 @@ const Attendance = () => {
     fetchLogs();
   }, [startDate, endDate, search, filterDept, filterBranch]);
 
+  const displayLogs = logs.filter(log => {
+    if (!search || !search.trim()) return true;
+    const q = search.trim().toLowerCase();
+    const stId = (log.employee?.staffId || log.staffId || '').toLowerCase();
+    const nameEn = (log.employee?.nameEn || '').toLowerCase();
+    const nameKh = (log.employee?.nameKh || '').toLowerCase();
+    return stId.includes(q) || nameEn.includes(q) || nameKh.includes(q);
+  });
+
   return (
     <div className="space-y-6 text-slate-100">
       {/* Title Block */}
@@ -478,14 +487,14 @@ const Attendance = () => {
         {user.role !== 'Employee' ? (
           <>
             <div className="space-y-1">
-              <label className="block text-xs font-semibold text-slate-400 uppercase font-khmer">{t("staffId")}</label>
+              <label className="block text-xs font-semibold text-slate-400 uppercase font-khmer">Search Staff ID / Employee</label>
               <div className="relative">
                 <MagnifyingGlassIcon className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
                 <input
                   type="text"
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  placeholder="e.g. EMP-001"
+                  placeholder="e.g. EMP-001 or Name..."
                   className="pl-9 w-full py-2 px-3 border border-white/10 bg-slate-950/60 text-white rounded-xl text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/20 outline-none transition-all"
                 />
               </div>
@@ -533,14 +542,14 @@ const Attendance = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-white/5">
-                {logs.length === 0 ? (
+                {displayLogs.length === 0 ? (
                   <tr>
                     <td colSpan={user.role === 'Employee' ? 7 : ((hasPermission('edit_attendance') || hasPermission('delete_attendance')) ? 10 : 9)} className="py-6 text-center text-slate-500 font-khmer">
                       {t("noData")}
                     </td>
                   </tr>
                 ) : (
-                  logs.map((log) => (
+                  displayLogs.map((log) => (
                     <tr key={log.id} className="hover:bg-white/5 transition-colors">
                       <td className="py-4 px-6 font-semibold text-white">
                         {new Date(log.attendanceDate).toLocaleDateString()}

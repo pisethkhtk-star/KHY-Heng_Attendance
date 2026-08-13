@@ -205,13 +205,19 @@ export const getTodayAttendance = async (req, res) => {
 
 // Get attendance history (for reports & user logging history)
 export const getHistory = async (req, res) => {
-  const { staffId, startDate, endDate, departmentId, branch } = req.query;
+  const { staffId, search, startDate, endDate, departmentId, branch } = req.query;
 
   try {
     const where = {};
 
-    if (staffId) {
-      where.staffId = staffId;
+    const searchVal = (search || staffId || '').trim();
+    if (searchVal) {
+      where.OR = [
+        { staffId: { contains: searchVal, mode: 'insensitive' } },
+        { employee: { staffId: { contains: searchVal, mode: 'insensitive' } } },
+        { employee: { nameEn: { contains: searchVal, mode: 'insensitive' } } },
+        { employee: { nameKh: { contains: searchVal, mode: 'insensitive' } } },
+      ];
     }
 
     if (departmentId || branch) {

@@ -2,7 +2,7 @@ import 'dart:math' as math;
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:lucide_icons/lucide_icons.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:intl/intl.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
@@ -124,11 +124,17 @@ class _ScannerModalSheetState extends State<ScannerModalSheet> with SingleTicker
     } catch (_) {}
 
     if (!mounted) return;
-    final user = Get.find<AuthController>().user;
+    final authController = Get.find<AuthController>();
+    final user = authController.user;
     final assignedBranchRaw = user?.branch ?? '';
 
-    final settingsRaw = await ApiService.fetchKioskSettings();
-    _allKioskSettings = settingsRaw.map((s) => Map<String, dynamic>.from(s)).toList();
+    // Use branch location settings fetched from Database immediately upon login!
+    if (authController.branchSettings.isNotEmpty) {
+      _allKioskSettings = authController.branchSettings;
+    } else {
+      final settingsRaw = await ApiService.fetchKioskSettings();
+      _allKioskSettings = settingsRaw.map((s) => Map<String, dynamic>.from(s)).toList();
+    }
 
     final userBranchNames = assignedBranchRaw
         .split(',')
@@ -225,7 +231,7 @@ class _ScannerModalSheetState extends State<ScannerModalSheet> with SingleTicker
           _matchedBranchToken = closestBranch != null ? 'branch_qr:${closestBranch['id']}' : null;
           _closestBranchDistance = minDistance;
           _closestBranchRadius = closestRadius;
-          _statusMessage = null;
+          _statusMessage = '🔒 មិនគ្រប់លក្ខខណ្ឌទីតាំង! លោកអ្នកស្ថិតនៅក្រៅទីតាំងសាខា $closestName (${minDistance?.toStringAsFixed(1)}m > ${closestRadius.toStringAsFixed(0)}m)';
         });
       }
     }
@@ -320,13 +326,13 @@ class _ScannerModalSheetState extends State<ScannerModalSheet> with SingleTicker
       bool isLate = false;
       bool isEarly = false;
 
-      if (determinedAction == 'checkin_1' && currentMinutes > s1StartMinutes + 15) {
+      if (determinedAction == 'checkin_1' && currentMinutes > s1StartMinutes) {
         isLate = true;
-      } else if (determinedAction == 'checkin_2' && currentMinutes > s2StartMinutes + 15) {
+      } else if (determinedAction == 'checkin_2' && currentMinutes > s2StartMinutes) {
         isLate = true;
-      } else if (determinedAction == 'checkout_1' && currentMinutes < s1EndMinutes - 15) {
+      } else if (determinedAction == 'checkout_1' && currentMinutes < s1EndMinutes) {
         isEarly = true;
-      } else if (determinedAction == 'checkout_2' && currentMinutes < s2EndMinutes - 15) {
+      } else if (determinedAction == 'checkout_2' && currentMinutes < s2EndMinutes) {
         isEarly = true;
       }
 
@@ -339,16 +345,18 @@ class _ScannerModalSheetState extends State<ScannerModalSheet> with SingleTicker
         _reasonType = 'late';
         _earlyCheckoutReason = '';
         _reasonController.clear();
+        _isUnlocked = false;
         _showReasonModalDialog();
       } else if (isEarly) {
         _reasonType = 'early';
         _earlyCheckoutReason = '';
         _reasonController.clear();
+        _isUnlocked = false;
         _showReasonModalDialog();
       } else {
         _earlyCheckoutReason = '';
         setState(() {
-          _isUnlocked = true; // Unlock camera!
+          _isUnlocked = true; // Unlock camera for normal on-time checkin/checkout!
           _statusMessage = '✅ ផ្ទៀងផ្ទាត់ជោគជ័យ! បើកកាមេរ៉ាស្កេន (សកម្មភាព៖ ${_getActionLabel(determinedAction)})';
         });
       }
@@ -398,20 +406,21 @@ class _ScannerModalSheetState extends State<ScannerModalSheet> with SingleTicker
       builder: (ctx) {
         final isDark = Theme.of(ctx).brightness == Brightness.dark;
         final title = _reasonType == 'late'
-            ? '⚠️ មកយឺតជាងម៉ោងកំណត់ (Late Check-in)'
-            : '⚠️ ចាកចេញមុនម៉ោងកំណត់ (Early Check-out)';
+            ? '⚠️ មកយឺតជាងម៉ោងកំណត់ (Late Check-in Note)'
+            : '📝 មិនទាន់ដល់ម៉ោង Check-out (Early Check-out Note)';
 
         return AlertDialog(
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
           backgroundColor: isDark ? AppColors.cardDark : AppColors.cardLight,
-          title: Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.danger)),
+          title: Text(title, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: AppColors.danger)),
           content: Column(
             mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
                 _reasonType == 'late'
-                    ? 'ម៉ោងចូលរបស់អ្នកគឺយឺតជាងម៉ោងកំណត់។ សូមបំពេញមូលហេតុនៃការមកយឺត៖'
-                    : 'ម៉ោងចេញរបស់អ្នកគឺលឿនជាងម៉ោងកំណត់។ សូមបំពេញមូលហេតុនៃការចាកចេញមុនម៉ោង៖',
+                    ? 'ម៉ោងចូលរបស់អ្នកគឺយឺតជាងម៉ោងកំណត់។ សូមបំពេញ Note / មូលហេតុនៃការមកយឺត៖'
+                    : 'មិនទាន់ដល់ម៉ោងកំណត់ចេញពីធ្វើការនៅឡើយទេ។ សូមបំពេញ Note / មូលហេតុនៃការចាកចេញមុនម៉ោង និងចុច "Done" ដើម្បីអាចស្កេន Check-Out បាន៖',
                 style: const TextStyle(fontSize: 12, color: Colors.grey),
               ),
               const SizedBox(height: 12),
@@ -419,7 +428,7 @@ class _ScannerModalSheetState extends State<ScannerModalSheet> with SingleTicker
                 controller: _reasonController,
                 maxLines: 3,
                 decoration: InputDecoration(
-                  hintText: 'បញ្ចូលមូលហេតុទីនេះ...',
+                  hintText: 'បញ្ចូល Note / មូលហេតុទីនេះ...',
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                   contentPadding: const EdgeInsets.all(12),
                 ),
@@ -428,30 +437,41 @@ class _ScannerModalSheetState extends State<ScannerModalSheet> with SingleTicker
           ),
           actions: [
             TextButton(
-              onPressed: () => Navigator.pop(ctx),
+              onPressed: () {
+                Navigator.pop(ctx);
+                setState(() {
+                  _isUnlocked = false; // Remains locked if cancelled
+                  _statusMessage = '🔒 កាមេរ៉ាត្រូវចាក់សោរ! សូមបំពេញ Note និងចុច Done ដើម្បីបើក Camera ស្កេន Check-Out';
+                });
+              },
               child: const Text('បោះបង់', style: TextStyle(color: Colors.grey)),
             ),
             ElevatedButton(
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.primary,
                 foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               ),
               onPressed: () {
-                if (_reasonController.text.trim().isEmpty) {
+                final noteText = _reasonController.text.trim();
+                if (noteText.isEmpty) {
                   ScaffoldMessenger.of(ctx).showSnackBar(
-                    const SnackBar(content: Text('សូមបញ្ចូលមូលហេតុមុននឹងបន្ត!')),
+                    const SnackBar(
+                      content: Text('សូមបញ្ចូល Note / មូលហេតុមុននឹងចុច Done!'),
+                      backgroundColor: AppColors.danger,
+                    ),
                   );
                   return;
                 }
-                _earlyCheckoutReason = _reasonController.text.trim();
+                _earlyCheckoutReason = noteText;
                 Navigator.pop(ctx);
                 setState(() {
-                  _isUnlocked = true; // Unlock Camera after reason submitted!
-                  _statusMessage = '✅ បានរក្សាទុកមូលហេតុ! បើកកាមេរ៉ាស្កេន (${_getActionLabel(_nextAction)})';
+                  _isUnlocked = true; // Unlock Camera ONLY after Done clicked!
+                  _statusMessage = '✅ បានរក្សាទុក Note រួចរាល់! អាចស្កេន Check-Out បានហើយ (${_getActionLabel(_nextAction)})';
                 });
               },
-              child: const Text('បន្តបើក Camera'),
+              child: const Text('Done', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
             ),
           ],
         );

@@ -26,9 +26,9 @@ class AttendanceController extends GetxController {
   String? get checkOut2 => _checkOut2.value;
   bool get isProcessing => _isProcessing.value;
 
-  int get presentCount => _historyRecords.isEmpty ? 22 : _presentCount.value;
-  int get lateCount => _historyRecords.isEmpty ? 2 : _lateCount.value;
-  int get leaveCount => _historyRecords.isEmpty ? 1 : _leaveCount.value;
+  int get presentCount => _presentCount.value;
+  int get lateCount => _lateCount.value;
+  int get leaveCount => _leaveCount.value;
   int get absentCount => _absentCount.value;
 
   List<AttendanceRecord> get historyRecords => _historyRecords;
@@ -36,32 +36,7 @@ class AttendanceController extends GetxController {
   @override
   void onInit() {
     super.onInit();
-    _initMockHistory();
     fetchRemoteHistory();
-  }
-
-  void _initMockHistory([String? staffId]) {
-    final now = DateTime.now();
-    _historyRecords.value = List.generate(15, (index) {
-      final date = now.subtract(Duration(days: index));
-      final dateStr = DateFormat('yyyy-MM-dd').format(date);
-      final isLate = index % 5 == 2;
-      final isOnLeave = index == 7;
-
-      return AttendanceRecord(
-        id: 'att-$index',
-        staffId: staffId ?? 'EMP-001',
-        date: dateStr,
-        checkIn1: isOnLeave ? '--:--' : (isLate ? '08:35 AM' : '07:55 AM'),
-        checkOut1: isOnLeave ? '--:--' : '12:02 PM',
-        checkIn2: isOnLeave ? '--:--' : '01:00 PM',
-        checkOut2: isOnLeave ? '--:--' : '05:05 PM',
-        status: isOnLeave ? 'On Leave' : (isLate ? 'Late' : 'Present'),
-        totalHours: isOnLeave ? '0.0 hrs' : '8.1 hrs',
-        location: 'HQ Office Geofence',
-        isVerified: true,
-      );
-    });
   }
 
   Future<void> fetchRemoteHistory({String? staffId}) async {
@@ -69,8 +44,8 @@ class AttendanceController extends GetxController {
     if (remoteData.isNotEmpty) {
       final parsed = remoteData.map((json) => AttendanceRecord.fromJson(json)).toList();
       _historyRecords.value = parsed;
-    } else if (staffId != null && staffId.isNotEmpty) {
-      _historyRecords.value = _historyRecords.where((r) => r.staffId == staffId || r.staffId == 'EMP-001').toList();
+    } else {
+      _historyRecords.value = [];
     }
 
     _presentCount.value = _historyRecords.where((r) => r.status == 'Present').length;
@@ -78,11 +53,11 @@ class AttendanceController extends GetxController {
     _leaveCount.value = _historyRecords.where((r) => r.status == 'On Leave').length;
     _absentCount.value = _historyRecords.where((r) => r.status == 'Absent').length;
 
-    // Sync today's check-in/out steps and session time slots
+    // Sync today's check-in/out steps and session time slots from database
     final todayStr = DateFormat('yyyy-MM-dd').format(DateTime.now());
     AttendanceRecord? todayRecord;
     for (final record in _historyRecords) {
-      if (record.date.contains(todayStr)) {
+      if (record.rawDate.contains(todayStr) || record.date.contains(todayStr)) {
         todayRecord = record;
         break;
       }

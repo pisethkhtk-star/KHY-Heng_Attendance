@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:lucide_icons/lucide_icons.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../core/constants/app_colors.dart';
 import '../controllers/attendance_controller.dart';
 import '../controllers/auth_controller.dart';
@@ -164,7 +164,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                         ),
                         const SizedBox(height: 14),
 
-                        // Single Box Body: Check-in 1, Check-out 1, Check-in 2, Check-out 2
+                        // Single Box Body: Display ONLY data existing in Database (No mock/blank pills)
                         Container(
                           padding: const EdgeInsets.all(12),
                           decoration: BoxDecoration(
@@ -172,54 +172,103 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                             borderRadius: BorderRadius.circular(12),
                             border: Border.all(color: isDark ? AppColors.borderDark : AppColors.borderLight),
                           ),
-                          child: Column(
-                            children: [
-                              // Shift 1 (Morning)
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                children: [
-                                  const Row(
-                                    children: [
-                                      Icon(LucideIcons.sun, size: 14, color: AppColors.warning),
-                                      SizedBox(width: 6),
-                                      Text('Shift 1 (Morning):', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12)),
-                                    ],
-                                  ),
-                                  Row(
-                                    children: [
-                                      _buildSessionPill('Check-in 1', record.checkIn1 ?? '-', AppColors.success),
-                                      const SizedBox(width: 6),
-                                      _buildSessionPill('Check-out 1', record.checkOut1 ?? '-', AppColors.danger),
-                                    ],
-                                  ),
-                                ],
-                              ),
-                              const Padding(
-                                padding: EdgeInsets.symmetric(vertical: 8),
-                                child: Divider(height: 1),
-                              ),
+                          child: Builder(
+                            builder: (context) {
+                              bool isValidLog(String? val) => val != null && val.isNotEmpty && val != '-' && val != '--:--';
 
-                              // Shift 2 (Afternoon)
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              final hasCheckIn1 = isValidLog(record.checkIn1);
+                              final hasCheckOut1 = isValidLog(record.checkOut1);
+                              final hasCheckIn2 = isValidLog(record.checkIn2);
+                              final hasCheckOut2 = isValidLog(record.checkOut2);
+
+                              final hasShift1 = hasCheckIn1 || hasCheckOut1;
+                              final hasShift2 = hasCheckIn2 || hasCheckOut2;
+
+                              if (!hasShift1 && !hasShift2) {
+                                return Padding(
+                                  padding: const EdgeInsets.symmetric(vertical: 4),
+                                  child: Text(
+                                    record.status == 'On Leave' ? 'Approved Leave' : 'No check-in/out recorded',
+                                    style: const TextStyle(fontSize: 12, color: Colors.grey, fontStyle: FontStyle.italic),
+                                  ),
+                                );
+                              }
+
+                              return Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  const Row(
-                                    children: [
-                                      Icon(LucideIcons.sunset, size: 14, color: AppColors.accent),
-                                      SizedBox(width: 6),
-                                      Text('Shift 2 (Afternoon):', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12)),
-                                    ],
-                                  ),
-                                  Row(
-                                    children: [
-                                      _buildSessionPill('Check-in 2', record.checkIn2 ?? '-', AppColors.success),
-                                      const SizedBox(width: 6),
-                                      _buildSessionPill('Check-out 2', record.checkOut2 ?? '-', AppColors.danger),
-                                    ],
-                                  ),
+                                  // Shift 1 (Morning)
+                                  if (hasShift1) ...[
+                                    Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        const Row(
+                                          children: [
+                                            Icon(LucideIcons.sun, size: 14, color: AppColors.warning),
+                                            SizedBox(width: 6),
+                                            Text('Shift 1 (Morning):', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12)),
+                                          ],
+                                        ),
+                                        const SizedBox(height: 6),
+                                        Wrap(
+                                          spacing: 8,
+                                          runSpacing: 4,
+                                          children: [
+                                            if (hasCheckIn1) _buildSessionPill('Check-in 1', record.checkIn1!, AppColors.success),
+                                            if (hasCheckOut1) _buildSessionPill('Check-out 1', record.checkOut1!, AppColors.danger),
+                                          ],
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                  // Shift 2 (Afternoon)
+                                  if (hasShift2) ...[
+                                    if (hasShift1)
+                                      const Padding(
+                                        padding: EdgeInsets.symmetric(vertical: 8),
+                                        child: Divider(height: 1),
+                                      ),
+                                    Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        const Row(
+                                          children: [
+                                            Icon(LucideIcons.sunset, size: 14, color: AppColors.accent),
+                                            SizedBox(width: 6),
+                                            Text('Shift 2 (Afternoon):', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12)),
+                                          ],
+                                        ),
+                                        const SizedBox(height: 6),
+                                        Wrap(
+                                          spacing: 8,
+                                          runSpacing: 4,
+                                          children: [
+                                            if (hasCheckIn2) _buildSessionPill('Check-in 2', record.checkIn2!, AppColors.success),
+                                            if (hasCheckOut2) _buildSessionPill('Check-out 2', record.checkOut2!, AppColors.danger),
+                                          ],
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                  if (record.note != null && record.note!.isNotEmpty) ...[
+                                    const SizedBox(height: 8),
+                                    Row(
+                                      children: [
+                                        const Icon(LucideIcons.notebook, size: 13, color: AppColors.primary),
+                                        const SizedBox(width: 5),
+                                        Expanded(
+                                          child: Text(
+                                            'Note: ${record.note}',
+                                            style: const TextStyle(fontSize: 11, fontStyle: FontStyle.italic, fontWeight: FontWeight.w600),
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
                                 ],
-                              ),
-                            ],
+                              );
+                            },
                           ),
                         ),
                       ],
@@ -236,21 +285,18 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
   }
 
   Widget _buildSessionPill(String label, String time, Color color) {
-    final displayTime = time.isEmpty ? '-' : time;
-    final isLogged = displayTime != '-';
-
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: isLogged ? color.withValues(alpha: 0.12) : Colors.grey.withValues(alpha: 0.1),
+        color: color.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(6),
       ),
       child: Text(
-        '$label: $displayTime',
+        '$label: $time',
         style: TextStyle(
-          fontSize: 10,
-          color: isLogged ? color : Colors.grey,
-          fontWeight: isLogged ? FontWeight.bold : FontWeight.normal,
+          fontSize: 11,
+          color: color,
+          fontWeight: FontWeight.bold,
         ),
       ),
     );
