@@ -649,7 +649,7 @@ const KioskSettings = () => {
                 </div>
               ) : branchQrImage ? (
                 <>
-                  <img src={branchQrImage} alt="Branch QR" className="w-48 h-48 rounded-xl border border-white/10 bg-white p-2" />
+                  <img src={branchQrImage} alt="Branch QR" className="w-72 h-72 rounded-xl border border-white/10 bg-white p-4 shadow-lg" />
                   <p className="text-[10px] text-slate-500 mt-4 select-all font-mono">
                     {`branch_qr:${qrBranch.id}`}
                   </p>
