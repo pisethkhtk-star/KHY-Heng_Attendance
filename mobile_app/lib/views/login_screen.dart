@@ -38,6 +38,26 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
+  void _handleQrLogin(String qrToken) async {
+    final authController = Get.find<AuthController>();
+    final success = await authController.loginWithQRCode(qrToken);
+
+    if (mounted) {
+      if (success) {
+        Navigator.pop(context);
+        Get.offAll(() => const MainLayout());
+      } else {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(authController.errorMessage ?? 'QR Code Login Failed'),
+            backgroundColor: AppColors.danger,
+          ),
+        );
+      }
+    }
+  }
+
   void _fillAccount(String email, String password) {
     setState(() {
       _emailController.text = email;
@@ -65,7 +85,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: AppColors.primary.withOpacity(0.1),
+                      color: AppColors.primary.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(16),
                     ),
                     child: const Icon(LucideIcons.userCheck, size: 36, color: AppColors.primary),
@@ -212,7 +232,11 @@ class _LoginScreenState extends State<LoginScreen> {
                       shape: const RoundedRectangleBorder(
                         borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
                       ),
-                      builder: (_) => const ScannerModalSheet(initialTab: 0),
+                      builder: (_) => ScannerModalSheet(
+                        initialTab: 0,
+                        isLoginMode: true,
+                        onLoginQrScanned: _handleQrLogin,
+                      ),
                     );
                   },
                   icon: const Icon(LucideIcons.qrCode, color: AppColors.primary, size: 22),
@@ -263,9 +287,9 @@ class _LoginScreenState extends State<LoginScreen> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
         decoration: BoxDecoration(
-          color: color.withOpacity(0.08),
+          color: color.withValues(alpha: 0.08),
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: color.withOpacity(0.3)),
+          border: Border.all(color: color.withValues(alpha: 0.3)),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,

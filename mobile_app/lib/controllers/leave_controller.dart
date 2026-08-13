@@ -19,13 +19,45 @@ class LeaveController extends GetxController {
 
   Future<void> fetchRemoteLeaves({String? staffId}) async {
     final remoteItems = await ApiService.fetchLeaveRequests(staffId: staffId);
+    final limitData = await ApiService.fetchLeaveBalances(staffId: staffId);
     final leaveTypesRaw = await ApiService.fetchLeaveTypes();
 
     if (remoteItems.isNotEmpty) {
       final parsed = remoteItems.map((json) => LeaveItem.fromJson(json)).toList();
       _leaveRequests.value = parsed;
+    } else {
+      _leaveRequests.value = [];
     }
 
+    // 1. Try to load leave balances directly from database allowances
+    if (limitData.isNotEmpty) {
+      try {
+        final empRecord = limitData.firstWhere(
+          (emp) => emp['staffId'] == staffId,
+          orElse: () => limitData.first,
+        );
+
+        final allowances = empRecord['allowances'] as List<dynamic>?;
+        if (allowances != null && allowances.isNotEmpty) {
+          _balances.value = allowances.map((allowance) {
+            final typeName = allowance['nameEn']?.toString() ?? allowance['nameKh']?.toString() ?? allowance['code']?.toString() ?? 'Leave';
+            final maxDays = (allowance['maxDays'] as num?)?.toInt() ?? 18;
+            final usedDays = (allowance['usedDays'] as num?)?.toInt() ?? 0;
+            final remaining = maxDays - usedDays;
+
+            return LeaveBalance(
+              typeName: typeName,
+              totalDays: maxDays,
+              usedDays: usedDays,
+              remainingDays: remaining < 0 ? 0 : remaining,
+            );
+          }).toList();
+          return; // Successful fetch, stop here!
+        }
+      } catch (_) {}
+    }
+
+    // 2. Client-side fallback calculation if geofence API fails
     if (leaveTypesRaw.isNotEmpty) {
       _balances.value = leaveTypesRaw.map((typeJson) {
         final code = typeJson['code']?.toString() ?? '';
@@ -34,9 +66,11 @@ class LeaveController extends GetxController {
 
         final usedCount = _leaveRequests
             .where((req) =>
-                req.status == 'Approved' &&
+                (req.status == 'Approved' || req.status == 'Pending') &&
                 (req.leaveType.toLowerCase() == code.toLowerCase() ||
-                    req.leaveType.toLowerCase() == nameEn.toLowerCase()))
+                    req.leaveType.toLowerCase() == nameEn.toLowerCase() ||
+                    req.leaveType.toLowerCase().contains(nameEn.toLowerCase()) ||
+                    req.leaveType.toLowerCase().contains(code.toLowerCase())))
             .fold<int>(0, (sum, item) => sum + item.totalDays);
 
         final remaining = maxDays - usedCount;
@@ -91,9 +125,36 @@ class LeaveController extends GetxController {
         appliedDate: DateTime.now().toString().split(' ')[0],
       );
       _leaveRequests.insert(0, newRequest);
+      _recalculateLocalBalances();
     }
 
     _isSubmitting.value = false;
     return true;
+  }
+
+  void _recalculateLocalBalances() {
+    _balances.value = _balances.map((balance) {
+      final typeName = balance.typeName.toLowerCase();
+      
+      final usedCount = _leaveRequests
+          .where((req) =>
+              (req.status == 'Approved' || req.status == 'Pending') &&
+              (req.leaveType.toLowerCase() == typeName ||
+               (typeName.contains('annual') && req.leaveType.toLowerCase().contains('annual')) ||
+               (typeName.contains('sick') && req.leaveType.toLowerCase().contains('sick')) ||
+               (typeName.contains('unpaid') && req.leaveType.toLowerCase().contains('unpaid')) ||
+               (typeName.contains('special') && req.leaveType.toLowerCase().contains('special')) ||
+               (typeName.contains('personal') && req.leaveType.toLowerCase().contains('personal'))))
+          .fold<int>(0, (sum, item) => sum + item.totalDays);
+
+      final remaining = balance.totalDays - usedCount;
+
+      return LeaveBalance(
+        typeName: balance.typeName,
+        totalDays: balance.totalDays,
+        usedDays: usedCount < 0 ? 0 : usedCount,
+        remainingDays: remaining < 0 ? 0 : remaining,
+      );
+    }).toList();
   }
 }

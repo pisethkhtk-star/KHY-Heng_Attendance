@@ -40,13 +40,21 @@ class _MainLayoutState extends State<MainLayout> {
     }
   }
 
+  void _changeTab(int index) {
+    setState(() => _currentIndex = index);
+    if (index == 2) {
+      final user = Get.find<AuthController>().user;
+      Get.find<LeaveController>().fetchRemoteLeaves(staffId: user?.employeeId);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final langController = Get.find<LanguageController>();
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     final List<Widget> pages = [
-      HomeScreen(onTabSelected: (index) => setState(() => _currentIndex = index)),
+      HomeScreen(onTabSelected: _changeTab),
       const AttendanceScreen(),
       const LeaveScreen(),
       const ProfileScreen(),
@@ -105,7 +113,7 @@ class _MainLayoutState extends State<MainLayout> {
         child: Obx(
           () => BottomNavigationBar(
             currentIndex: _currentIndex,
-            onTap: (index) => setState(() => _currentIndex = index),
+            onTap: _changeTab,
             type: BottomNavigationBarType.fixed,
             backgroundColor: Colors.transparent,
             elevation: 0,

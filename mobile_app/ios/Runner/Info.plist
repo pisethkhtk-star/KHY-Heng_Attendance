@@ -66,5 +66,9 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+	<key>NSCameraUsageDescription</key>
+	<string>This app requires camera access to scan QR code badges for attendance.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>This app requires location access to verify you are within the branch geofence boundary during check-in/out.</string>
 </dict>
 </plist>

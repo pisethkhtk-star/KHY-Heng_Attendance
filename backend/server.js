@@ -1,6 +1,6 @@
+import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
-import dotenv from 'dotenv';
 import authRoutes from './src/routes/authRoutes.js';
 import deptRoutes from './src/routes/deptRoutes.js';
 import posRoutes from './src/routes/posRoutes.js';
@@ -18,10 +18,10 @@ import workHourRoutes from './src/routes/workHourRoutes.js';
 import leaveApprovalRoutes from './src/routes/leaveApprovalRoutes.js';
 import { initializePermissions } from './src/utils/permissionInitializer.js';
 
-dotenv.config();
+
 
 const app = express();
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 5050;
 
 app.use(cors({
   origin: '*', // Allow all origins for simpler development/testing

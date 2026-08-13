@@ -1,4 +1,5 @@
 import 'dart:math' as math;
+import 'dart:async';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
@@ -6,6 +7,8 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:intl/intl.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
+import 'package:permission_handler/permission_handler.dart';
+import 'package:geolocator/geolocator.dart';
 import 'web_camera/web_camera.dart';
 import '../core/constants/app_colors.dart';
 import '../controllers/language_controller.dart';
@@ -15,8 +18,15 @@ import '../core/services/api_service.dart';
 
 class ScannerModalSheet extends StatefulWidget {
   final int initialTab; // 0: QR, 1: My Badge
+  final bool isLoginMode;
+  final Function(String qrToken)? onLoginQrScanned;
 
-  const ScannerModalSheet({super.key, this.initialTab = 0});
+  const ScannerModalSheet({
+    super.key,
+    this.initialTab = 0,
+    this.isLoginMode = false,
+    this.onLoginQrScanned,
+  });
 
   @override
   State<ScannerModalSheet> createState() => _ScannerModalSheetState();
@@ -29,7 +39,7 @@ class _ScannerModalSheetState extends State<ScannerModalSheet> with SingleTicker
   final TextEditingController _behalfStaffIdController = TextEditingController();
 
   // Frontend Kiosk State Alignment
-  bool _isUnlocked = true; // Camera lock state, default unlocked (true) for mobile app
+  bool _isUnlocked = false; // Camera lock state, default locked until location/login mode is verified!
   bool _scanOnBehalf = false; // Scan on behalf checkbox
   bool _isVerifying = false;
   bool _isProcessing = false;
@@ -42,7 +52,6 @@ class _ScannerModalSheetState extends State<ScannerModalSheet> with SingleTicker
   String _nextAction = 'checkin_1'; // checkin_1, checkout_1, checkin_2, checkout_2
   String _reasonType = 'late'; // 'late' or 'early'
   String _earlyCheckoutReason = '';
-  Map<String, dynamic>? _successResult; // Success overlay data
 
   // Geofence & Location verification state
   bool _isLocationVerified = false;
@@ -58,6 +67,8 @@ class _ScannerModalSheetState extends State<ScannerModalSheet> with SingleTicker
   double _clientLat = 11.5564;
   double _clientLng = 104.9282;
   bool _isUserCustomLocation = false;
+  StreamSubscription<Position>? _positionSubscription;
+  bool _hasFetchedInitially = false;
 
   // Throttle state for QR scanning
   String? _lastScanToken;
@@ -66,8 +77,8 @@ class _ScannerModalSheetState extends State<ScannerModalSheet> with SingleTicker
   @override
   void initState() {
     super.initState();
-    final initialIndex = widget.initialTab > 1 ? 0 : widget.initialTab;
-    _tabController = TabController(length: 2, vsync: this, initialIndex: initialIndex);
+    final initialIndex = widget.isLoginMode ? 0 : (widget.initialTab > 1 ? 0 : widget.initialTab);
+    _tabController = TabController(length: widget.isLoginMode ? 1 : 2, vsync: this, initialIndex: initialIndex);
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _verifyBranchGeofence();
@@ -76,6 +87,7 @@ class _ScannerModalSheetState extends State<ScannerModalSheet> with SingleTicker
 
   @override
   void dispose() {
+    _positionSubscription?.cancel();
     _tabController.dispose();
     _customQrController.dispose();
     _reasonController.dispose();
@@ -111,9 +123,73 @@ class _ScannerModalSheetState extends State<ScannerModalSheet> with SingleTicker
 
   Future<void> _verifyBranchGeofence() async {
     if (!mounted) return;
+
+    // 1. Request Camera Permission (Always needed)
+    final cameraStatus = await Permission.camera.request();
+    if (!cameraStatus.isGranted) {
+      if (mounted) {
+        setState(() {
+          _isUnlocked = false;
+          _isLocationVerified = false;
+          _statusMessage = '❌ សូមអនុញ្ញាតឲ្យប្រើប្រាស់ Camera ដើម្បីស្កេន!';
+        });
+      }
+      return;
+    }
+
+    if (widget.isLoginMode) {
+      setState(() {
+        _isUnlocked = true;
+        _isLocationVerified = true;
+        _statusMessage = '📷 សូមស្កេន QR Code បុគ្គលិកដើម្បី Login';
+      });
+      return;
+    }
+
+    // 2. Request Location Permission (Only needed for attendance geofence)
+    final locationStatus = await Permission.locationWhenInUse.request();
+    if (!locationStatus.isGranted) {
+      if (mounted) {
+        setState(() {
+          _isUnlocked = false;
+          _isLocationVerified = false;
+          _statusMessage = '❌ សូមអនុញ្ញាតឲ្យប្រើប្រាស់ Location ដើម្បីផ្ទៀងផ្ទាត់ទីតាំង!';
+        });
+      }
+      return;
+    }
+
+    // Start listening to real-time location changes if not already listening
+    if (_positionSubscription == null) {
+      _startLocationListening();
+    }
+
     setState(() {
       _statusMessage = '🔍 កំពុងទាញទិន្នន័យសាខាពី Database...';
     });
+
+    // 3. Fetch Real-Time GPS Coordinates (Unless manually simulated by developer buttons)
+    if (!_isUserCustomLocation) {
+      try {
+        final position = await Geolocator.getCurrentPosition(
+          locationSettings: const LocationSettings(
+            accuracy: LocationAccuracy.high,
+            timeLimit: Duration(seconds: 5),
+          ),
+        );
+        _clientLat = position.latitude;
+        _clientLng = position.longitude;
+      } catch (e) {
+        if (mounted) {
+          setState(() {
+            _isUnlocked = false;
+            _isLocationVerified = false;
+            _statusMessage = '❌ មិនអាចទាញយកទីតាំង GPS បានឡើយ! សូមប្រាកដថាបើក GPS លើទូរស័ព្ទ';
+          });
+        }
+        return;
+      }
+    }
 
     try {
       final meResult = await ApiService.getMe();
@@ -128,12 +204,17 @@ class _ScannerModalSheetState extends State<ScannerModalSheet> with SingleTicker
     final user = authController.user;
     final assignedBranchRaw = user?.branch ?? '';
 
-    // Use branch location settings fetched from Database immediately upon login!
-    if (authController.branchSettings.isNotEmpty) {
-      _allKioskSettings = authController.branchSettings;
-    } else {
-      final settingsRaw = await ApiService.fetchKioskSettings();
-      _allKioskSettings = settingsRaw.map((s) => Map<String, dynamic>.from(s)).toList();
+    // Fetch branch location settings fresh from Database on launch and store in RAM, replacing old cached data
+    if (!_hasFetchedInitially || _allKioskSettings.isEmpty) {
+      try {
+        final settingsRaw = await ApiService.fetchKioskSettings();
+        _allKioskSettings = settingsRaw.map((s) => Map<String, dynamic>.from(s)).toList();
+        _hasFetchedInitially = true;
+      } catch (_) {
+        if (authController.branchSettings.isNotEmpty) {
+          _allKioskSettings = authController.branchSettings;
+        }
+      }
     }
 
     final userBranchNames = assignedBranchRaw
@@ -173,11 +254,7 @@ class _ScannerModalSheetState extends State<ScannerModalSheet> with SingleTicker
       _employeeAssignedSettings = _allKioskSettings;
     }
 
-    if (!_isUserCustomLocation && _employeeAssignedSettings.isNotEmpty) {
-      final defaultSetting = _employeeAssignedSettings.first;
-      _clientLat = (defaultSetting['latitude'] as num).toDouble();
-      _clientLng = (defaultSetting['longitude'] as num).toDouble();
-    }
+    // Real GPS coordinates are fetched at the start of _verifyBranchGeofence()
 
     Map<String, dynamic>? insideBranch;
     double? minDistance;
@@ -210,6 +287,7 @@ class _ScannerModalSheetState extends State<ScannerModalSheet> with SingleTicker
       if (mounted) {
         setState(() {
           _isLocationVerified = true;
+          _isUnlocked = true; // Unlock the camera preview feed!
           _matchedBranchName = branchName;
           _matchedBranchToken = branchToken;
           _closestBranchDistance = minDistance;
@@ -227,6 +305,7 @@ class _ScannerModalSheetState extends State<ScannerModalSheet> with SingleTicker
       if (mounted) {
         setState(() {
           _isLocationVerified = false;
+          _isUnlocked = false; // Force lock the camera preview feed!
           _matchedBranchName = closestName;
           _matchedBranchToken = closestBranch != null ? 'branch_qr:${closestBranch['id']}' : null;
           _closestBranchDistance = minDistance;
@@ -235,6 +314,25 @@ class _ScannerModalSheetState extends State<ScannerModalSheet> with SingleTicker
         });
       }
     }
+  }
+
+  void _startLocationListening() {
+    _positionSubscription = Geolocator.getPositionStream(
+      locationSettings: const LocationSettings(
+        accuracy: LocationAccuracy.high,
+        distanceFilter: 3, // Receive updates when moving at least 3 meters
+      ),
+    ).listen((Position position) {
+      if (!_isUserCustomLocation && mounted) {
+        setState(() {
+          _clientLat = position.latitude;
+          _clientLng = position.longitude;
+        });
+        _verifyBranchGeofence();
+      }
+    }, onError: (e) {
+      debugPrint('Error listening to location stream: $e');
+    });
   }
 
   // --- Frontend Alignment: Verify Employee & Attendance History to Determine Action ---
@@ -308,11 +406,17 @@ class _ScannerModalSheetState extends State<ScannerModalSheet> with SingleTicker
       } else if (checkin1 == null && currentMinutes < s1EndMinutes) {
         determinedAction = 'checkin_1';
       } else {
-        if (checkin1 == null) determinedAction = 'checkin_1';
-        else if (checkout1 == null) determinedAction = 'checkout_1';
-        else if (checkin2 == null) determinedAction = 'checkin_2';
-        else if (checkout2 == null) determinedAction = 'checkout_2';
-        else determinedAction = 'completed';
+        if (checkin1 == null) {
+          determinedAction = 'checkin_1';
+        } else if (checkout1 == null) {
+          determinedAction = 'checkout_1';
+        } else if (checkin2 == null) {
+          determinedAction = 'checkin_2';
+        } else if (checkout2 == null) {
+          determinedAction = 'checkout_2';
+        } else {
+          determinedAction = 'completed';
+        }
       }
 
       if (determinedAction == 'completed') {
@@ -356,8 +460,13 @@ class _ScannerModalSheetState extends State<ScannerModalSheet> with SingleTicker
       } else {
         _earlyCheckoutReason = '';
         setState(() {
-          _isUnlocked = true; // Unlock camera for normal on-time checkin/checkout!
-          _statusMessage = '✅ ផ្ទៀងផ្ទាត់ជោគជ័យ! បើកកាមេរ៉ាស្កេន (សកម្មភាព៖ ${_getActionLabel(determinedAction)})';
+          if (_isLocationVerified) {
+            _isUnlocked = true; // Unlock camera for normal on-time checkin/checkout!
+            _statusMessage = '✅ ផ្ទៀងផ្ទាត់ជោគជ័យ! បើកកាមេរ៉ាស្កេន (សកម្មភាព៖ ${_getActionLabel(determinedAction)})';
+          } else {
+            _isUnlocked = false; // Keep camera locked!
+            _statusMessage = '🔒 មិនអាចបើកកាមេរ៉ាស្កេនទេ! លោកអ្នកស្ថិតនៅក្រៅទីតាំងសាខា';
+          }
         });
       }
     } catch (e) {
@@ -467,8 +576,13 @@ class _ScannerModalSheetState extends State<ScannerModalSheet> with SingleTicker
                 _earlyCheckoutReason = noteText;
                 Navigator.pop(ctx);
                 setState(() {
-                  _isUnlocked = true; // Unlock Camera ONLY after Done clicked!
-                  _statusMessage = '✅ បានរក្សាទុក Note រួចរាល់! អាចស្កេន Check-Out បានហើយ (${_getActionLabel(_nextAction)})';
+                  if (_isLocationVerified) {
+                    _isUnlocked = true; // Unlock Camera ONLY after Done clicked!
+                    _statusMessage = '✅ បានរក្សាទុក Note រួចរាល់! អាចស្កេន Check-Out បានហើយ (${_getActionLabel(_nextAction)})';
+                  } else {
+                    _isUnlocked = false; // Keep camera locked if out of branch!
+                    _statusMessage = '🔒 មិនអាចបើកកាមេរ៉ាស្កេនទេ! លោកអ្នកស្ថិតនៅក្រៅទីតាំងសាខា';
+                  }
                 });
               },
               child: const Text('Done', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
@@ -540,6 +654,23 @@ class _ScannerModalSheetState extends State<ScannerModalSheet> with SingleTicker
 
   void _handleScanAnyQRCode([String? customToken]) async {
     if (_isProcessing) return;
+
+    if (widget.isLoginMode) {
+      final tokenToScan = (customToken != null && customToken.trim().isNotEmpty)
+          ? customToken.trim()
+          : _customQrController.text.trim();
+      if (tokenToScan.isEmpty) return;
+
+      setState(() {
+        _isProcessing = true;
+        _statusMessage = '🔍 កំពុង Login តាមរយៈ QR Code...';
+      });
+
+      if (widget.onLoginQrScanned != null) {
+        widget.onLoginQrScanned!(tokenToScan);
+      }
+      return;
+    }
 
     if (!_isUnlocked) {
       if (_isLocationVerified) {
@@ -659,30 +790,42 @@ class _ScannerModalSheetState extends State<ScannerModalSheet> with SingleTicker
       if (result['success'] == true) {
         await attendanceController.recordScanSuccess(action: result['action'], staffId: user?.employeeId);
 
-        // Show Frontend Celebratory Success Modal Overlay
+        // Show Frontend Celebratory Success Dialog popup!
         final empData = result['employee'] ?? {};
+        final name = empData['nameEn'] ?? empData['nameKh'] ?? user?.name ?? 'Employee User';
+        final staffId = empData['staffId'] ?? user?.employeeId ?? 'EMP-2026';
+        final department = empData['department'] ?? user?.department ?? 'Engineering';
+        final action = result['action'] ?? _getActionLabel(_nextAction);
+        final timeString = DateFormat('hh:mm:ss a').format(DateTime.now());
+
+        _showSuccessDialog({
+          'name': name,
+          'staffId': staffId,
+          'department': department,
+        }, action, timeString);
+
         setState(() {
           _isProcessing = false;
           _isSuccess = true;
           _isUnlocked = false; // Re-lock camera immediately after success!
-          _successResult = {
-            'employee': {
-              'name': empData['nameEn'] ?? empData['nameKh'] ?? user?.name ?? 'Employee User',
-              'staffId': empData['staffId'] ?? user?.employeeId ?? 'EMP-2026',
-              'department': empData['department'] ?? user?.department ?? 'Engineering',
-            },
-            'action': result['action'] ?? _getActionLabel(_nextAction),
-            'timeString': DateFormat('hh:mm:ss a').format(DateTime.now()),
-          };
-          _statusMessage = '🎉 ស្កេនបានជោគជ័យ! (${result['action'] ?? _getActionLabel(_nextAction)})';
+
+          // Clear cached geofence and branch details from RAM automatically!
+          _allKioskSettings = [];
+          _employeeAssignedSettings = [];
+          _matchedBranchName = null;
+          _matchedBranchToken = null;
+          _closestBranchDistance = null;
+          _closestBranchRadius = null;
+          _isLocationVerified = false; // Reset verification state!
+          _hasFetchedInitially = false; // Reset fetch flag for next scan session!
+          _statusMessage = '🎉 ស្កេនបានជោគជ័យ! ($action)';
         });
 
         Future.delayed(const Duration(milliseconds: 3500), () {
           if (mounted) {
             setState(() {
-              _successResult = null;
               _isSuccess = false;
-              _isUnlocked = true; // Auto re-unlock camera for next scan!
+              _isUnlocked = _isLocationVerified; // Auto re-unlock camera only if location is verified!
             });
           }
         });
@@ -732,9 +875,9 @@ class _ScannerModalSheetState extends State<ScannerModalSheet> with SingleTicker
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                     decoration: BoxDecoration(
-                      color: AppColors.primary.withOpacity(0.12),
+                      color: AppColors.primary.withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: AppColors.primary.withOpacity(0.3)),
+                      border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
                     ),
                     child: const Row(
                       mainAxisSize: MainAxisSize.min,
@@ -751,9 +894,9 @@ class _ScannerModalSheetState extends State<ScannerModalSheet> with SingleTicker
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
                     decoration: BoxDecoration(
-                      color: (_isLocationVerified ? AppColors.success : AppColors.danger).withOpacity(0.12),
+                      color: (_isLocationVerified ? AppColors.success : AppColors.danger).withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: (_isLocationVerified ? AppColors.success : AppColors.danger).withOpacity(0.3)),
+                      border: Border.all(color: (_isLocationVerified ? AppColors.success : AppColors.danger).withValues(alpha: 0.3)),
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
@@ -783,35 +926,38 @@ class _ScannerModalSheetState extends State<ScannerModalSheet> with SingleTicker
               ),
               const SizedBox(height: 12),
 
-              // 2 Tabs (QR Scan & My Badge)
-              TabBar(
-                controller: _tabController,
-                indicatorColor: AppColors.primary,
-                labelColor: AppColors.primary,
-                unselectedLabelColor: Colors.grey,
-                labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-                tabs: [
-                  Tab(icon: const Icon(LucideIcons.qrCode, size: 20), text: 'QR Scan'),
-                  Tab(icon: const Icon(LucideIcons.qrCode, size: 20), text: 'My Badge'),
-                ],
-              ),
-              const SizedBox(height: 12),
-
-              // Tab Bar View Frame
-              Expanded(
-                child: TabBarView(
+              // 2 Tabs (QR Scan & My Badge) - Hidden in Login Mode
+              if (!widget.isLoginMode) ...[
+                TabBar(
                   controller: _tabController,
-                  children: [
-                    _buildQrScannerTab(langController, isDark),
-                    _buildMyBadgeTab(langController, isDark),
+                  indicatorColor: AppColors.primary,
+                  labelColor: AppColors.primary,
+                  unselectedLabelColor: Colors.grey,
+                  labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                  tabs: [
+                    Tab(icon: const Icon(LucideIcons.qrCode, size: 20), text: 'QR Scan'),
+                    Tab(icon: const Icon(LucideIcons.qrCode, size: 20), text: 'My Badge'),
                   ],
                 ),
+                const SizedBox(height: 12),
+              ],
+
+              // Tab Bar View Frame or Direct Scanner Tab
+              Expanded(
+                child: widget.isLoginMode
+                    ? _buildQrScannerTab(langController, isDark)
+                    : TabBarView(
+                        controller: _tabController,
+                        children: [
+                          _buildQrScannerTab(langController, isDark),
+                          _buildMyBadgeTab(langController, isDark),
+                        ],
+                      ),
               ),
             ],
           ),
 
-          // Success Overlay Modal (Matching Frontend Kiosk 🎉)
-          if (_successResult != null) _buildSuccessOverlay(isDark),
+          // Success Overlay Modal (Replaced with Dialog popup)
         ],
       ),
     );
@@ -840,7 +986,7 @@ class _ScannerModalSheetState extends State<ScannerModalSheet> with SingleTicker
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
-                    color: (_isUnlocked ? AppColors.success : Colors.grey).withOpacity(0.12),
+                    color: (_isUnlocked ? AppColors.success : Colors.grey).withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Row(
@@ -894,7 +1040,7 @@ class _ScannerModalSheetState extends State<ScannerModalSheet> with SingleTicker
                     ),
                     boxShadow: [
                       BoxShadow(
-                        color: (_isSuccess ? AppColors.success : (_isUnlocked ? AppColors.primary : Colors.grey)).withOpacity(0.25),
+                        color: (_isSuccess ? AppColors.success : (_isUnlocked ? AppColors.primary : Colors.grey)).withValues(alpha: 0.25),
                         blurRadius: 20,
                         spreadRadius: 2,
                       ),
@@ -915,7 +1061,7 @@ class _ScannerModalSheetState extends State<ScannerModalSheet> with SingleTicker
                                   Container(
                                     padding: const EdgeInsets.all(16),
                                     decoration: BoxDecoration(
-                                      color: Colors.white.withOpacity(0.08),
+                                      color: Colors.white.withValues(alpha: 0.08),
                                       shape: BoxShape.circle,
                                     ),
                                     child: const Icon(LucideIcons.lock, color: Colors.white60, size: 40),
@@ -953,6 +1099,8 @@ class _ScannerModalSheetState extends State<ScannerModalSheet> with SingleTicker
                             controller: MobileScannerController(
                               facing: _isFrontCamera ? CameraFacing.front : CameraFacing.back,
                               torchEnabled: _isTorchOn,
+                              formats: const [BarcodeFormat.qrCode],
+                              detectionSpeed: DetectionSpeed.noDuplicates,
                             ),
                             onDetect: (capture) {
                               final List<Barcode> barcodes = capture.barcodes;
@@ -988,7 +1136,7 @@ class _ScannerModalSheetState extends State<ScannerModalSheet> with SingleTicker
                       color: AppColors.primaryLight,
                       boxShadow: [
                         BoxShadow(
-                          color: AppColors.primaryLight.withOpacity(0.9),
+                          color: AppColors.primaryLight.withValues(alpha: 0.9),
                           blurRadius: 10,
                           spreadRadius: 3,
                         ),
@@ -1025,7 +1173,7 @@ class _ScannerModalSheetState extends State<ScannerModalSheet> with SingleTicker
                     borderRadius: BorderRadius.circular(16),
                     boxShadow: [
                       BoxShadow(
-                        color: const Color(0xFF4F46E5).withOpacity(0.35),
+                        color: const Color(0xFF4F46E5).withValues(alpha: 0.35),
                         blurRadius: 16,
                         offset: const Offset(0, 6),
                       ),
@@ -1080,9 +1228,9 @@ class _ScannerModalSheetState extends State<ScannerModalSheet> with SingleTicker
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
                 decoration: BoxDecoration(
-                  color: AppColors.primary.withOpacity(0.12),
+                  color: AppColors.primary.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: AppColors.primary.withOpacity(0.3)),
+                  border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
                 ),
                 child: Text(
                   'សកម្មភាព៖ ${_getActionLabel(_nextAction)}',
@@ -1183,7 +1331,7 @@ class _ScannerModalSheetState extends State<ScannerModalSheet> with SingleTicker
                 borderRadius: BorderRadius.circular(24),
                 boxShadow: [
                   BoxShadow(
-                    color: AppColors.primary.withOpacity(0.3),
+                    color: AppColors.primary.withValues(alpha: 0.3),
                     blurRadius: 16,
                     offset: const Offset(0, 8),
                   ),
@@ -1201,7 +1349,7 @@ class _ScannerModalSheetState extends State<ScannerModalSheet> with SingleTicker
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                         decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.2),
+                          color: Colors.white.withValues(alpha: 0.2),
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: Text(assignedBranch, style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
@@ -1246,64 +1394,95 @@ class _ScannerModalSheetState extends State<ScannerModalSheet> with SingleTicker
     );
   }
 
-  // --- 3. Frontend Kiosk Celebratory Success Modal Overlay 🎉 ---
-  Widget _buildSuccessOverlay(bool isDark) {
-    final emp = _successResult?['employee'] ?? {};
+  // --- 3. Frontend Success Dialog popup 🎉 ---
+  void _showSuccessDialog(Map<String, dynamic> empData, String actionLabel, String timeStr) {
+    if (!mounted) return;
 
-    return Container(
-      color: Colors.black.withOpacity(0.92),
-      width: double.infinity,
-      height: double.infinity,
-      padding: const EdgeInsets.all(24),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const Text('🎉', style: TextStyle(fontSize: 64)).animate().scale(duration: 500.ms),
-          const SizedBox(height: 12),
-          const Text(
-            'ស្កេនបានជោគជ័យ! (Scan Success)',
-            style: TextStyle(color: AppColors.success, fontSize: 20, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 20),
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) {
+        final isDark = Theme.of(ctx).brightness == Brightness.dark;
+        
+        // Auto-dismiss the dialog after 3.5 seconds
+        Future.delayed(const Duration(milliseconds: 3500), () {
+          if (ctx.mounted) {
+            Navigator.of(ctx).pop();
+          }
+        });
 
-          Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: isDark ? const Color(0xFF1E293B) : Colors.white,
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: Colors.white.withOpacity(0.1)),
-            ),
-            child: Column(
-              children: [
-                const Text('ឈ្មោះបុគ្គលិក (Employee):', style: TextStyle(fontSize: 11, color: Colors.grey)),
-                const SizedBox(height: 4),
-                Text(
-                  emp['name'] ?? 'Employee User',
-                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+        return AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+          backgroundColor: isDark ? AppColors.cardDark : AppColors.cardLight,
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text('🎉', style: TextStyle(fontSize: 54)).animate().scale(duration: 500.ms),
+              const SizedBox(height: 12),
+              const Text(
+                'ស្កេនបានជោគជ័យ!',
+                style: TextStyle(color: AppColors.success, fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+              const Text(
+                'Scan Success',
+                style: TextStyle(color: Colors.grey, fontSize: 12, fontWeight: FontWeight.w500),
+              ),
+              const SizedBox(height: 20),
+
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: isDark ? Colors.black.withValues(alpha: 0.2) : Colors.grey.shade100,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: isDark ? AppColors.borderDark : AppColors.borderLight),
                 ),
-                const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 10),
-                  child: Divider(height: 1),
+                child: Column(
+                  children: [
+                    const Text('ឈ្មោះបុគ្គលិក (Employee):', style: TextStyle(fontSize: 10, color: Colors.grey)),
+                    const SizedBox(height: 4),
+                    Text(
+                      empData['name'] ?? 'Employee User',
+                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                      textAlign: TextAlign.center,
+                    ),
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 8),
+                      child: Divider(height: 1),
+                    ),
+                    _buildInfoRow('អត្តលេខ (ID):', empData['staffId'] ?? 'EMP-2026'),
+                    const SizedBox(height: 6),
+                    _buildInfoRow('ផ្នែក (Dept):', empData['department'] ?? 'Engineering'),
+                    const SizedBox(height: 6),
+                    _buildInfoRow('សកម្មភាព (Action):', actionLabel, color: AppColors.success),
+                    const SizedBox(height: 6),
+                    _buildInfoRow('ម៉ោងស្កេន (Time):', timeStr),
+                  ],
                 ),
-                _buildInfoRow('អត្តលេខ (ID):', emp['staffId'] ?? 'EMP-2026'),
-                const SizedBox(height: 6),
-                _buildInfoRow('ផ្នែក (Dept):', emp['department'] ?? 'Engineering'),
-                const SizedBox(height: 6),
-                _buildInfoRow('សកម្មភាព (Action):', _successResult?['action'] ?? 'Check In', color: AppColors.success),
-                const SizedBox(height: 6),
-                _buildInfoRow('ម៉ោងស្កេន (Time):', _successResult?['timeString'] ?? '--:--'),
-              ],
-            ),
+              ),
+              const SizedBox(height: 16),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                  onPressed: () {
+                    Navigator.of(ctx).pop();
+                  },
+                  child: const Text('យល់ព្រម (OK)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: 24),
-          const Text(
-            'ម៉ាស៊ីននឹងចាក់សោរឡើងវិញក្នុងពេលបន្តិចទៀត...',
-            style: TextStyle(color: Colors.grey, fontSize: 11),
-          ).animate(onPlay: (c) => c.repeat(reverse: true)).fade(),
-        ],
-      ),
-    ).animate().fadeIn();
+        );
+      },
+    );
   }
+
+
 
   Widget _buildInfoRow(String label, String value, {Color? color}) {
     return Row(

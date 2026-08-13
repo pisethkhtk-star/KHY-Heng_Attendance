@@ -3,9 +3,19 @@ import prisma from '../utils/db.js';
 // GET /api/employee-leave-limits
 export const getEmployeeLeaveLimits = async (req, res) => {
   try {
+    let targetStaffId = req.query.staffId;
+    if (req.user.role === 'Employee') {
+      targetStaffId = req.user.staffId;
+    }
+
+    const whereClause = { status: 'Active' };
+    if (targetStaffId) {
+      whereClause.staffId = targetStaffId;
+    }
+
     // 1. Fetch active employees
     const employees = await prisma.employee.findMany({
-      where: { status: 'Active' },
+      where: whereClause,
       select: {
         staffId: true,
         nameEn: true,

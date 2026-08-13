@@ -1,40 +1,46 @@
 import 'dart:convert';
-import 'dart:io' show Platform;
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart' show kIsWeb, defaultTargetPlatform, TargetPlatform;
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 class ApiService {
   // Candidate API base URLs for dynamic environment resolution
   static List<String> get _candidateBaseUrls {
-    const String currentWifiIp = '192.168.88.16'; // Current Wi-Fi IPv4 Address
-    const String fallbackIp = '192.168.88.139';    // Previous Wi-Fi IPv4 Address
+    const String currentWifiIp = '192.168.88.86'; // Current Wi-Fi IPv4 Address
     if (kIsWeb) {
+      final String webHost = Uri.base.host.isNotEmpty ? Uri.base.host : 'localhost';
       return [
+        'http://$webHost:5050/api',
+        'http://$webHost:8080/api',
         'http://localhost:5050/api',
         'http://127.0.0.1:5050/api',
+        'http://localhost:8080/api',
+        'http://127.0.0.1:8080/api',
         'http://$currentWifiIp:5050/api',
-        'http://$fallbackIp:5050/api',
+        'http://$currentWifiIp:8080/api',
       ];
     }
     try {
-      if (Platform.isAndroid) {
+      if (defaultTargetPlatform == TargetPlatform.android) {
         return [
           'http://10.0.2.2:5050/api',        // Android Emulator -> Node backend (Port 5050)
+          'http://10.0.2.2:8080/api',        // Android Emulator -> Spring/Node backend (Port 8080)
           'http://$currentWifiIp:5050/api', // Physical Device on LAN -> Node backend (Port 5050)
-          'http://$fallbackIp:5050/api',    // Fallback LAN IP -> Node backend (Port 5050)
+          'http://$currentWifiIp:8080/api', // Physical Device on LAN -> Spring/Node backend (Port 8080)
           'http://127.0.0.1:5050/api',
-          'http://10.0.2.2:8080/api',
-          'http://$currentWifiIp:8080/api',
+          'http://127.0.0.1:8080/api',
         ];
       }
     } catch (_) {}
     return [
       'http://10.0.2.2:5050/api',
+      'http://10.0.2.2:8080/api',
       'http://$currentWifiIp:5050/api',
+      'http://$currentWifiIp:8080/api',
       'http://127.0.0.1:5050/api',
+      'http://127.0.0.1:8080/api',
       'http://localhost:5050/api',
-      'http://$fallbackIp:5050/api',
+      'http://localhost:8080/api',
     ];
   }
 
@@ -109,6 +115,30 @@ class ApiService {
       }
     }
     return {'success': false, 'message': 'Unable to connect to database server. Please verify backend is running at port 5050.'};
+  }
+
+  static Future<Map<String, dynamic>> loginWithQRCode(String qrToken) async {
+    final body = jsonEncode({'qrToken': qrToken});
+    final response = await _requestWithFallback(
+      (url, headers) => http.post(
+        Uri.parse('$url/auth/login-qr'),
+        headers: {'Content-Type': 'application/json'},
+        body: body,
+      ),
+    );
+
+    if (response != null) {
+      final data = jsonDecode(response.body);
+      if (response.statusCode == 200 && data['token'] != null) {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString('auth_token', data['token']);
+        await prefs.setString('user_data', jsonEncode(data['user'] ?? {}));
+        return {'success': true, 'user': data['user'], 'token': data['token']};
+      } else {
+        return {'success': false, 'message': data['message'] ?? 'Invalid or expired QR code'};
+      }
+    }
+    return {'success': false, 'message': 'Unable to connect to database server.'};
   }
 
   // --- Attendance APIs ---
@@ -232,6 +262,23 @@ class ApiService {
     return [];
   }
 
+  static Future<List<dynamic>> fetchLeaveBalances({String? staffId}) async {
+    final query = (staffId != null && staffId.isNotEmpty) ? '?staffId=$staffId' : '';
+    final response = await _requestWithFallback(
+      (url, headers) => http.get(
+        Uri.parse('$url/leave-limits$query'),
+        headers: headers,
+      ),
+    );
+
+    if (response != null && response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+      if (data is List) return data;
+      if (data['data'] != null && data['data'] is List) return data['data'];
+    }
+    return [];
+  }
+
   static Future<List<dynamic>> fetchLeaveTypes() async {
     final response = await _requestWithFallback(
       (url, headers) => http.get(
@@ -299,4 +346,3 @@ class ApiService {
     return [];
   }
 }
-

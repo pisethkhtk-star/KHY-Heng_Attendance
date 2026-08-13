@@ -107,13 +107,34 @@ export const loginWithQRCode = async (req, res) => {
   }
 
   try {
-    const staffId = verifySecureToken(qrToken);
+    const cleanToken = qrToken.trim();
+    let staffId = verifySecureToken(cleanToken);
+
+    // 1. If not a signed HMAC token, check if it's an active token stored in DB
     if (!staffId) {
-      return res.status(400).json({ message: 'Invalid or expired QR code badge' });
+      const qrRecord = await prisma.employeeQRCode.findFirst({
+        where: { qrToken: cleanToken, isActive: true }
+      });
+      if (qrRecord) {
+        staffId = qrRecord.staffId;
+      }
     }
 
-    const employee = await prisma.employee.findUnique({
-      where: { staffId },
+    // 2. If still not resolved, reject the request as invalid QR code
+    if (!staffId) {
+      return res.status(401).json({ message: 'លេខកូដ QR មិនត្រឹមត្រូវ ឬអស់សុពលភាព (Invalid or expired QR code)' });
+    }
+
+    // 3. Find employee by staffId, email, or id (safely checking if it is a valid UUID before querying id field)
+    const isValidUuid = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(staffId);
+    const employee = await prisma.employee.findFirst({
+      where: {
+        OR: [
+          { staffId: { equals: staffId, mode: 'insensitive' } },
+          { email: { equals: staffId, mode: 'insensitive' } },
+          ...(isValidUuid ? [{ id: staffId }] : [])
+        ]
+      },
       include: {
         department: {
           select: { nameEn: true, nameKh: true }
@@ -125,7 +146,7 @@ export const loginWithQRCode = async (req, res) => {
     });
 
     if (!employee) {
-      return res.status(401).json({ message: 'Employee not found' });
+      return res.status(401).json({ message: 'រកមិនឃើញគណនីបុគ្គលិកតាមរយៈ QR Code នេះឡើយ (Employee not found for this QR)' });
     }
 
     if (employee.status !== 'Active') {
@@ -134,7 +155,7 @@ export const loginWithQRCode = async (req, res) => {
 
     const token = jwt.sign(
       { id: employee.id, staffId: employee.staffId, role: employee.role },
-      process.env.JWT_SECRET,
+      process.env.JWT_SECRET || 'attendance_secret_hash_key_123',
       { expiresIn: '7d' }
     );
 

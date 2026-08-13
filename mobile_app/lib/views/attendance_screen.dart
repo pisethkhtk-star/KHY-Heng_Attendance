@@ -137,7 +137,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                                 Container(
                                   padding: const EdgeInsets.all(8),
                                   decoration: BoxDecoration(
-                                    color: AppColors.primary.withOpacity(0.12),
+                                    color: AppColors.primary.withValues(alpha: 0.12),
                                     borderRadius: BorderRadius.circular(10),
                                   ),
                                   child: const Icon(LucideIcons.calendarCheck, color: AppColors.primary, size: 20),
@@ -168,7 +168,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                         Container(
                           padding: const EdgeInsets.all(12),
                           decoration: BoxDecoration(
-                            color: isDark ? Colors.black.withOpacity(0.3) : Colors.grey.shade100,
+                            color: isDark ? Colors.black.withValues(alpha: 0.3) : Colors.grey.shade100,
                             borderRadius: BorderRadius.circular(12),
                             border: Border.all(color: isDark ? AppColors.borderDark : AppColors.borderLight),
                           ),
@@ -210,12 +210,11 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                                           ],
                                         ),
                                         const SizedBox(height: 6),
-                                        Wrap(
-                                          spacing: 8,
-                                          runSpacing: 4,
+                                        Row(
                                           children: [
-                                            if (hasCheckIn1) _buildSessionPill('Check-in 1', record.checkIn1!, AppColors.success),
-                                            if (hasCheckOut1) _buildSessionPill('Check-out 1', record.checkOut1!, AppColors.danger),
+                                            _buildSessionPill('Check-in 1', hasCheckIn1 ? record.checkIn1! : '--:--', AppColors.success),
+                                            const SizedBox(width: 8),
+                                            _buildSessionPill('Check-out 1', hasCheckOut1 ? record.checkOut1! : '--:--', AppColors.danger),
                                           ],
                                         ),
                                       ],
@@ -239,12 +238,11 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                                           ],
                                         ),
                                         const SizedBox(height: 6),
-                                        Wrap(
-                                          spacing: 8,
-                                          runSpacing: 4,
+                                        Row(
                                           children: [
-                                            if (hasCheckIn2) _buildSessionPill('Check-in 2', record.checkIn2!, AppColors.success),
-                                            if (hasCheckOut2) _buildSessionPill('Check-out 2', record.checkOut2!, AppColors.danger),
+                                            _buildSessionPill('Check-in 2', hasCheckIn2 ? record.checkIn2! : '--:--', AppColors.success),
+                                            const SizedBox(width: 8),
+                                            _buildSessionPill('Check-out 2', hasCheckOut2 ? record.checkOut2! : '--:--', AppColors.danger),
                                           ],
                                         ),
                                       ],

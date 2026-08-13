@@ -81,6 +81,28 @@ class AuthController extends GetxController {
     }
   }
 
+  Future<bool> loginWithQRCode(String qrToken) async {
+    _isLoading.value = true;
+    _errorMessage.value = null;
+
+    final result = await ApiService.loginWithQRCode(qrToken);
+
+    _isLoading.value = false;
+    if (result['success'] == true) {
+      _user.value = UserModel.fromJson(result['user'] ?? {});
+      _isAuthenticated.value = true;
+      _errorMessage.value = null;
+
+      await fetchBranchLocationsFromDb();
+      return true;
+    } else {
+      _isAuthenticated.value = false;
+      _user.value = null;
+      _errorMessage.value = result['message'] ?? 'Invalid or expired QR code';
+      return false;
+    }
+  }
+
   Future<void> logout() async {
     _isAuthenticated.value = false;
     _user.value = null;
