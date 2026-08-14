@@ -13,6 +13,7 @@ import {
   Cog6ToothIcon,
 } from '@heroicons/react/24/outline';
 import { LOGO_TEXT } from '../utils/constants';
+import appIcon from '../assets/app_icon.png';
 
 const Sidebar = ({ isOpen, toggleSidebar }) => {
   const { user, hasPermission } = useAuth();
@@ -144,9 +145,7 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
       {/* Brand Header */}
       <div className="flex h-20 items-center justify-between px-6 border-b border-[var(--border-card)] bg-[var(--bg-card)]">
         <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[var(--brand-blue)] text-white shadow-md shadow-[var(--brand-blue)]/20">
-            <ClockIcon className="h-6 w-6" />
-          </div>
+          <img src={appIcon} alt="HR Chomnan Logo" className="h-10 w-10 rounded-xl object-cover shadow-md shadow-[var(--brand-blue)]/10" />
           <span className="text-xl font-black text-[var(--text-primary)] tracking-wide font-sans">
             {LOGO_TEXT}<span className="text-[var(--brand-blue)]">.</span>
           </span>

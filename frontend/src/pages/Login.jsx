@@ -3,6 +3,7 @@ import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
 import { ClockIcon } from '@heroicons/react/24/outline';
 import { Navigate } from 'react-router-dom';
+import appIcon from '../assets/app_icon.png';
 import { Html5Qrcode } from 'html5-qrcode';
 
 const Login = () => {
@@ -121,9 +122,7 @@ const Login = () => {
         <div className="bg-[var(--bg-card)] border border-[var(--border-card)] p-8 rounded-[25px] shadow-sm glow-indigo">
           {/* Logo & Header */}
           <div className="flex flex-col items-center">
-            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[var(--brand-blue)] text-white shadow-lg shadow-[var(--brand-blue)]/20">
-              <ClockIcon className="h-7 w-7 text-white animate-pulse" />
-            </div>
+            <img src={appIcon} alt="HR Chomnan Logo" className="h-12 w-12 rounded-2xl object-cover shadow-lg shadow-[var(--brand-blue)]/20" />
             <h2 className="mt-6 text-center text-2xl font-bold tracking-tight text-[var(--text-primary)] font-khmer">
               {locale === 'kh' ? 'Attendance Management' : 'Employee Attendance'}
             </h2>
