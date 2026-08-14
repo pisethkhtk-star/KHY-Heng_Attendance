@@ -218,11 +218,10 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                                           ],
                                         ),
                                         const SizedBox(height: 6),
-                                        Wrap(
-                                          spacing: 8,
-                                          runSpacing: 4,
+                                        Column(
                                           children: [
                                             _buildSessionPill('Check-in 1', hasCheckIn1 ? record.checkIn1! : '--:--', AppColors.success),
+                                            const SizedBox(height: 6),
                                             _buildSessionPill('Check-out 1', hasCheckOut1 ? record.checkOut1! : '--:--', AppColors.danger),
                                           ],
                                         ),
@@ -247,11 +246,10 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                                           ],
                                         ),
                                         const SizedBox(height: 6),
-                                        Wrap(
-                                          spacing: 8,
-                                          runSpacing: 4,
+                                        Column(
                                           children: [
                                             _buildSessionPill('Check-in 2', hasCheckIn2 ? record.checkIn2! : '--:--', AppColors.success),
+                                            const SizedBox(height: 6),
                                             _buildSessionPill('Check-out 2', hasCheckOut2 ? record.checkOut2! : '--:--', AppColors.danger),
                                           ],
                                         ),
@@ -294,7 +292,9 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
 
   Widget _buildSessionPill(String label, String time, Color color) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      width: double.infinity,
+      alignment: Alignment.center,
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(6),
