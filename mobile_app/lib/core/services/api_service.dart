@@ -6,7 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 class ApiService {
   // Candidate API base URLs for dynamic environment resolution
   static List<String> get _candidateBaseUrls {
-    const String currentWifiIp = '192.168.88.86'; // Current Wi-Fi IPv4 Address
+    const String currentWifiIp = '192.168.88.225'; // Current Wi-Fi IPv4 Address
     if (kIsWeb) {
       final String webHost = Uri.base.host.isNotEmpty ? Uri.base.host : 'localhost';
       return [
@@ -46,6 +46,17 @@ class ApiService {
 
   static String baseUrl = _candidateBaseUrls.first;
 
+  /// Load remembered base URL on launch
+  static Future<void> initBaseUrl() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final savedUrl = prefs.getString('working_base_url');
+      if (savedUrl != null && savedUrl.isNotEmpty) {
+        baseUrl = savedUrl;
+      }
+    } catch (_) {}
+  }
+
   static Future<Map<String, String>> _getHeaders() async {
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString('auth_token');
@@ -61,11 +72,30 @@ class ApiService {
     Future<http.Response> Function(String url, Map<String, String> headers) reqFn,
   ) async {
     final headers = await _getHeaders();
+
+    // 1. Try last known working URL first
+    if (baseUrl.isNotEmpty) {
+      try {
+        final res = await reqFn(baseUrl, headers).timeout(const Duration(seconds: 3));
+        if (res.statusCode >= 200 && res.statusCode < 500) {
+          return res;
+        }
+      } catch (_) {
+        // Last known working failed, fallback to candidate list
+      }
+    }
+
+    // 2. Loop through all candidates to find a working one
     for (final candidate in _candidateBaseUrls) {
+      if (candidate == baseUrl) continue; // Already tried
       try {
         final res = await reqFn(candidate, headers).timeout(const Duration(seconds: 3));
         if (res.statusCode >= 200 && res.statusCode < 500) {
           baseUrl = candidate; // Remember working host
+          try {
+            final prefs = await SharedPreferences.getInstance();
+            await prefs.setString('working_base_url', candidate);
+          } catch (_) {}
           return res;
         }
       } catch (_) {
@@ -266,7 +296,7 @@ class ApiService {
     final query = (staffId != null && staffId.isNotEmpty) ? '?staffId=$staffId' : '';
     final response = await _requestWithFallback(
       (url, headers) => http.get(
-        Uri.parse('$url/leave-limits$query'),
+        Uri.parse('$url/employee-leave-limits$query'),
         headers: headers,
       ),
     );

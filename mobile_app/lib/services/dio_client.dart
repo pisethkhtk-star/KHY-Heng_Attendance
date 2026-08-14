@@ -9,7 +9,7 @@ class DioClient {
   // Android Emulator uses 10.0.2.2
   // Desktop/Web uses 192.168.88.139 or localhost
   static String get baseUrl {
-    const String localIp = '192.168.88.86';
+    const String localIp = '192.168.88.225';
     if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
       return 'http://$localIp:8080/api';
     }

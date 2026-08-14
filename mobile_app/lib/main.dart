@@ -6,10 +6,12 @@ import 'controllers/theme_controller.dart';
 import 'controllers/auth_controller.dart';
 import 'controllers/attendance_controller.dart';
 import 'controllers/leave_controller.dart';
+import 'core/services/api_service.dart';
 import 'views/splash_screen.dart';
 
-void main() {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await ApiService.initBaseUrl();
   
   // Register GetX Controllers globally
   Get.put(LanguageController());
