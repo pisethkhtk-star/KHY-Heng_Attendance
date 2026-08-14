@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
@@ -11,6 +12,24 @@ import 'login_screen.dart';
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
 
+  ImageProvider? _getAvatarImage(String? avatarUrl) {
+    if (avatarUrl == null || avatarUrl.trim().isEmpty) return null;
+    try {
+      if (avatarUrl.startsWith('data:image') && avatarUrl.contains('base64,')) {
+        final base64String = avatarUrl.split('base64,')[1].trim();
+        final bytes = base64Decode(base64String);
+        return MemoryImage(bytes);
+      }
+      if (avatarUrl.startsWith('http') || avatarUrl.startsWith('https')) {
+        return NetworkImage(avatarUrl);
+      }
+      final bytes = base64Decode(avatarUrl.trim());
+      return MemoryImage(bytes);
+    } catch (_) {
+      return null;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final authController = Get.find<AuthController>();
@@ -21,6 +40,7 @@ class ProfileScreen extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
       child: Obx(() {
         final user = authController.user;
+        final avatarImage = _getAvatarImage(user?.avatarUrl);
 
         return Column(
           children: [
@@ -32,10 +52,13 @@ class ProfileScreen extends StatelessWidget {
                   CircleAvatar(
                     radius: 40,
                     backgroundColor: AppColors.primary,
-                    child: Text(
-                      user?.name.substring(0, 1).toUpperCase() ?? 'U',
-                      style: const TextStyle(color: Colors.white, fontSize: 36, fontWeight: FontWeight.bold),
-                    ),
+                    backgroundImage: avatarImage,
+                    child: avatarImage == null
+                        ? Text(
+                            user?.name.substring(0, 1).toUpperCase() ?? 'U',
+                            style: const TextStyle(color: Colors.white, fontSize: 36, fontWeight: FontWeight.bold),
+                          )
+                        : null,
                   ),
                   const SizedBox(height: 12),
                   Text(

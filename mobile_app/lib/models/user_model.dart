@@ -55,7 +55,7 @@ class UserModel {
       department: parsedDept,
       position: parsedPos,
       branch: parsedBranch,
-      avatarUrl: json['avatarUrl'] ?? json['photo'] ?? '',
+      avatarUrl: json['avatarUrl'] ?? json['photoUrl'] ?? json['photo'] ?? '',
       shiftName: json['shiftName'] ?? 'Standard Day Shift (08:00 AM - 05:00 PM)',
       shiftStartTime: json['shiftStartTime'] ?? '08:00 AM',
       shiftEndTime: json['shiftEndTime'] ?? '05:00 PM',

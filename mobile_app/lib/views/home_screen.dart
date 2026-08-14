@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
@@ -17,6 +18,24 @@ class HomeScreen extends StatelessWidget {
 
   const HomeScreen({super.key, required this.onTabSelected});
 
+  ImageProvider? _getAvatarImage(String? avatarUrl) {
+    if (avatarUrl == null || avatarUrl.trim().isEmpty) return null;
+    try {
+      if (avatarUrl.startsWith('data:image') && avatarUrl.contains('base64,')) {
+        final base64String = avatarUrl.split('base64,')[1].trim();
+        final bytes = base64Decode(base64String);
+        return MemoryImage(bytes);
+      }
+      if (avatarUrl.startsWith('http') || avatarUrl.startsWith('https')) {
+        return NetworkImage(avatarUrl);
+      }
+      final bytes = base64Decode(avatarUrl.trim());
+      return MemoryImage(bytes);
+    } catch (_) {
+      return null;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final authController = Get.find<AuthController>();
@@ -32,15 +51,19 @@ class HomeScreen extends StatelessWidget {
           // User Greeting Header
           Obx(() {
             final user = authController.user;
+            final avatarImage = _getAvatarImage(user?.avatarUrl);
             return Row(
               children: [
                 CircleAvatar(
                   radius: 26,
                   backgroundColor: AppColors.primaryLight,
-                  child: Text(
-                    user?.name.substring(0, 1).toUpperCase() ?? 'U',
-                    style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold),
-                  ),
+                  backgroundImage: avatarImage,
+                  child: avatarImage == null
+                      ? Text(
+                          user?.name.substring(0, 1).toUpperCase() ?? 'U',
+                          style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold),
+                        )
+                      : null,
                 ),
                 const SizedBox(width: 14),
                 Expanded(
