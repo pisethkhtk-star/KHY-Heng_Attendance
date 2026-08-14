@@ -132,32 +132,40 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            Row(
-                              children: [
-                                Container(
-                                  padding: const EdgeInsets.all(8),
-                                  decoration: BoxDecoration(
-                                    color: AppColors.primary.withValues(alpha: 0.12),
-                                    borderRadius: BorderRadius.circular(10),
-                                  ),
-                                  child: const Icon(LucideIcons.calendarCheck, color: AppColors.primary, size: 20),
-                                ),
-                                const SizedBox(width: 10),
-                                Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      record.date,
-                                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                            Expanded(
+                              child: Row(
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.all(8),
+                                    decoration: BoxDecoration(
+                                      color: AppColors.primary.withValues(alpha: 0.12),
+                                      borderRadius: BorderRadius.circular(10),
                                     ),
-                                    if (record.staffId.isNotEmpty)
-                                      Text(
-                                        'Staff ID: ${record.staffId} ${record.employeeName.isNotEmpty ? "• ${record.employeeName}" : ""}',
-                                        style: const TextStyle(fontSize: 11, color: AppColors.primary, fontWeight: FontWeight.w600),
-                                      ),
-                                  ],
-                                ),
-                              ],
+                                    child: const Icon(LucideIcons.calendarCheck, color: AppColors.primary, size: 20),
+                                  ),
+                                  const SizedBox(width: 10),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          record.date,
+                                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                        if (record.staffId.isNotEmpty)
+                                          Text(
+                                            'Staff ID: ${record.staffId} ${record.employeeName.isNotEmpty ? "• ${record.employeeName}" : ""}',
+                                            style: const TextStyle(fontSize: 11, color: AppColors.primary, fontWeight: FontWeight.w600),
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
                             StatusBadge(status: record.status, label: record.status),
                           ],
@@ -210,10 +218,11 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                                           ],
                                         ),
                                         const SizedBox(height: 6),
-                                        Row(
+                                        Wrap(
+                                          spacing: 8,
+                                          runSpacing: 4,
                                           children: [
                                             _buildSessionPill('Check-in 1', hasCheckIn1 ? record.checkIn1! : '--:--', AppColors.success),
-                                            const SizedBox(width: 8),
                                             _buildSessionPill('Check-out 1', hasCheckOut1 ? record.checkOut1! : '--:--', AppColors.danger),
                                           ],
                                         ),
@@ -238,10 +247,11 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                                           ],
                                         ),
                                         const SizedBox(height: 6),
-                                        Row(
+                                        Wrap(
+                                          spacing: 8,
+                                          runSpacing: 4,
                                           children: [
                                             _buildSessionPill('Check-in 2', hasCheckIn2 ? record.checkIn2! : '--:--', AppColors.success),
-                                            const SizedBox(width: 8),
                                             _buildSessionPill('Check-out 2', hasCheckOut2 ? record.checkOut2! : '--:--', AppColors.danger),
                                           ],
                                         ),
