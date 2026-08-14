@@ -15,7 +15,9 @@ import '../core/constants/app_colors.dart';
 import '../controllers/language_controller.dart';
 import '../controllers/attendance_controller.dart';
 import '../controllers/auth_controller.dart';
-import '../core/services/api_service.dart';
+import '../repositories/auth_repository.dart';
+import '../repositories/attendance_repository.dart';
+import '../models/attendance_model.dart';
 
 class ScannerModalSheet extends StatefulWidget {
   final int initialTab; // 0: QR, 1: My Badge
@@ -34,6 +36,9 @@ class ScannerModalSheet extends StatefulWidget {
 }
 
 class _ScannerModalSheetState extends State<ScannerModalSheet> with WidgetsBindingObserver {
+  final IAuthRepository _authRepository = Get.find<IAuthRepository>();
+  final IAttendanceRepository _attendanceRepository = Get.find<IAttendanceRepository>();
+
   final TextEditingController _customQrController = TextEditingController();
   final TextEditingController _reasonController = TextEditingController();
   final TextEditingController _behalfStaffIdController = TextEditingController();
@@ -269,8 +274,8 @@ class _ScannerModalSheetState extends State<ScannerModalSheet> with WidgetsBindi
     }
 
     try {
-      final meResult = await ApiService.getMe();
-      if (meResult['success'] == true && meResult['user'] != null && mounted) {
+      final meResult = await _authRepository.getMe();
+      if (meResult.success && meResult.user != null && mounted) {
         final authController = Get.find<AuthController>();
         authController.checkSavedSession();
       }
@@ -287,7 +292,7 @@ class _ScannerModalSheetState extends State<ScannerModalSheet> with WidgetsBindi
         _allKioskSettings = List<Map<String, dynamic>>.from(authController.branchSettings);
       }
       try {
-        final settingsRaw = await ApiService.fetchKioskSettings();
+        final settingsRaw = await _authRepository.fetchKioskSettings();
         _allKioskSettings = settingsRaw.map((s) => Map<String, dynamic>.from(s)).toList();
         _hasFetchedInitially = true;
       } catch (_) {
@@ -436,17 +441,17 @@ class _ScannerModalSheetState extends State<ScannerModalSheet> with WidgetsBindi
     });
 
     try {
-      final historyRecords = await ApiService.fetchHistoryRecords(staffId: staffId);
+      final historyRecords = await _attendanceRepository.fetchHistoryRecords(staffId: staffId);
 
       // Find today's date string YYYY-MM-DD
       final now = DateTime.now();
       final todayStr = DateFormat('yyyy-MM-dd').format(now);
 
-      Map<String, dynamic>? todayRecord;
+      AttendanceRecord? todayRecord;
       for (final item in historyRecords) {
-        final dateVal = (item['attendanceDate'] ?? item['date'] ?? '').toString();
+        final dateVal = item.rawDate.isNotEmpty ? item.rawDate : item.date;
         if (dateVal.contains(todayStr)) {
-          todayRecord = Map<String, dynamic>.from(item);
+          todayRecord = item;
           break;
         }
       }
@@ -470,10 +475,10 @@ class _ScannerModalSheetState extends State<ScannerModalSheet> with WidgetsBindi
       final s2StartMinutes = timeToMinutes('13:00');
       final s2EndMinutes = timeToMinutes('17:00');
 
-      final checkin1 = todayRecord?['checkin1'] ?? todayRecord?['checkIn1'];
-      final checkout1 = todayRecord?['checkout1'] ?? todayRecord?['checkOut1'];
-      final checkin2 = todayRecord?['checkin2'] ?? todayRecord?['checkIn2'];
-      final checkout2 = todayRecord?['checkout2'] ?? todayRecord?['checkOut2'];
+      final checkin1 = todayRecord?.checkIn1;
+      final checkout1 = todayRecord?.checkOut1;
+      final checkin2 = todayRecord?.checkIn2;
+      final checkout2 = todayRecord?.checkOut2;
 
       String determinedAction = 'checkin_1';
 
@@ -807,7 +812,7 @@ class _ScannerModalSheetState extends State<ScannerModalSheet> with WidgetsBindi
             : (_matchedBranchToken ?? 'branch_qr:default'));
 
     if (_allKioskSettings.isEmpty) {
-      final settingsRaw = await ApiService.fetchKioskSettings();
+      final settingsRaw = await _authRepository.fetchKioskSettings();
       _allKioskSettings = settingsRaw.map((s) => Map<String, dynamic>.from(s)).toList();
     }
 
@@ -877,7 +882,7 @@ class _ScannerModalSheetState extends State<ScannerModalSheet> with WidgetsBindi
       _isSuccess = false;
     });
 
-    final result = await ApiService.scanQRCode(
+    final result = await _attendanceRepository.scanQRCode(
       tokenToScan,
       lat: _clientLat,
       lng: _clientLng,

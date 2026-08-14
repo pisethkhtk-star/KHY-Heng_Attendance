@@ -2,9 +2,11 @@ import 'dart:convert';
 import 'package:get/get.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/user_model.dart';
-import '../core/services/api_service.dart';
+import '../repositories/auth_repository.dart';
 
 class AuthController extends GetxController {
+  final IAuthRepository _authRepository = Get.find<IAuthRepository>();
+
   final Rxn<UserModel> _user = Rxn<UserModel>();
   final RxBool _isAuthenticated = false.obs;
   final RxBool _isLoading = false.obs;
@@ -26,7 +28,7 @@ class AuthController extends GetxController {
   /// Immediately fetch branch location settings from Database upon login/session load
   Future<void> fetchBranchLocationsFromDb() async {
     try {
-      final settingsRaw = await ApiService.fetchKioskSettings();
+      final settingsRaw = await _authRepository.fetchKioskSettings();
       _branchSettings.value = settingsRaw.map((s) => Map<String, dynamic>.from(s)).toList();
       
       final prefs = await SharedPreferences.getInstance();
@@ -56,9 +58,9 @@ class AuthController extends GetxController {
         _isAuthenticated.value = true;
 
         // Fetch live updated profile & branch from database
-        final meResult = await ApiService.getMe();
-        if (meResult['success'] == true && meResult['user'] != null) {
-          _user.value = UserModel.fromJson(meResult['user']);
+        final meResult = await _authRepository.getMe();
+        if (meResult.success && meResult.user != null) {
+          _user.value = meResult.user;
         }
         await fetchBranchLocationsFromDb();
       } catch (_) {
@@ -75,11 +77,11 @@ class AuthController extends GetxController {
     _isLoading.value = true;
     _errorMessage.value = null;
 
-    final result = await ApiService.login(email, password);
+    final result = await _authRepository.login(email, password);
 
     _isLoading.value = false;
-    if (result['success'] == true) {
-      _user.value = UserModel.fromJson(result['user'] ?? {});
+    if (result.success) {
+      _user.value = result.user;
       _isAuthenticated.value = true;
       _errorMessage.value = null;
 
@@ -89,7 +91,7 @@ class AuthController extends GetxController {
     } else {
       _isAuthenticated.value = false;
       _user.value = null;
-      _errorMessage.value = result['message'] ?? 'Invalid email or password';
+      _errorMessage.value = result.message ?? 'Invalid email or password';
       return false;
     }
   }
@@ -98,11 +100,11 @@ class AuthController extends GetxController {
     _isLoading.value = true;
     _errorMessage.value = null;
 
-    final result = await ApiService.loginWithQRCode(qrToken);
+    final result = await _authRepository.loginWithQRCode(qrToken);
 
     _isLoading.value = false;
-    if (result['success'] == true) {
-      _user.value = UserModel.fromJson(result['user'] ?? {});
+    if (result.success) {
+      _user.value = result.user;
       _isAuthenticated.value = true;
       _errorMessage.value = null;
 
@@ -111,7 +113,7 @@ class AuthController extends GetxController {
     } else {
       _isAuthenticated.value = false;
       _user.value = null;
-      _errorMessage.value = result['message'] ?? 'Invalid or expired QR code';
+      _errorMessage.value = result.message ?? 'Invalid or expired QR code';
       return false;
     }
   }

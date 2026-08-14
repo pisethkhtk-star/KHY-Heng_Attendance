@@ -1,8 +1,10 @@
 import 'package:get/get.dart';
 import '../models/leave_model.dart';
-import '../core/services/api_service.dart';
+import '../repositories/leave_repository.dart';
 
 class LeaveController extends GetxController {
+  final ILeaveRepository _leaveRepository = Get.find<ILeaveRepository>();
+
   final RxList<LeaveBalance> _balances = <LeaveBalance>[].obs;
   final RxList<LeaveItem> _leaveRequests = <LeaveItem>[].obs;
   final RxBool _isSubmitting = false.obs;
@@ -19,21 +21,11 @@ class LeaveController extends GetxController {
 
   Future<void> fetchRemoteLeaves({String? staffId}) async {
     try {
-      final remoteItems = await ApiService.fetchLeaveRequests(staffId: staffId);
-      final limitData = await ApiService.fetchLeaveBalances(staffId: staffId);
-      final leaveTypesRaw = await ApiService.fetchLeaveTypes();
+      final remoteItems = await _leaveRepository.fetchLeaveRequests(staffId: staffId);
+      final limitData = await _leaveRepository.fetchLeaveBalances(staffId: staffId);
+      final leaveTypesRaw = await _leaveRepository.fetchLeaveTypes();
 
-      if (remoteItems.isNotEmpty) {
-        try {
-          final parsed = remoteItems.map((json) => LeaveItem.fromJson(json)).toList();
-          _leaveRequests.value = parsed;
-        } catch (e) {
-          print('Error parsing leave requests: $e');
-          _leaveRequests.value = [];
-        }
-      } else {
-        _leaveRequests.value = [];
-      }
+      _leaveRequests.value = remoteItems;
 
       // 1. Try to load leave balances directly from database allowances
       if (limitData.isNotEmpty) {
@@ -122,7 +114,7 @@ class LeaveController extends GetxController {
   }) async {
     _isSubmitting.value = true;
 
-    final result = await ApiService.submitLeaveRequest(
+    final result = await _leaveRepository.submitLeaveRequest(
       leaveType: type,
       startDate: startDate,
       endDate: endDate,
@@ -154,7 +146,7 @@ class LeaveController extends GetxController {
 
   Future<Map<String, dynamic>> cancelLeave(String id, {String? staffId}) async {
     _isSubmitting.value = true;
-    final result = await ApiService.cancelLeaveRequest(id);
+    final result = await _leaveRepository.cancelLeaveRequest(id);
     if (result['success'] == true) {
       await fetchRemoteLeaves(staffId: staffId);
     }

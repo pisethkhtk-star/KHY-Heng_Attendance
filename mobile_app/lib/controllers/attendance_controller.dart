@@ -1,9 +1,11 @@
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
 import '../models/attendance_model.dart';
-import '../core/services/api_service.dart';
+import '../repositories/attendance_repository.dart';
 
 class AttendanceController extends GetxController {
+  final IAttendanceRepository _attendanceRepository = Get.find<IAttendanceRepository>();
+
   final RxInt _currentStep = 0.obs; // 0: Check-In 1, 1: Check-Out 1, 2: Check-In 2, 3: Check-Out 2, 4: Done
   final RxnString _checkIn1 = RxnString();
   final RxnString _checkOut1 = RxnString();
@@ -40,13 +42,8 @@ class AttendanceController extends GetxController {
   }
 
   Future<void> fetchRemoteHistory({String? staffId}) async {
-    final remoteData = await ApiService.fetchHistoryRecords(staffId: staffId);
-    if (remoteData.isNotEmpty) {
-      final parsed = remoteData.map((json) => AttendanceRecord.fromJson(json)).toList();
-      _historyRecords.value = parsed;
-    } else {
-      _historyRecords.value = [];
-    }
+    final parsed = await _attendanceRepository.fetchHistoryRecords(staffId: staffId);
+    _historyRecords.value = parsed;
 
     _presentCount.value = _historyRecords.where((r) => r.status == 'Present').length;
     _lateCount.value = _historyRecords.where((r) => r.status == 'Late').length;
@@ -155,7 +152,7 @@ class AttendanceController extends GetxController {
         break;
     }
 
-    await ApiService.logCheckInOut(actionStr, staffId: staffId);
+    await _attendanceRepository.logCheckInOut(actionStr, staffId: staffId);
     _upsertTodayRecord(todayStr, staffId);
 
     _isProcessing.value = false;
