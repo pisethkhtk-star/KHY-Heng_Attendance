@@ -57,6 +57,14 @@ class AppTranslations {
       'english': 'English 🇬🇧',
       'logout': 'Sign Out',
       'confirm_logout': 'Are you sure you want to log out?',
+      'cancel_leave_title': 'Cancel Request',
+      'cancel_leave_confirm': 'Are you sure you want to cancel this pending leave request?',
+      'cancel_leave_success': 'Leave request cancelled successfully',
+      'cancel_leave_failed': 'Failed to cancel leave request',
+      'yes_cancel': 'Yes, Cancel',
+      'no': 'No',
+      'success': 'Success',
+      'error': 'Error',
 
       // Scanner translations
       'scanner_title': 'Attendance Scanner',
@@ -128,6 +136,14 @@ class AppTranslations {
       'english': 'English 🇬🇧',
       'logout': 'ចាកចេញពីប្រព័ន្ធ',
       'confirm_logout': 'តើអ្នកប្រាកដជាចង់ចាកចេញពីប្រព័ន្ធមែនទេ?',
+      'cancel_leave_title': 'បោះបង់ការស្នើសុំ',
+      'cancel_leave_confirm': 'តើអ្នកប្រាកដជាចង់បោះបង់ការស្នើសុំច្បាប់ដែលកំពុងរង់ចាំនេះមែនទេ?',
+      'cancel_leave_success': 'បានបោះបង់ការស្នើសុំច្បាប់ដោយជោគជ័យ',
+      'cancel_leave_failed': 'មិនអាចបោះបង់ការស្នើសុំច្បាប់បានទេ',
+      'yes_cancel': 'បាទ/ចាស, បោះបង់',
+      'no': 'ទេ',
+      'success': 'ជោគជ័យ',
+      'error': 'កំហុស',
 
       // Scanner translations
       'scanner_title': 'ម៉ាស៊ីនស្កេនវត្តមាន',

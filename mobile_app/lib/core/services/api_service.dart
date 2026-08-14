@@ -359,6 +359,24 @@ class ApiService {
     return {'success': false, 'message': 'Unable to submit leave request to database'};
   }
 
+  static Future<Map<String, dynamic>> cancelLeaveRequest(String id) async {
+    final response = await _requestWithFallback(
+      (url, headers) => http.delete(
+        Uri.parse('$url/leaves/$id'),
+        headers: headers,
+      ),
+    );
+
+    if (response != null) {
+      final data = jsonDecode(response.body);
+      if (response.statusCode == 200) {
+        return {'success': true, 'message': data['message'] ?? 'Leave request cancelled'};
+      }
+      return {'success': false, 'message': data['message'] ?? 'Failed to cancel leave request'};
+    }
+    return {'success': false, 'message': 'Network error during leave cancellation'};
+  }
+
   // --- Geofence Branch Settings ---
   static Future<List<dynamic>> fetchKioskSettings() async {
     final response = await _requestWithFallback(

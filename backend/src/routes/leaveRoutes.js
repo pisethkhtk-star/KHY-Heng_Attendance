@@ -1,5 +1,5 @@
 import express from 'express';
-import { getAll, getByEmployee, create, updateStatus } from '../controllers/leaveController.js';
+import { getAll, getByEmployee, create, updateStatus, deleteLeave } from '../controllers/leaveController.js';
 import { protect, checkPermission } from '../middlewares/auth.js';
 
 const router = express.Router();
@@ -28,5 +28,6 @@ router.post('/', protect, (req, res, next) => {
 }, create);
 
 router.put('/:id/status', protect, checkPermission('leaves'), updateStatus);
+router.delete('/:id', protect, deleteLeave);
 
 export default router;

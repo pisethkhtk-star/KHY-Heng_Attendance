@@ -285,3 +285,37 @@ export const updateStatus = async (req, res) => {
     res.status(500).json({ message: 'Server error processing leave request' });
   }
 };
+
+// Cancel/Delete pending leave request
+export const deleteLeave = async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const leave = await prisma.leave.findUnique({
+      where: { id }
+    });
+
+    if (!leave) {
+      return res.status(404).json({ message: 'Leave request not found' });
+    }
+
+    // Security check: normal employees can only cancel their own leaves
+    if (req.user.role === 'Employee' && leave.staffId !== req.user.staffId) {
+      return res.status(403).json({ message: 'Access denied. You can only cancel your own leave requests.' });
+    }
+
+    // Only allow deletion/cancellation if status is Pending
+    if (leave.status !== 'Pending') {
+      return res.status(400).json({ message: 'You can only cancel pending leave requests.' });
+    }
+
+    await prisma.leave.delete({
+      where: { id }
+    });
+
+    res.json({ success: true, message: 'Leave request cancelled successfully' });
+  } catch (error) {
+    console.error('Delete/Cancel leave request error:', error);
+    res.status(500).json({ message: 'Server error cancelling leave request' });
+  }
+};

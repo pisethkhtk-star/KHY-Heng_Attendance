@@ -152,6 +152,16 @@ class LeaveController extends GetxController {
     return true;
   }
 
+  Future<Map<String, dynamic>> cancelLeave(String id, {String? staffId}) async {
+    _isSubmitting.value = true;
+    final result = await ApiService.cancelLeaveRequest(id);
+    if (result['success'] == true) {
+      await fetchRemoteLeaves(staffId: staffId);
+    }
+    _isSubmitting.value = false;
+    return result;
+  }
+
   void _recalculateLocalBalances() {
     _balances.value = _balances.map((balance) {
       final typeName = balance.typeName.toLowerCase();

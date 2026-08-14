@@ -30,6 +30,67 @@ class _LeaveScreenState extends State<LeaveScreen> {
     Get.find<LeaveController>().fetchRemoteLeaves(staffId: user?.employeeId);
   }
 
+  void _confirmCancelLeave(BuildContext context, String id) {
+    final leaveController = Get.find<LeaveController>();
+    final langController = Get.find<LanguageController>();
+    final user = Get.find<AuthController>().user;
+    
+    showDialog(
+      context: context,
+      builder: (BuildContext ctx) {
+        return AlertDialog(
+          title: Text(langController.tr('cancel_leave_title')),
+          content: Text(langController.tr('cancel_leave_confirm')),
+          actions: [
+            TextButton(
+              child: Text(langController.tr('no')),
+              onPressed: () => Navigator.of(ctx).pop(),
+            ),
+            TextButton(
+              child: Text(
+                langController.tr('yes_cancel'),
+                style: const TextStyle(color: Colors.red),
+              ),
+              onPressed: () async {
+                Navigator.of(ctx).pop();
+                
+                // Show loading spinner
+                showDialog(
+                  context: context,
+                  barrierDismissible: false,
+                  builder: (_) => const Center(child: CircularProgressIndicator(color: AppColors.primary)),
+                );
+                
+                final result = await leaveController.cancelLeave(id, staffId: user?.employeeId);
+                
+                // Close loading spinner
+                if (context.mounted) Navigator.of(context).pop();
+                
+                if (result['success'] == true) {
+                  Get.snackbar(
+                    langController.tr('success'),
+                    langController.tr('cancel_leave_success'),
+                    snackPosition: SnackPosition.BOTTOM,
+                    backgroundColor: Colors.green,
+                    colorText: Colors.white,
+                  );
+                } else {
+                  Get.snackbar(
+                    langController.tr('error'),
+                    result['message'] ?? langController.tr('cancel_leave_failed'),
+                    snackPosition: SnackPosition.BOTTOM,
+                    backgroundColor: Colors.red,
+                    colorText: Colors.white,
+                  );
+                }
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final leaveController = Get.find<LeaveController>();
@@ -171,7 +232,20 @@ class _LeaveScreenState extends State<LeaveScreen> {
                               request.leaveType,
                               style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                             ),
-                            StatusBadge(status: request.status, label: request.status),
+                            Row(
+                              children: [
+                                StatusBadge(status: request.status, label: request.status),
+                                if (request.status.toLowerCase() == 'pending') ...[
+                                  const SizedBox(width: 8),
+                                  IconButton(
+                                    constraints: const BoxConstraints(),
+                                    padding: EdgeInsets.zero,
+                                    icon: const Icon(LucideIcons.trash2, size: 16, color: Colors.red),
+                                    onPressed: () => _confirmCancelLeave(context, request.id),
+                                  ),
+                                ],
+                              ],
+                            ),
                           ],
                         ),
                         const SizedBox(height: 8),
