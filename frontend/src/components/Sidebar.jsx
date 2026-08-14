@@ -12,6 +12,7 @@ import {
   MapPinIcon,
   Cog6ToothIcon,
 } from '@heroicons/react/24/outline';
+import { LOGO_TEXT } from '../utils/constants';
 
 const Sidebar = ({ isOpen, toggleSidebar }) => {
   const { user, hasPermission } = useAuth();
@@ -147,7 +148,7 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
             <ClockIcon className="h-6 w-6" />
           </div>
           <span className="text-xl font-black text-[var(--text-primary)] tracking-wide font-sans">
-            Attendance<span className="text-[var(--brand-blue)]">.</span>
+            {LOGO_TEXT}<span className="text-[var(--brand-blue)]">.</span>
           </span>
         </div>
         <button
