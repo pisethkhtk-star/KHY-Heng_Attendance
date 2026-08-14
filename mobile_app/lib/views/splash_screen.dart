@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
-import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:get/get.dart';
 import '../core/constants/app_colors.dart';
 import '../controllers/auth_controller.dart';
@@ -42,16 +41,13 @@ class _SplashScreenState extends State<SplashScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Container(
-              padding: const EdgeInsets.all(24),
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.15),
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(
-                LucideIcons.userCheck,
-                size: 72,
-                color: Colors.white,
+            ClipRRect(
+              borderRadius: BorderRadius.circular(20),
+              child: Image.asset(
+                'assets/icon/app_icon.png',
+                width: 100,
+                height: 100,
+                fit: BoxFit.cover,
               ),
             )
                 .animate()
@@ -59,7 +55,7 @@ class _SplashScreenState extends State<SplashScreen> {
                 .fade(duration: 400.ms),
             const SizedBox(height: 24),
             const Text(
-              'HR Attendance',
+              'HR chomnan',
               style: TextStyle(
                 fontSize: 32,
                 fontWeight: FontWeight.bold,

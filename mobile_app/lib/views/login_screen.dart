@@ -82,13 +82,14 @@ class _LoginScreenState extends State<LoginScreen> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: AppColors.primary.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(16),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(12),
+                    child: Image.asset(
+                      'assets/icon/app_icon.png',
+                      width: 52,
+                      height: 52,
+                      fit: BoxFit.cover,
                     ),
-                    child: const Icon(LucideIcons.userCheck, size: 36, color: AppColors.primary),
                   ),
                   // Language Switch Button
                   Obx(

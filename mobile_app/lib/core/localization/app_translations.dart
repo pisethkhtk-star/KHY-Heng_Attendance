@@ -1,7 +1,7 @@
 class AppTranslations {
   static const Map<String, Map<String, String>> _localizedValues = {
     'en': {
-      'app_title': 'HR Attendance',
+      'app_title': 'HR chomnan',
       'welcome_back': 'Welcome Back',
       'login_subtitle': 'Sign in to access your attendance dashboard',
       'email': 'Email Address',
@@ -80,7 +80,7 @@ class AppTranslations {
       'enter_code': 'Enter code here...',
     },
     'km': {
-      'app_title': 'ប្រព័ន្ធគ្រប់គ្រងវត្តមាន HR',
+      'app_title': 'HR chomnan',
       'welcome_back': 'សូមស្វាគមន៍មកវិញ',
       'login_subtitle': 'សូមចូលប្រើប្រាស់ដើម្បីគ្រប់គ្រងវត្តមានការងារ',
       'email': 'អ៊ីមែល',

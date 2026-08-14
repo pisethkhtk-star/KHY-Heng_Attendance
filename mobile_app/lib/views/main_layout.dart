@@ -64,13 +64,14 @@ class _MainLayoutState extends State<MainLayout> {
       appBar: AppBar(
         title: Row(
           children: [
-            Container(
-              padding: const EdgeInsets.all(6),
-              decoration: BoxDecoration(
-                color: AppColors.primary,
-                borderRadius: BorderRadius.circular(10),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(6),
+              child: Image.asset(
+                'assets/icon/app_icon.png',
+                width: 24,
+                height: 24,
+                fit: BoxFit.cover,
               ),
-              child: const Icon(LucideIcons.userCheck, color: Colors.white, size: 20),
             ),
             const SizedBox(width: 10),
             Obx(() => Text(langController.tr('app_title'))),
