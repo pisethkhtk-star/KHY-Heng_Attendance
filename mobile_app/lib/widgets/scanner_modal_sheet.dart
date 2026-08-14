@@ -283,13 +283,16 @@ class _ScannerModalSheetState extends State<ScannerModalSheet> with WidgetsBindi
 
     // Fetch branch location settings fresh from Database on launch and store in RAM, replacing old cached data
     if (!_hasFetchedInitially || _allKioskSettings.isEmpty) {
+      if (authController.branchSettings.isNotEmpty && _allKioskSettings.isEmpty) {
+        _allKioskSettings = List<Map<String, dynamic>>.from(authController.branchSettings);
+      }
       try {
         final settingsRaw = await ApiService.fetchKioskSettings();
         _allKioskSettings = settingsRaw.map((s) => Map<String, dynamic>.from(s)).toList();
         _hasFetchedInitially = true;
       } catch (_) {
         if (authController.branchSettings.isNotEmpty) {
-          _allKioskSettings = authController.branchSettings;
+          _allKioskSettings = List<Map<String, dynamic>>.from(authController.branchSettings);
         }
       }
     }

@@ -28,6 +28,9 @@ class AuthController extends GetxController {
     try {
       final settingsRaw = await ApiService.fetchKioskSettings();
       _branchSettings.value = settingsRaw.map((s) => Map<String, dynamic>.from(s)).toList();
+      
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('branch_settings', jsonEncode(_branchSettings.toList()));
     } catch (_) {}
   }
 
@@ -35,6 +38,16 @@ class AuthController extends GetxController {
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString('auth_token');
     final userDataString = prefs.getString('user_data');
+    final branchSettingsString = prefs.getString('branch_settings');
+
+    if (branchSettingsString != null) {
+      try {
+        final decoded = jsonDecode(branchSettingsString);
+        if (decoded is List) {
+          _branchSettings.value = decoded.map((s) => Map<String, dynamic>.from(s)).toList();
+        }
+      } catch (_) {}
+    }
 
     if (token != null && userDataString != null) {
       try {
@@ -110,5 +123,6 @@ class AuthController extends GetxController {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('auth_token');
     await prefs.remove('user_data');
+    await prefs.remove('branch_settings');
   }
 }
