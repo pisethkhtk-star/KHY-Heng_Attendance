@@ -33,7 +33,16 @@ class LeaveItem {
 
     return LeaveItem(
       id: json['id']?.toString() ?? '',
-      leaveType: json['leaveType']?['name'] ?? json['leaveTypeName'] ?? json['leaveType']?.toString() ?? 'Annual Leave',
+      leaveType: () {
+        final rawType = json['leaveType'];
+        if (rawType != null) {
+          if (rawType is Map) {
+            return rawType['nameEn']?.toString() ?? rawType['name']?.toString() ?? rawType['code']?.toString() ?? 'Annual Leave';
+          }
+          return rawType.toString();
+        }
+        return json['leaveTypeName']?.toString() ?? 'Annual Leave';
+      }(),
       startDate: dateStr,
       endDate: json['endDate']?.toString().split('T')[0] ?? dateStr,
       totalDays: daysVal < 1 ? 1 : daysVal,

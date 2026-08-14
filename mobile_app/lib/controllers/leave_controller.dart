@@ -18,77 +18,97 @@ class LeaveController extends GetxController {
   }
 
   Future<void> fetchRemoteLeaves({String? staffId}) async {
-    final remoteItems = await ApiService.fetchLeaveRequests(staffId: staffId);
-    final limitData = await ApiService.fetchLeaveBalances(staffId: staffId);
-    final leaveTypesRaw = await ApiService.fetchLeaveTypes();
+    try {
+      final remoteItems = await ApiService.fetchLeaveRequests(staffId: staffId);
+      final limitData = await ApiService.fetchLeaveBalances(staffId: staffId);
+      final leaveTypesRaw = await ApiService.fetchLeaveTypes();
 
-    if (remoteItems.isNotEmpty) {
-      final parsed = remoteItems.map((json) => LeaveItem.fromJson(json)).toList();
-      _leaveRequests.value = parsed;
-    } else {
-      _leaveRequests.value = [];
-    }
-
-    // 1. Try to load leave balances directly from database allowances
-    if (limitData.isNotEmpty) {
-      try {
-        final empRecord = limitData.firstWhere(
-          (emp) => emp['staffId'] == staffId,
-          orElse: () => limitData.first,
-        );
-
-        final allowances = empRecord['allowances'] as List<dynamic>?;
-        if (allowances != null && allowances.isNotEmpty) {
-          _balances.value = allowances.map((allowance) {
-            final typeName = allowance['nameEn']?.toString() ?? allowance['nameKh']?.toString() ?? allowance['code']?.toString() ?? 'Leave';
-            final maxDays = (allowance['maxDays'] as num?)?.toInt() ?? 18;
-            final usedDays = (allowance['usedDays'] as num?)?.toInt() ?? 0;
-            final remaining = maxDays - usedDays;
-
-            return LeaveBalance(
-              typeName: typeName,
-              totalDays: maxDays,
-              usedDays: usedDays,
-              remainingDays: remaining < 0 ? 0 : remaining,
-            );
-          }).toList();
-          return; // Successful fetch, stop here!
+      if (remoteItems.isNotEmpty) {
+        try {
+          final parsed = remoteItems.map((json) => LeaveItem.fromJson(json)).toList();
+          _leaveRequests.value = parsed;
+        } catch (e) {
+          print('Error parsing leave requests: $e');
+          _leaveRequests.value = [];
         }
-      } catch (_) {}
-    }
+      } else {
+        _leaveRequests.value = [];
+      }
 
-    // 2. Client-side fallback calculation if geofence API fails
-    if (leaveTypesRaw.isNotEmpty) {
-      _balances.value = leaveTypesRaw.map((typeJson) {
-        final code = typeJson['code']?.toString() ?? '';
-        final nameEn = typeJson['nameEn']?.toString() ?? typeJson['nameKh']?.toString() ?? 'Leave';
-        final maxDays = (typeJson['maxDays'] as num?)?.toInt() ?? 18;
+      // 1. Try to load leave balances directly from database allowances
+      if (limitData.isNotEmpty) {
+        try {
+          final empRecord = limitData.firstWhere(
+            (emp) => emp['staffId'] == staffId,
+            orElse: () => limitData.first,
+          );
 
-        final usedCount = _leaveRequests
-            .where((req) =>
-                (req.status == 'Approved' || req.status == 'Pending') &&
-                (req.leaveType.toLowerCase() == code.toLowerCase() ||
-                    req.leaveType.toLowerCase() == nameEn.toLowerCase() ||
-                    req.leaveType.toLowerCase().contains(nameEn.toLowerCase()) ||
-                    req.leaveType.toLowerCase().contains(code.toLowerCase())))
-            .fold<int>(0, (sum, item) => sum + item.totalDays);
+          final allowances = empRecord['allowances'] as List<dynamic>?;
+          if (allowances != null && allowances.isNotEmpty) {
+            _balances.value = allowances.map((allowance) {
+              final code = allowance['code']?.toString() ?? '';
+              final nameEn = allowance['nameEn']?.toString() ?? allowance['nameKh']?.toString() ?? code;
+              final typeName = code.isNotEmpty ? '$nameEn ($code)' : nameEn;
+              final maxDays = (allowance['maxDays'] as num?)?.toInt() ?? 18;
+              final usedDays = (allowance['usedDays'] as num?)?.toInt() ?? 0;
+              final remaining = maxDays - usedDays;
 
-        final remaining = maxDays - usedCount;
+              return LeaveBalance(
+                typeName: typeName,
+                totalDays: maxDays,
+                usedDays: usedDays,
+                remainingDays: remaining < 0 ? 0 : remaining,
+              );
+            }).toList();
+            return; // Successful fetch, stop here!
+          }
+        } catch (e) {
+          print('Error mapping leave limits: $e');
+        }
+      }
 
-        return LeaveBalance(
-          typeName: nameEn,
-          totalDays: maxDays,
-          usedDays: usedCount < 0 ? 0 : usedCount,
-          remainingDays: remaining < 0 ? 0 : remaining,
-        );
-      }).toList();
-    } else if (_balances.isEmpty) {
-      _balances.value = [
-        LeaveBalance(typeName: 'Annual Leave', totalDays: 18, usedDays: 0, remainingDays: 18),
-        LeaveBalance(typeName: 'Sick Leave', totalDays: 7, usedDays: 0, remainingDays: 7),
-        LeaveBalance(typeName: 'Unpaid Leave', totalDays: 5, usedDays: 0, remainingDays: 5),
-        LeaveBalance(typeName: 'Special Leave', totalDays: 3, usedDays: 0, remainingDays: 3),
-      ];
+      // 2. Client-side fallback calculation if geofence API fails
+      if (leaveTypesRaw.isNotEmpty) {
+        _balances.value = leaveTypesRaw.map((typeJson) {
+          final code = typeJson['code']?.toString() ?? '';
+          final nameEn = typeJson['nameEn']?.toString() ?? typeJson['nameKh']?.toString() ?? 'Leave';
+          final typeName = code.isNotEmpty ? '$nameEn ($code)' : nameEn;
+          final maxDays = (typeJson['maxDays'] as num?)?.toInt() ?? 18;
+
+          final usedCount = _leaveRequests
+              .where((req) =>
+                  (req.status == 'Approved' || req.status == 'Pending') &&
+                  (req.leaveType.toLowerCase() == code.toLowerCase() ||
+                      req.leaveType.toLowerCase() == nameEn.toLowerCase() ||
+                      req.leaveType.toLowerCase().contains(nameEn.toLowerCase()) ||
+                      req.leaveType.toLowerCase().contains(code.toLowerCase())))
+              .fold<int>(0, (sum, item) => sum + item.totalDays);
+
+          final remaining = maxDays - usedCount;
+
+          return LeaveBalance(
+            typeName: typeName,
+            totalDays: maxDays,
+            usedDays: usedCount < 0 ? 0 : usedCount,
+            remainingDays: remaining < 0 ? 0 : remaining,
+          );
+        }).toList();
+      } else if (_balances.isEmpty) {
+        _balances.value = [
+          LeaveBalance(typeName: 'Annual Leave (AL)', totalDays: 18, usedDays: 0, remainingDays: 18),
+          LeaveBalance(typeName: 'Personal Leave (PL)', totalDays: 7, usedDays: 0, remainingDays: 7),
+          LeaveBalance(typeName: 'Sick Leave (SL)', totalDays: 12, usedDays: 0, remainingDays: 12),
+        ];
+      }
+    } catch (e) {
+      print('General error in fetchRemoteLeaves: $e');
+      if (_balances.isEmpty) {
+        _balances.value = [
+          LeaveBalance(typeName: 'Annual Leave (AL)', totalDays: 18, usedDays: 0, remainingDays: 18),
+          LeaveBalance(typeName: 'Personal Leave (PL)', totalDays: 7, usedDays: 0, remainingDays: 7),
+          LeaveBalance(typeName: 'Sick Leave (SL)', totalDays: 12, usedDays: 0, remainingDays: 12),
+        ];
+      }
     }
   }
 
