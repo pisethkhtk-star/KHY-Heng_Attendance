@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart' show kIsWeb, defaultTargetPlatform, TargetPlatform;
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:mobile_app/core/constants/api_config.dart';
 import 'base_api_client.dart';
 
 class HttpApiClient implements BaseApiClient {
@@ -12,7 +13,7 @@ class HttpApiClient implements BaseApiClient {
 
   // Candidate API base URLs for dynamic environment resolution
   List<String> get _candidateBaseUrls {
-    const String currentWifiIp = '192.168.88.225'; // Current Wi-Fi IPv4 Address
+    const String currentWifiIp = ApiConfig.serverIp; // Centralized Wi-Fi IPv4 Address
     if (kIsWeb) {
       final String webHost = Uri.base.host.isNotEmpty ? Uri.base.host : 'localhost';
       return [

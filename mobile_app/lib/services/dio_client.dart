@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
+import 'package:mobile_app/core/constants/api_config.dart';
 
 class DioClient {
   late final Dio _dio;
@@ -9,7 +10,7 @@ class DioClient {
   // Android Emulator uses 10.0.2.2
   // Desktop/Web uses 192.168.88.139 or localhost
   static String get baseUrl {
-    const String localIp = '192.168.88.225';
+    const String localIp = ApiConfig.serverIp;
     if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
       return 'http://$localIp:8080/api';
     }
