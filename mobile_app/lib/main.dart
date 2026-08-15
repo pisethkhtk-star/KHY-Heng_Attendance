@@ -6,11 +6,13 @@ import 'core/services/http_api_client.dart';
 import 'repositories/auth_repository.dart';
 import 'repositories/attendance_repository.dart';
 import 'repositories/leave_repository.dart';
+import 'repositories/overtime_repository.dart';
 import 'controllers/language_controller.dart';
 import 'controllers/theme_controller.dart';
 import 'controllers/auth_controller.dart';
 import 'controllers/attendance_controller.dart';
 import 'controllers/leave_controller.dart';
+import 'controllers/overtime_controller.dart';
 import 'views/splash_screen.dart';
 
 void main() async {
@@ -25,6 +27,7 @@ void main() async {
   Get.put<IAuthRepository>(AuthRepository(Get.find<BaseApiClient>()));
   Get.put<IAttendanceRepository>(AttendanceRepository(Get.find<BaseApiClient>()));
   Get.put<ILeaveRepository>(LeaveRepository(Get.find<BaseApiClient>()));
+  Get.put<IOvertimeRepository>(OvertimeRepository(Get.find<BaseApiClient>()));
 
   // Register GetX Controllers globally
   Get.put(LanguageController());
@@ -32,6 +35,7 @@ void main() async {
   Get.put(AuthController());
   Get.put(AttendanceController());
   Get.put(LeaveController());
+  Get.put(OvertimeController());
 
   runApp(const HrAttendanceApp());
 }

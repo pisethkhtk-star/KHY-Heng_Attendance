@@ -12,6 +12,7 @@ import '../widgets/custom_card.dart';
 import '../widgets/stat_ring_chart.dart';
 import '../widgets/apply_leave_sheet.dart';
 import '../widgets/scanner_modal_sheet.dart';
+import 'overtime_screen.dart';
 
 class HomeScreen extends StatelessWidget {
   final Function(int) onTabSelected;
@@ -293,45 +294,6 @@ class HomeScreen extends StatelessWidget {
           ).animate().fadeIn(delay: 200.ms),
           const SizedBox(height: 24),
 
-          // Monthly Statistics Summary
-          Obx(
-            () => Text(
-              langController.tr('quick_stats'),
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-          ),
-          const SizedBox(height: 12),
-
-          Obx(
-            () => CustomCard(
-              child: Row(
-                children: [
-                  StatRingChart(
-                    present: attendanceController.presentCount,
-                    lateDays: attendanceController.lateCount,
-                    leave: attendanceController.leaveCount,
-                    absent: attendanceController.absentCount,
-                  ),
-                  const SizedBox(width: 20),
-                  Expanded(
-                    child: Column(
-                      children: [
-                        _buildStatRow(langController.tr('present_days'), '${attendanceController.presentCount} days', AppColors.success),
-                        const SizedBox(height: 8),
-                        _buildStatRow(langController.tr('late_days'), '${attendanceController.lateCount} days', AppColors.warning),
-                        const SizedBox(height: 8),
-                        _buildStatRow(langController.tr('leave_days'), '${attendanceController.leaveCount} days', AppColors.info),
-                        const SizedBox(height: 8),
-                        _buildStatRow(langController.tr('absent_days'), '${attendanceController.absentCount} days', AppColors.danger),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ).animate().fadeIn(delay: 300.ms),
-          const SizedBox(height: 24),
-
           // Quick Action Grid
           Obx(
             () => Text(
@@ -378,7 +340,9 @@ class HomeScreen extends StatelessWidget {
                   icon: LucideIcons.clock,
                   title: langController.tr('overtime'),
                   color: AppColors.warning,
-                  onTap: () {},
+                  onTap: () {
+                    Get.to(() => const OvertimeScreen());
+                  },
                 ),
                 _buildActionCard(
                   context,
@@ -397,6 +361,45 @@ class HomeScreen extends StatelessWidget {
                   },
                 ),
               ],
+            ),
+          ).animate().fadeIn(delay: 300.ms),
+          const SizedBox(height: 24),
+
+          // Monthly Statistics Summary (Attendance Statistics)
+          Obx(
+            () => Text(
+              langController.tr('quick_stats'),
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+          ),
+          const SizedBox(height: 12),
+
+          Obx(
+            () => CustomCard(
+              child: Row(
+                children: [
+                  StatRingChart(
+                    present: attendanceController.presentCount,
+                    lateDays: attendanceController.lateCount,
+                    leave: attendanceController.leaveCount,
+                    absent: attendanceController.absentCount,
+                  ),
+                  const SizedBox(width: 20),
+                  Expanded(
+                    child: Column(
+                      children: [
+                        _buildStatRow(langController.tr('present_days'), '${attendanceController.presentCount} days', AppColors.success),
+                        const SizedBox(height: 8),
+                        _buildStatRow(langController.tr('late_days'), '${attendanceController.lateCount} days', AppColors.warning),
+                        const SizedBox(height: 8),
+                        _buildStatRow(langController.tr('leave_days'), '${attendanceController.leaveCount} days', AppColors.info),
+                        const SizedBox(height: 8),
+                        _buildStatRow(langController.tr('absent_days'), '${attendanceController.absentCount} days', AppColors.danger),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             ),
           ).animate().fadeIn(delay: 400.ms),
         ],

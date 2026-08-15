@@ -6,6 +6,7 @@ import '../controllers/language_controller.dart';
 import '../controllers/auth_controller.dart';
 import '../controllers/attendance_controller.dart';
 import '../controllers/leave_controller.dart';
+import '../controllers/overtime_controller.dart';
 import 'home_screen.dart';
 import 'attendance_screen.dart';
 import 'leave_screen.dart';
@@ -37,6 +38,7 @@ class _MainLayoutState extends State<MainLayout> {
     if (user != null) {
       Get.find<AttendanceController>().fetchRemoteHistory(staffId: user.employeeId);
       Get.find<LeaveController>().fetchRemoteLeaves(staffId: user.employeeId);
+      Get.find<OvertimeController>().fetchRemoteOvertimes(staffId: user.employeeId);
     }
   }
 

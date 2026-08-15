@@ -55,9 +55,7 @@ class LeaveController extends GetxController {
             }).toList();
             return; // Successful fetch, stop here!
           }
-        } catch (e) {
-          print('Error mapping leave limits: $e');
-        }
+        } catch (_) {}
       }
 
       // 2. Client-side fallback calculation if geofence API fails
