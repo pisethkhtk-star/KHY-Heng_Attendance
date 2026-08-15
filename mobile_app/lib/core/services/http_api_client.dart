@@ -13,41 +13,35 @@ class HttpApiClient implements BaseApiClient {
 
   // Candidate API base URLs for dynamic environment resolution
   List<String> get _candidateBaseUrls {
-    const String currentWifiIp = ApiConfig.serverIp; // Centralized Wi-Fi IPv4 Address
+    final String primaryUrl = ApiConfig.baseUrl;
+    const String currentWifiIp = ApiConfig.serverIp;
     if (kIsWeb) {
       final String webHost = Uri.base.host.isNotEmpty ? Uri.base.host : 'localhost';
       return [
-        'http://$webHost:5050/api',
-        'http://$webHost:8080/api',
-        'http://localhost:5050/api',
-        'http://127.0.0.1:5050/api',
-        'http://localhost:8080/api',
-        'http://127.0.0.1:8080/api',
+        primaryUrl,
         'http://$currentWifiIp:5050/api',
-        'http://$currentWifiIp:8080/api',
+        'http://$currentWifiIp/api',
+        'http://$webHost:5050/api',
+        'http://localhost:5050/api',
       ];
     }
     try {
       if (defaultTargetPlatform == TargetPlatform.android) {
         return [
-          'http://10.0.2.2:5050/api',        // Android Emulator -> Node backend (Port 5050)
-          'http://10.0.2.2:8080/api',        // Android Emulator -> Spring/Node backend (Port 8080)
-          'http://$currentWifiIp:5050/api', // Physical Device on LAN -> Node backend (Port 5050)
-          'http://$currentWifiIp:8080/api', // Physical Device on LAN -> Spring/Node backend (Port 8080)
+          primaryUrl,                       // Configured Server (e.g. http://98.90.129.131:5050/api)
+          'http://$currentWifiIp:5050/api', // Direct Node backend (Port 5050)
+          'http://$currentWifiIp/api',      // Nginx Hosted Backend (Port 80)
+          'http://10.0.2.2:5050/api',        // Android Emulator -> Node backend
           'http://127.0.0.1:5050/api',
-          'http://127.0.0.1:8080/api',
         ];
       }
     } catch (_) {}
     return [
-      'http://10.0.2.2:5050/api',
-      'http://10.0.2.2:8080/api',
+      primaryUrl,
       'http://$currentWifiIp:5050/api',
-      'http://$currentWifiIp:8080/api',
-      'http://127.0.0.1:5050/api',
-      'http://127.0.0.1:8080/api',
+      'http://$currentWifiIp/api',
+      'http://10.0.2.2:5050/api',
       'http://localhost:5050/api',
-      'http://localhost:8080/api',
     ];
   }
 
@@ -58,9 +52,22 @@ class HttpApiClient implements BaseApiClient {
       final prefs = await SharedPreferences.getInstance();
       final savedUrl = prefs.getString('working_base_url');
       if (savedUrl != null && savedUrl.isNotEmpty) {
-        _baseUrl = savedUrl;
+        // If savedUrl matches current server configuration, use it
+        if (savedUrl.contains(ApiConfig.serverIp)) {
+          _baseUrl = savedUrl;
+        } else {
+          // Outdated cached IP -> reset to newest primary candidate
+          await prefs.remove('working_base_url');
+          _baseUrl = _candidateBaseUrls.first;
+        }
       }
     } catch (_) {}
+  }
+
+  Uri _buildUri(String baseUrl, String path) {
+    final cleanBase = baseUrl.endsWith('/') ? baseUrl.substring(0, baseUrl.length - 1) : baseUrl;
+    final cleanPath = path.startsWith('/') ? path : '/$path';
+    return Uri.parse('$cleanBase$cleanPath');
   }
 
   Future<Map<String, String>> _getHeaders(Map<String, String>? customHeaders) async {
@@ -87,7 +94,7 @@ class HttpApiClient implements BaseApiClient {
     // 1. Try last known working URL first
     if (_baseUrl.isNotEmpty) {
       try {
-        final res = await reqFn(_baseUrl, headers).timeout(const Duration(seconds: 3));
+        final res = await reqFn(_baseUrl, headers).timeout(const Duration(seconds: 4));
         if (res.statusCode >= 200 && res.statusCode < 500) {
           return res;
         }
@@ -100,7 +107,7 @@ class HttpApiClient implements BaseApiClient {
     for (final candidate in _candidateBaseUrls) {
       if (candidate == _baseUrl) continue; // Already tried
       try {
-        final res = await reqFn(candidate, headers).timeout(const Duration(seconds: 3));
+        final res = await reqFn(candidate, headers).timeout(const Duration(seconds: 4));
         if (res.statusCode >= 200 && res.statusCode < 500) {
           _baseUrl = candidate; // Remember working host
           try {
@@ -120,7 +127,7 @@ class HttpApiClient implements BaseApiClient {
   Future<http.Response?> get(String path, {Map<String, String>? headers}) async {
     return await _requestWithFallback(
       (url, requestHeaders) => http.get(
-        Uri.parse('$url$path'),
+        _buildUri(url, path),
         headers: requestHeaders,
       ),
       customHeaders: headers,
@@ -132,7 +139,7 @@ class HttpApiClient implements BaseApiClient {
     final encodedBody = body is String ? body : jsonEncode(body);
     return await _requestWithFallback(
       (url, requestHeaders) => http.post(
-        Uri.parse('$url$path'),
+        _buildUri(url, path),
         headers: requestHeaders,
         body: encodedBody,
       ),
@@ -144,7 +151,7 @@ class HttpApiClient implements BaseApiClient {
   Future<http.Response?> delete(String path, {Map<String, String>? headers}) async {
     return await _requestWithFallback(
       (url, requestHeaders) => http.delete(
-        Uri.parse('$url$path'),
+        _buildUri(url, path),
         headers: requestHeaders,
       ),
       customHeaders: headers,

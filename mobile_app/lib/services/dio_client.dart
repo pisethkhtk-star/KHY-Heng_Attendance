@@ -8,14 +8,7 @@ class DioClient {
   // Base URL for Spring Boot backend1
   // Android physical device / local network uses 192.168.88.139
   // Android Emulator uses 10.0.2.2
-  // Desktop/Web uses 192.168.88.139 or localhost
-  static String get baseUrl {
-    const String localIp = ApiConfig.serverIp;
-    if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
-      return 'http://$localIp:8080/api';
-    }
-    return 'http://$localIp:8080/api';
-  }
+  static String get baseUrl => ApiConfig.baseUrl;
  
   DioClient() {
     _dio = Dio(
