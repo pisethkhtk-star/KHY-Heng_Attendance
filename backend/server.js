@@ -16,6 +16,7 @@ import leaveTypeRoutes from './src/routes/leaveTypeRoutes.js';
 import leaveLimitRoutes from './src/routes/leaveLimitRoutes.js';
 import workHourRoutes from './src/routes/workHourRoutes.js';
 import leaveApprovalRoutes from './src/routes/leaveApprovalRoutes.js';
+import overtimeRoutes from './src/routes/overtimeRoutes.js';
 import { initializePermissions } from './src/utils/permissionInitializer.js';
 
 
@@ -38,6 +39,7 @@ app.use('/api/positions', posRoutes);
 app.use('/api/employees', employeeRoutes);
 app.use('/api/attendances', attendanceRoutes);
 app.use('/api/leaves', leaveRoutes);
+app.use('/api/overtimes', overtimeRoutes);
 app.use('/api/face', faceRoutes);
 app.use('/api/qrcode', qrRoutes);
 app.use('/api/attendance-logs', logRoutes);

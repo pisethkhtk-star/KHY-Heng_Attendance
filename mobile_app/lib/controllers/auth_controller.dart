@@ -3,6 +3,7 @@ import 'package:get/get.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/user_model.dart';
 import '../repositories/auth_repository.dart';
+import 'attendance_controller.dart';
 
 class AuthController extends GetxController {
   final IAuthRepository _authRepository = Get.find<IAuthRepository>();
@@ -23,6 +24,12 @@ class AuthController extends GetxController {
   void onInit() {
     super.onInit();
     checkSavedSession();
+  }
+
+  void _syncUserAttendance() {
+    if (Get.isRegistered<AttendanceController>()) {
+      Get.find<AttendanceController>().fetchRemoteHistory(staffId: _user.value?.employeeId);
+    }
   }
 
   /// Immediately fetch branch location settings from Database upon login/session load
@@ -63,6 +70,7 @@ class AuthController extends GetxController {
           _user.value = meResult.user;
         }
         await fetchBranchLocationsFromDb();
+        _syncUserAttendance();
       } catch (_) {
         _isAuthenticated.value = false;
         _user.value = null;
@@ -87,6 +95,7 @@ class AuthController extends GetxController {
 
       // Immediately fetch branch locations from database upon successful login!
       await fetchBranchLocationsFromDb();
+      _syncUserAttendance();
       return true;
     } else {
       _isAuthenticated.value = false;
@@ -109,6 +118,7 @@ class AuthController extends GetxController {
       _errorMessage.value = null;
 
       await fetchBranchLocationsFromDb();
+      _syncUserAttendance();
       return true;
     } else {
       _isAuthenticated.value = false;
@@ -126,5 +136,6 @@ class AuthController extends GetxController {
     await prefs.remove('auth_token');
     await prefs.remove('user_data');
     await prefs.remove('branch_settings');
+    _syncUserAttendance();
   }
 }

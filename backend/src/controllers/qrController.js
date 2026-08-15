@@ -244,7 +244,8 @@ export const scanQRCode = async (req, res) => {
     // 3. Process check-in
     const result = await processAttendanceScan({
       staffId,
-      note: 'Auto scan: QR Code'
+      action: req.body.action,
+      note: req.body.note || 'Auto scan: QR Code'
     });
 
     // 4. Create successful scan audit log
@@ -387,7 +388,8 @@ export const scanBranchQRCode = async (req, res) => {
 
     const result = await processAttendanceScan({
       staffId,
-      note: `Auto scan: Branch QR (${branch.name})`
+      action: req.body.action,
+      note: req.body.note || `Auto scan: Branch QR (${branch.name})`
     });
 
     await prisma.attendanceLog.create({

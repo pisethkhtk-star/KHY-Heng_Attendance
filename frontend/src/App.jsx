@@ -16,6 +16,7 @@ import Positions from './pages/Positions';
 import Employees from './pages/Employees';
 import Attendance from './pages/Attendance';
 import Leaves from './pages/Leaves';
+import Overtime from './pages/Overtime';
 import Reports from './pages/Reports';
 import Kiosk from './pages/Kiosk';
 import KioskSettings from './pages/KioskSettings';
@@ -114,6 +115,9 @@ function App() {
 
               {/* Attendance Log (All authenticated users) */}
               <Route path="attendance" element={<Attendance />} />
+
+              {/* Overtime Request & Approvals (All authenticated users) */}
+              <Route path="overtime" element={<Overtime />} />
 
               {/* Leaves Request & Approvals (All authenticated users) */}
               <Route path="leaves" element={<Leaves />} />

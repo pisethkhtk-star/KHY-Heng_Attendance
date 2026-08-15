@@ -19,6 +19,7 @@ export const initializePermissions = async () => {
       { role: 'Admin', resource: 'edit_attendance', canAccess: true },
       { role: 'Admin', resource: 'delete_attendance', canAccess: true },
       { role: 'Admin', resource: 'leaves', canAccess: true },
+      { role: 'Admin', resource: 'overtime', canAccess: true },
       { role: 'Admin', resource: 'reports', canAccess: true },
       { role: 'Admin', resource: 'facescan', canAccess: true },
       { role: 'Admin', resource: 'qrscan', canAccess: true },
@@ -30,7 +31,6 @@ export const initializePermissions = async () => {
       { role: 'Admin', resource: 'work_hours', canAccess: true },
       { role: 'Admin', resource: 'scan_behalf_face', canAccess: true },
       { role: 'Admin', resource: 'scan_behalf_qr', canAccess: true },
-      { role: 'Admin', resource: 'leave_approvals', canAccess: true },
       { role: 'Admin', resource: 'edit_leave_approvals', canAccess: true },
       { role: 'Admin', resource: 'delete_leave_approvals', canAccess: true },
 
@@ -43,6 +43,7 @@ export const initializePermissions = async () => {
       { role: 'HR', resource: 'edit_attendance', canAccess: true },
       { role: 'HR', resource: 'delete_attendance', canAccess: true },
       { role: 'HR', resource: 'leaves', canAccess: true },
+      { role: 'HR', resource: 'overtime', canAccess: true },
       { role: 'HR', resource: 'reports', canAccess: true },
       { role: 'HR', resource: 'facescan', canAccess: true },
       { role: 'HR', resource: 'qrscan', canAccess: true },
@@ -54,7 +55,6 @@ export const initializePermissions = async () => {
       { role: 'HR', resource: 'work_hours', canAccess: true },
       { role: 'HR', resource: 'scan_behalf_face', canAccess: true },
       { role: 'HR', resource: 'scan_behalf_qr', canAccess: true },
-      { role: 'HR', resource: 'leave_approvals', canAccess: true },
       { role: 'HR', resource: 'edit_leave_approvals', canAccess: true },
       { role: 'HR', resource: 'delete_leave_approvals', canAccess: true },
 
@@ -67,6 +67,7 @@ export const initializePermissions = async () => {
       { role: 'Manager', resource: 'edit_attendance', canAccess: false },
       { role: 'Manager', resource: 'delete_attendance', canAccess: false },
       { role: 'Manager', resource: 'leaves', canAccess: true },
+      { role: 'Manager', resource: 'overtime', canAccess: true },
       { role: 'Manager', resource: 'reports', canAccess: true },
       { role: 'Manager', resource: 'facescan', canAccess: true },
       { role: 'Manager', resource: 'qrscan', canAccess: true },
@@ -78,7 +79,6 @@ export const initializePermissions = async () => {
       { role: 'Manager', resource: 'work_hours', canAccess: false },
       { role: 'Manager', resource: 'scan_behalf_face', canAccess: false },
       { role: 'Manager', resource: 'scan_behalf_qr', canAccess: false },
-      { role: 'Manager', resource: 'leave_approvals', canAccess: false },
       { role: 'Manager', resource: 'edit_leave_approvals', canAccess: false },
       { role: 'Manager', resource: 'delete_leave_approvals', canAccess: false },
 
@@ -91,6 +91,7 @@ export const initializePermissions = async () => {
       { role: 'Employee', resource: 'edit_attendance', canAccess: false },
       { role: 'Employee', resource: 'delete_attendance', canAccess: false },
       { role: 'Employee', resource: 'leaves', canAccess: true },
+      { role: 'Employee', resource: 'overtime', canAccess: true },
       { role: 'Employee', resource: 'reports', canAccess: false },
       { role: 'Employee', resource: 'facescan', canAccess: false },
       { role: 'Employee', resource: 'qrscan', canAccess: false },
@@ -102,7 +103,6 @@ export const initializePermissions = async () => {
       { role: 'Employee', resource: 'work_hours', canAccess: false },
       { role: 'Employee', resource: 'scan_behalf_face', canAccess: false },
       { role: 'Employee', resource: 'scan_behalf_qr', canAccess: false },
-      { role: 'Employee', resource: 'leave_approvals', canAccess: false },
       { role: 'Employee', resource: 'edit_leave_approvals', canAccess: false },
       { role: 'Employee', resource: 'delete_leave_approvals', canAccess: false },
     ];

@@ -3,7 +3,7 @@ class LeaveItem {
   final String leaveType; // Annual Leave, Sick Leave, Special Leave
   final String startDate;
   final String endDate;
-  final int totalDays;
+  final double totalDays;
   final String reason;
   final String status; // Pending, Approved, Rejected
   final String appliedDate;
@@ -27,9 +27,9 @@ class LeaveItem {
       dateStr = json['startDate'].toString().split('T')[0];
     }
 
-    final daysVal = json['amountDays'] != null
-        ? (double.tryParse(json['amountDays'].toString())?.toInt() ?? 1)
-        : (json['totalDays'] ?? 1);
+    final double daysVal = json['amountDays'] != null
+        ? (double.tryParse(json['amountDays'].toString()) ?? 1.0)
+        : (double.tryParse((json['totalDays'] ?? '1').toString()) ?? 1.0);
 
     return LeaveItem(
       id: json['id']?.toString() ?? '',
@@ -45,7 +45,7 @@ class LeaveItem {
       }(),
       startDate: dateStr,
       endDate: json['endDate']?.toString().split('T')[0] ?? dateStr,
-      totalDays: daysVal < 1 ? 1 : daysVal,
+      totalDays: daysVal,
       reason: json['reason'] ?? '',
       status: json['status'] ?? 'Pending',
       appliedDate: json['requestedAt']?.toString().split('T')[0] ?? json['createdAt']?.toString().split('T')[0] ?? dateStr,

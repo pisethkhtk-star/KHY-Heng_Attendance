@@ -254,7 +254,9 @@ class _LeaveScreenState extends State<LeaveScreen> {
                             const Icon(LucideIcons.calendar, size: 14, color: Colors.grey),
                             const SizedBox(width: 6),
                             Text(
-                              '${request.startDate} to ${request.endDate} (${request.totalDays} day${request.totalDays > 1 ? "s" : ""})',
+                              request.startDate == request.endDate
+                                  ? '${request.startDate} (${request.totalDays == 0.5 ? "0.5 day" : "${request.totalDays} day${request.totalDays > 1 ? "s" : ""}"})'
+                                  : '${request.startDate} to ${request.endDate} (${request.totalDays} days)',
                               style: const TextStyle(fontSize: 13, color: Colors.grey),
                             ),
                           ],

@@ -15,8 +15,8 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-  final _emailController = TextEditingController(text: 'admin@attendance.com');
-  final _passwordController = TextEditingController(text: 'admin123');
+  final _emailController = TextEditingController();
+  final _passwordController = TextEditingController();
   bool _obscurePassword = true;
 
   @override
@@ -56,13 +56,6 @@ class _LoginScreenState extends State<LoginScreen> {
         );
       }
     }
-  }
-
-  void _fillAccount(String email, String password) {
-    setState(() {
-      _emailController.text = email;
-      _passwordController.text = password;
-    });
   }
 
   @override
@@ -154,6 +147,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 controller: _emailController,
                 keyboardType: TextInputType.emailAddress,
                 decoration: const InputDecoration(
+                  hintText: 'name@company.com',
                   prefixIcon: Icon(LucideIcons.mail, size: 20),
                 ),
               ),
@@ -166,6 +160,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 controller: _passwordController,
                 obscureText: _obscurePassword,
                 decoration: InputDecoration(
+                  hintText: '••••••••',
                   prefixIcon: const Icon(LucideIcons.lock, size: 20),
                   suffixIcon: IconButton(
                     icon: Icon(_obscurePassword ? LucideIcons.eyeOff : LucideIcons.eye, size: 20),
@@ -249,64 +244,8 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                 ),
               ),
-              const SizedBox(height: 24),
-
-              // Quick Test Accounts (Matching Frontend)
-              const Center(
-                child: Text(
-                  'QUICK ACCOUNTS FOR TESTING (សាកល្បងគណនីគំរូ)',
-                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.grey),
-                ),
-              ),
-              const SizedBox(height: 10),
-
-              GridView.count(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                crossAxisCount: 2,
-                crossAxisSpacing: 10,
-                mainAxisSpacing: 10,
-                childAspectRatio: 2.2,
-                children: [
-                  _buildQuickAccountCard('Admin', 'admin@attendance.com', 'admin123', AppColors.primary),
-                  _buildQuickAccountCard('HR', 'hr@attendance.com', 'hr123', AppColors.accent),
-                  _buildQuickAccountCard('Manager', 'manager@attendance.com', 'manager123', AppColors.warning),
-                  _buildQuickAccountCard('Employee', 'rath@attendance.com', 'emp123', AppColors.success),
-                ],
-              ),
             ],
           ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildQuickAccountCard(String role, String email, String pass, Color color) {
-    return InkWell(
-      onTap: () => _fillAccount(email, pass),
-      borderRadius: BorderRadius.circular(12),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-        decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.08),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: color.withValues(alpha: 0.3)),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text(
-              '$role:',
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: color),
-            ),
-            Text(
-              email,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(fontSize: 10, color: Colors.grey),
-            ),
-          ],
         ),
       ),
     );

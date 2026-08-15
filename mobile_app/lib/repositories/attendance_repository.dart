@@ -150,9 +150,6 @@ class AttendanceRepository implements IAttendanceRepository {
       final data = jsonDecode(response.body);
       if (response.statusCode == 200 || response.statusCode == 201) {
         await _invalidateCache(); // Invalidate local DB cache
-        if (staffId != null && staffId.isNotEmpty) {
-          await logCheckInOut(action ?? 'checkin_1', lat: lat, lng: lng, note: note, staffId: staffId);
-        }
         return {
           'success': true,
           'message': data['message'] ?? 'QR Code verified',

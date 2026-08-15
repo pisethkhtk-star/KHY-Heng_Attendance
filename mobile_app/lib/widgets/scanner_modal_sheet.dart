@@ -66,8 +66,6 @@ class _ScannerModalSheetState extends State<ScannerModalSheet> with WidgetsBindi
   bool _isLocationVerified = false;
   String? _matchedBranchName;
   String? _matchedBranchToken;
-  double? _closestBranchDistance;
-  double? _closestBranchRadius;
 
   List<Map<String, dynamic>> _allKioskSettings = [];
   List<Map<String, dynamic>> _employeeAssignedSettings = [];
@@ -91,7 +89,87 @@ class _ScannerModalSheetState extends State<ScannerModalSheet> with WidgetsBindi
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _verifyBranchGeofence();
+      _preEvaluateAction();
     });
+  }
+
+  Future<void> _preEvaluateAction() async {
+    final user = Get.find<AuthController>().user;
+    final staffId = user?.employeeId;
+    if (staffId == null || staffId.isEmpty) return;
+
+    try {
+      final historyRecords = await _attendanceRepository.fetchHistoryRecords(staffId: staffId);
+      final now = DateTime.now();
+      final todayStr = DateFormat('yyyy-MM-dd').format(now);
+
+      AttendanceRecord? todayRecord;
+      for (final item in historyRecords) {
+        final dateVal = item.rawDate.isNotEmpty ? item.rawDate : item.date;
+        if (dateVal.contains(todayStr)) {
+          todayRecord = item;
+          break;
+        }
+      }
+
+      final currentMinutes = now.hour * 60 + now.minute;
+      final s1EndMinutes = 12 * 60;
+      final s2StartMinutes = 13 * 60;
+
+      final checkin1 = todayRecord?.checkIn1;
+      final checkout1 = todayRecord?.checkOut1;
+      final checkin2 = todayRecord?.checkIn2;
+      final checkout2 = todayRecord?.checkOut2;
+
+      final bool hasCheckIn1 = checkin1 != null && checkin1.trim().isNotEmpty && checkin1 != '--:--' && checkin1 != '-';
+      final bool hasCheckOut1 = checkout1 != null && checkout1.trim().isNotEmpty && checkout1 != '--:--' && checkout1 != '-';
+      final bool hasCheckIn2 = checkin2 != null && checkin2.trim().isNotEmpty && checkin2 != '--:--' && checkin2 != '-';
+      final bool hasCheckOut2 = checkout2 != null && checkout2.trim().isNotEmpty && checkout2 != '--:--' && checkout2 != '-';
+
+      String determinedAction = 'checkin_1';
+
+      if (hasCheckIn1 && hasCheckOut1 && hasCheckIn2 && hasCheckOut2) {
+        determinedAction = 'completed';
+      } else if (currentMinutes >= s1EndMinutes) {
+        if (!hasCheckIn1) {
+          if (!hasCheckIn2) {
+            determinedAction = 'checkin_2';
+          } else if (!hasCheckOut2) {
+            determinedAction = 'checkout_2';
+          } else {
+            determinedAction = 'completed';
+          }
+        } else {
+          if (!hasCheckOut1 && currentMinutes <= s2StartMinutes) {
+            determinedAction = 'checkout_1';
+          } else if (!hasCheckIn2) {
+            determinedAction = 'checkin_2';
+          } else if (!hasCheckOut2) {
+            determinedAction = 'checkout_2';
+          } else {
+            determinedAction = 'completed';
+          }
+        }
+      } else {
+        if (!hasCheckIn1) {
+          determinedAction = 'checkin_1';
+        } else if (!hasCheckOut1) {
+          determinedAction = 'checkout_1';
+        } else if (!hasCheckIn2) {
+          determinedAction = 'checkin_2';
+        } else if (!hasCheckOut2) {
+          determinedAction = 'checkout_2';
+        } else {
+          determinedAction = 'completed';
+        }
+      }
+
+      if (mounted) {
+        setState(() {
+          _nextAction = determinedAction;
+        });
+      }
+    } catch (_) {}
   }
 
   void _initCameraController() {
@@ -367,16 +445,14 @@ class _ScannerModalSheetState extends State<ScannerModalSheet> with WidgetsBindi
       final branchId = (insideBranch['id'] ?? '').toString();
       final branchName = (insideBranch['name'] ?? '').toString();
       final branchToken = 'branch_qr:$branchId';
-      final radius = (insideBranch['radius'] as num).toDouble();
 
       if (mounted) {
-        _setUnlocked(true); // Unlock the camera preview feed!
+        // Keep camera locked until user clicks the "Check" button!
+        _setUnlocked(false);
         setState(() {
           _isLocationVerified = true;
           _matchedBranchName = branchName;
           _matchedBranchToken = branchToken;
-          _closestBranchDistance = minDistance;
-          _closestBranchRadius = radius;
           _statusMessage = null;
           if (_customQrController.text.isEmpty || _customQrController.text.startsWith('branch_qr:')) {
             _customQrController.text = branchToken;
@@ -393,8 +469,6 @@ class _ScannerModalSheetState extends State<ScannerModalSheet> with WidgetsBindi
           _isLocationVerified = false;
           _matchedBranchName = closestName;
           _matchedBranchToken = closestBranch != null ? 'branch_qr:${closestBranch['id']}' : null;
-          _closestBranchDistance = minDistance;
-          _closestBranchRadius = closestRadius;
           
           if (_employeeAssignedSettings.length > 1) {
             final comparisonList = _employeeAssignedSettings.map((setting) {
@@ -456,61 +530,67 @@ class _ScannerModalSheetState extends State<ScannerModalSheet> with WidgetsBindi
         }
       }
 
-      // Time parsing helper
-      int timeToMinutes(String? tStr) {
-        if (tStr == null || tStr.isEmpty) return 0;
-        try {
-          final parts = tStr.split(':').map((e) => int.parse(e.replaceAll(RegExp(r'[^0-9]'), ''))).toList();
-          return parts[0] * 60 + (parts.length > 1 ? parts[1] : 0);
-        } catch (_) {
-          return 0;
-        }
-      }
+      // Time in minutes from midnight for current actual Scan_Time
+      final currentMinutes = now.hour * 60 + now.minute;
 
-      final currentTimeStr = DateFormat('HH:mm').format(now);
-      final currentMinutes = timeToMinutes(currentTimeStr);
-
-      final s1StartMinutes = timeToMinutes('08:00');
-      final s1EndMinutes = timeToMinutes('12:00');
-      final s2StartMinutes = timeToMinutes('13:00');
-      final s2EndMinutes = timeToMinutes('17:00');
+      // ⚙️ Shift definitions (in minutes)
+      // Shift_In_1: 08:00 (480 mins) / Shift_Out_1: 12:00 (720 mins)
+      // Shift_In_2: 13:00 (780 mins) / Shift_Out_2: 17:00 (1020 mins)
+      final s1StartMinutes = 8 * 60;       // Shift_In_1 (08:00)
+      final s1EndMinutes = 12 * 60;       // Shift_Out_1 (12:00)
+      final s2StartMinutes = 13 * 60;     // Shift_In_2 (13:00)
+      final s2EndMinutes = 17 * 60;       // Shift_Out_2 (17:00)
 
       final checkin1 = todayRecord?.checkIn1;
       final checkout1 = todayRecord?.checkOut1;
       final checkin2 = todayRecord?.checkIn2;
       final checkout2 = todayRecord?.checkOut2;
 
+      final bool hasCheckIn1 = checkin1 != null && checkin1.trim().isNotEmpty && checkin1 != '--:--' && checkin1 != '-';
+      final bool hasCheckOut1 = checkout1 != null && checkout1.trim().isNotEmpty && checkout1 != '--:--' && checkout1 != '-';
+      final bool hasCheckIn2 = checkin2 != null && checkin2.trim().isNotEmpty && checkin2 != '--:--' && checkin2 != '-';
+      final bool hasCheckOut2 = checkout2 != null && checkout2.trim().isNotEmpty && checkout2 != '--:--' && checkout2 != '-';
+
+      // 🔄 ដំណាក់កាលទី១៖ ការកំណត់មុខងារ Scan (Scan Type Detection)
       String determinedAction = 'checkin_1';
 
-      if (checkin2 != null && checkout2 == null) {
-        determinedAction = 'checkout_2';
-      } else if (checkout1 != null || (currentMinutes >= s1EndMinutes && checkin1 == null)) {
-        if (checkin2 == null) {
-          determinedAction = 'checkin_2';
-        } else {
-          determinedAction = 'completed';
-        }
-      } else if (checkin1 != null && checkout1 == null) {
-        final midpoint = s1EndMinutes + (s2StartMinutes - s1EndMinutes) / 2;
-        if (currentMinutes < midpoint) {
-          determinedAction = 'checkout_1';
-        } else {
-          if (checkin2 == null) {
+      if (hasCheckIn1 && hasCheckOut1 && hasCheckIn2 && hasCheckOut2) {
+        determinedAction = 'completed';
+      } else if (currentMinutes >= s1EndMinutes) {
+        // ករណី Scan_Time >= Shift_Out_1 (ក្រោយចប់ Shift 1 / ម៉ោងថ្ងៃត្រង់ & រសៀល)
+        if (!hasCheckIn1) {
+          // IF Scan_Time > Shift 1 End ហើយ Check 1 (In/Out) = null ➔ ដំណើរការ Check In 2
+          if (!hasCheckIn2) {
             determinedAction = 'checkin_2';
+          } else if (!hasCheckOut2) {
+            determinedAction = 'checkout_2';
+          } else {
+            determinedAction = 'completed';
+          }
+        } else {
+          // Check 1 In មានទិន្នន័យ
+          if (!hasCheckOut1 && currentMinutes <= s2StartMinutes) {
+            // ចន្លោះម៉ោងសម្រាកថ្ងៃត្រង់ គាត់ស្កេនចេញទៅញ៉ាំបាយ
+            determinedAction = 'checkout_1';
+          } else if (!hasCheckIn2) {
+            // ស្កេនចូលធ្វើការវេនរសៀល
+            determinedAction = 'checkin_2';
+          } else if (!hasCheckOut2) {
+            // ស្កេនចេញទៅផ្ទះ
+            determinedAction = 'checkout_2';
           } else {
             determinedAction = 'completed';
           }
         }
-      } else if (checkin1 == null && currentMinutes < s1EndMinutes) {
-        determinedAction = 'checkin_1';
       } else {
-        if (checkin1 == null) {
+        // ករណី Scan_Time < Shift_Out_1 (ពេលព្រឹក មុនចប់វេនទី១)
+        if (!hasCheckIn1) {
           determinedAction = 'checkin_1';
-        } else if (checkout1 == null) {
+        } else if (!hasCheckOut1) {
           determinedAction = 'checkout_1';
-        } else if (checkin2 == null) {
+        } else if (!hasCheckIn2) {
           determinedAction = 'checkin_2';
-        } else if (checkout2 == null) {
+        } else if (!hasCheckOut2) {
           determinedAction = 'checkout_2';
         } else {
           determinedAction = 'completed';
@@ -525,45 +605,60 @@ class _ScannerModalSheetState extends State<ScannerModalSheet> with WidgetsBindi
         return;
       }
 
-      bool isLate = false;
-      bool isEarly = false;
+      // 📝 ដំណាក់កាលទី២៖ លំហូរលក្ខខណ្ឌលម្អិត (Flow Condition Detail)
+      bool requiresReason = false;
+      String reasonType = 'late'; // 'late' or 'early'
 
-      if (determinedAction == 'checkin_1' && currentMinutes > s1StartMinutes) {
-        isLate = true;
-      } else if (determinedAction == 'checkin_2' && currentMinutes > s2StartMinutes) {
-        isLate = true;
-      } else if (determinedAction == 'checkout_1' && currentMinutes < s1EndMinutes) {
-        isEarly = true;
-      } else if (determinedAction == 'checkout_2' && currentMinutes < s2EndMinutes) {
-        isEarly = true;
+      if (determinedAction == 'checkin_1') {
+        // ១. សម្រាប់ Check In 1 (ចូលធ្វើការវេនព្រឹក)
+        // IF Scan_Time > Shift_In_1 (មកយឺត)
+        if (currentMinutes > s1StartMinutes) {
+          requiresReason = true;
+          reasonType = 'late';
+        }
+      } else if (determinedAction == 'checkout_1') {
+        // ២. សម្រាប់ Check Out 1 (ចេញសម្រាកវេនព្រឹក)
+        // IF Scan_Time < Shift_Out_1 (ចេញមុនម៉ោង / Early Leave)
+        if (currentMinutes < s1EndMinutes) {
+          requiresReason = true;
+          reasonType = 'early';
+        }
+      } else if (determinedAction == 'checkin_2') {
+        // ៣. សម្រាប់ Check In 2 (ចូលធ្វើការវេនរសៀល)
+        // IF Scan_Time > Shift_In_2 (មកយឺត)
+        if (currentMinutes > s2StartMinutes) {
+          requiresReason = true;
+          reasonType = 'late';
+        }
+      } else if (determinedAction == 'checkout_2') {
+        // ៤. សម្រាប់ Check Out 2 (ចេញទៅផ្ទះវេនរសៀល)
+        // IF Scan_Time < Shift_Out_2 (ចេញមុនម៉ោង)
+        if (currentMinutes < s2EndMinutes) {
+          requiresReason = true;
+          reasonType = 'early';
+        }
       }
 
       setState(() {
         _isVerifying = false;
         _nextAction = determinedAction;
+        _reasonType = reasonType;
       });
 
-      if (isLate) {
-        _reasonType = 'late';
-        _earlyCheckoutReason = '';
-        _reasonController.clear();
-        _setUnlocked(false);
-        _showReasonModalDialog();
-      } else if (isEarly) {
-        _reasonType = 'early';
+      if (requiresReason) {
         _earlyCheckoutReason = '';
         _reasonController.clear();
         _setUnlocked(false);
         _showReasonModalDialog();
       } else {
         _earlyCheckoutReason = '';
-        if (_isLocationVerified) {
-          _setUnlocked(true); // Unlock camera for normal on-time checkin/checkout!
+        if (_isLocationVerified || widget.isLoginMode) {
+          _setUnlocked(true); // Open Camera directly
           setState(() {
-            _statusMessage = '✅ ផ្ទៀងផ្ទាត់ជោគជ័យ! បើកកាមេរ៉ាស្កេន (សកម្មភាព៖ ${_getActionLabel(determinedAction)})';
+            _statusMessage = '✅ ម៉ោងត្រឹមត្រូវ! បើក Camera ស្កេន (${_getActionLabel(determinedAction)})';
           });
         } else {
-          _setUnlocked(false); // Keep camera locked!
+          _setUnlocked(false);
           setState(() {
             _statusMessage = '🔒 មិនអាចបើកកាមេរ៉ាស្កេនទេ! លោកអ្នកស្ថិតនៅក្រៅទីតាំងសាខា';
           });
@@ -580,13 +675,13 @@ class _ScannerModalSheetState extends State<ScannerModalSheet> with WidgetsBindi
   String _getActionLabel(String actionKey) {
     switch (actionKey) {
       case 'checkin_1':
-        return 'Check In 1 (ព្រឹក)';
+        return 'Check In 1';
       case 'checkout_1':
-        return 'Check Out 1 (ថ្ងៃត្រង់)';
+        return 'Check Out 1';
       case 'checkin_2':
-        return 'Check In 2 (រសៀល)';
+        return 'Check In 2';
       case 'checkout_2':
-        return 'Check Out 2 (ល្ងាច)';
+        return 'Check Out 2';
       default:
         return 'Check In/Out';
     }
@@ -614,22 +709,38 @@ class _ScannerModalSheetState extends State<ScannerModalSheet> with WidgetsBindi
       barrierDismissible: false,
       builder: (ctx) {
         final isDark = Theme.of(ctx).brightness == Brightness.dark;
-        final title = _reasonType == 'late'
-            ? '⚠️ មកយឺតជាងម៉ោងកំណត់ (Late Check-in Note)'
-            : '📝 មិនទាន់ដល់ម៉ោង Check-out (Early Check-out Note)';
+        final isLate = _reasonType == 'late';
+        final title = isLate
+            ? '⚠️ មកយឺតជាងម៉ោងកំណត់ (Late Reason)'
+            : '📝 ចេញមុនម៉ោងកំណត់ (Early Leave Reason)';
 
         return AlertDialog(
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
           backgroundColor: isDark ? AppColors.cardDark : AppColors.cardLight,
-          title: Text(title, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: AppColors.danger)),
+          title: Row(
+            children: [
+              Icon(
+                isLate ? LucideIcons.alertTriangle : LucideIcons.clock,
+                color: AppColors.danger,
+                size: 20,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  title,
+                  style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: AppColors.danger),
+                ),
+              ),
+            ],
+          ),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                _reasonType == 'late'
-                    ? 'ម៉ោងចូលរបស់អ្នកគឺយឺតជាងម៉ោងកំណត់។ សូមបំពេញ Note / មូលហេតុនៃការមកយឺត៖'
-                    : 'មិនទាន់ដល់ម៉ោងកំណត់ចេញពីធ្វើការនៅឡើយទេ។ សូមបំពេញ Note / មូលហេតុនៃការចាកចេញមុនម៉ោង និងចុច "Done" ដើម្បីអាចស្កេន Check-Out បាន៖',
+                isLate
+                    ? 'ម៉ោងចូលរបស់អ្នកគឺយឺតជាងម៉ោងកំណត់។ សូមបំពេញមូលហេតុនៃការមកយឺត (Note reason for being late) ដើម្បីបើក Camera ស្កេន៖'
+                    : 'មិនទាន់ដល់ម៉ោងកំណត់ចេញនៅឡើយទេ។ សូមបំពេញមូលហេតុនៃការចេញមុនម៉ោង (Early Leave reason) ដើម្បីបើក Camera ស្កេន៖',
                 style: const TextStyle(fontSize: 12, color: Colors.grey),
               ),
               const SizedBox(height: 12),
@@ -637,7 +748,7 @@ class _ScannerModalSheetState extends State<ScannerModalSheet> with WidgetsBindi
                 controller: _reasonController,
                 maxLines: 3,
                 decoration: InputDecoration(
-                  hintText: 'បញ្ចូល Note / មូលហេតុទីនេះ...',
+                  hintText: isLate ? 'បញ្ចូលមូលហេតុនៃការមកយឺត...' : 'បញ្ចូលមូលហេតុនៃការចេញមុនម៉ោង...',
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                   contentPadding: const EdgeInsets.all(12),
                 ),
@@ -650,7 +761,7 @@ class _ScannerModalSheetState extends State<ScannerModalSheet> with WidgetsBindi
                 Navigator.pop(ctx);
                 _setUnlocked(false); // Remains locked if cancelled
                 setState(() {
-                  _statusMessage = '🔒 កាមេរ៉ាត្រូវចាក់សោរ! សូមបំពេញ Note និងចុច Done ដើម្បីបើក Camera ស្កេន Check-Out';
+                  _statusMessage = '🔒 កាមេរ៉ាត្រូវចាក់សោរ! សូមបំពេញមូលហេតុ និងចុច Submit ដើម្បីបើក Camera ស្កេន';
                 });
               },
               child: const Text('បោះបង់', style: TextStyle(color: Colors.grey)),
@@ -659,7 +770,7 @@ class _ScannerModalSheetState extends State<ScannerModalSheet> with WidgetsBindi
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.primary,
                 foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               ),
               onPressed: () {
@@ -667,7 +778,7 @@ class _ScannerModalSheetState extends State<ScannerModalSheet> with WidgetsBindi
                 if (noteText.isEmpty) {
                   ScaffoldMessenger.of(ctx).showSnackBar(
                     const SnackBar(
-                      content: Text('សូមបញ្ចូល Note / មូលហេតុមុននឹងចុច Done!'),
+                      content: Text('សូមបញ្ចូលមូលហេតុជាមុនសិន!'),
                       backgroundColor: AppColors.danger,
                     ),
                   );
@@ -675,19 +786,19 @@ class _ScannerModalSheetState extends State<ScannerModalSheet> with WidgetsBindi
                 }
                 _earlyCheckoutReason = noteText;
                 Navigator.pop(ctx);
-                if (_isLocationVerified) {
-                  _setUnlocked(true); // Unlock Camera ONLY after Done clicked!
+                if (_isLocationVerified || widget.isLoginMode) {
+                  _setUnlocked(true); // Open Camera ONLY after Submit clicked!
                   setState(() {
-                    _statusMessage = '✅ បានរក្សាទុក Note រួចរាល់! អាចស្កេន Check-Out បានហើយ (${_getActionLabel(_nextAction)})';
+                    _statusMessage = '✅ បានកត់ត្រាមូលហេតុរួចរាល់! បើក Camera ស្កេន (${_getActionLabel(_nextAction)})';
                   });
                 } else {
-                  _setUnlocked(false); // Keep camera locked if out of branch!
+                  _setUnlocked(false);
                   setState(() {
                     _statusMessage = '🔒 មិនអាចបើកកាមេរ៉ាស្កេនទេ! លោកអ្នកស្ថិតនៅក្រៅទីតាំងសាខា';
                   });
                 }
               },
-              child: const Text('Done', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+              child: const Text('យល់ព្រម & បើក Camera (Submit)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
             ),
           ],
         );
@@ -882,19 +993,23 @@ class _ScannerModalSheetState extends State<ScannerModalSheet> with WidgetsBindi
       _isSuccess = false;
     });
 
+    final effectiveStaffId = (_scanOnBehalf && _behalfStaffIdController.text.trim().isNotEmpty)
+        ? _behalfStaffIdController.text.trim()
+        : user?.employeeId;
+
     final result = await _attendanceRepository.scanQRCode(
       tokenToScan,
       lat: _clientLat,
       lng: _clientLng,
       note: _earlyCheckoutReason.isNotEmpty ? _earlyCheckoutReason : null,
-      staffId: user?.employeeId,
-      action: _getActionLabel(_nextAction),
+      staffId: effectiveStaffId,
+      action: _nextAction,
     );
 
     if (mounted) {
       final attendanceController = Get.find<AttendanceController>();
       if (result['success'] == true) {
-        await attendanceController.recordScanSuccess(action: result['action'], staffId: user?.employeeId);
+        await attendanceController.recordScanSuccess(action: result['action'] ?? _nextAction, staffId: effectiveStaffId);
 
         HapticFeedback.vibrate(); // Direct tactile validation response
         SystemSound.play(SystemSoundType.click); // Confirmation audio clip
@@ -902,9 +1017,9 @@ class _ScannerModalSheetState extends State<ScannerModalSheet> with WidgetsBindi
         // Show Frontend Celebratory Success Dialog popup!
         final empData = result['employee'] ?? {};
         final name = empData['nameEn'] ?? empData['nameKh'] ?? user?.name ?? 'Employee User';
-        final staffId = empData['staffId'] ?? user?.employeeId ?? 'EMP-2026';
+        final staffId = empData['staffId'] ?? effectiveStaffId ?? 'EMP-2026';
         final department = empData['department'] ?? user?.department ?? 'Engineering';
-        final action = result['action'] ?? _getActionLabel(_nextAction);
+        final action = _getActionLabel(result['action'] ?? _nextAction);
         final timeString = DateFormat('hh:mm:ss a').format(DateTime.now());
 
         _showSuccessDialog({
@@ -923,8 +1038,6 @@ class _ScannerModalSheetState extends State<ScannerModalSheet> with WidgetsBindi
           _employeeAssignedSettings = [];
           _matchedBranchName = null;
           _matchedBranchToken = null;
-          _closestBranchDistance = null;
-          _closestBranchRadius = null;
           _isLocationVerified = false; // Reset verification state!
           _hasFetchedInitially = false; // Reset fetch flag for next scan session!
           _statusMessage = '🎉 ស្កេនបានជោគជ័យ! ($action)';
@@ -980,58 +1093,17 @@ class _ScannerModalSheetState extends State<ScannerModalSheet> with WidgetsBindi
               ),
               const SizedBox(height: 12),
 
-              // Kiosk Digital Clock & GPS Status Header Banner (Matching Frontend)
+              // Digital Clock Header
               Column(
                 children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: AppColors.primary.withValues(alpha: 0.12),
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
-                    ),
-                    child: const Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(LucideIcons.clock, size: 14, color: AppColors.primary),
-                        SizedBox(width: 6),
-                        Text('KIOSK ACTIVE scan mode', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.primary)),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-
-                  // Geolocation Status Chip
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
-                    decoration: BoxDecoration(
-                      color: (_isLocationVerified ? AppColors.success : AppColors.danger).withValues(alpha: 0.12),
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: (_isLocationVerified ? AppColors.success : AppColors.danger).withValues(alpha: 0.3)),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(LucideIcons.mapPin, size: 12, color: _isLocationVerified ? AppColors.success : AppColors.danger),
-                        const SizedBox(width: 4),
-                        Text(
-                          _isLocationVerified
-                              ? '📍 GPS Active (${_clientLat.toStringAsFixed(4)}, ${_clientLng.toStringAsFixed(4)})'
-                              : '⚠️ GPS Offline / Out of Branch (${_matchedBranchName ?? "Branch"}${_closestBranchDistance != null ? " ${_closestBranchDistance!.toStringAsFixed(0)}m / ${_closestBranchRadius?.toStringAsFixed(0) ?? 100}m" : ""})',
-                          style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: _isLocationVerified ? AppColors.success : AppColors.danger),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-
                   Text(
                     DateFormat('hh:mm:ss a').format(now),
                     style: const TextStyle(fontSize: 26, fontWeight: FontWeight.w800, letterSpacing: 1.5),
                   ),
+                  const SizedBox(height: 2),
                   Text(
                     DateFormat('EEEE, MMMM d, yyyy').format(now),
-                    style: const TextStyle(fontSize: 11, color: Colors.grey),
+                    style: const TextStyle(fontSize: 12, color: Colors.grey),
                   ),
                 ],
               ),
@@ -1301,7 +1373,6 @@ class _ScannerModalSheetState extends State<ScannerModalSheet> with WidgetsBindi
                         ? null
                         : () {
                             _handleCheckPress();
-                            _handleScanAnyQRCode();
                           },
                     child: _isVerifying
                         ? const SizedBox(
@@ -1309,9 +1380,16 @@ class _ScannerModalSheetState extends State<ScannerModalSheet> with WidgetsBindi
                             height: 20,
                             child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
                           )
-                        : Text(
-                            'សកម្មភាព៖ ${_getActionLabel(_nextAction)}',
-                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, letterSpacing: 1),
+                        : Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const Icon(LucideIcons.camera, size: 20, color: Colors.white),
+                              const SizedBox(width: 8),
+                              Text(
+                                _getActionLabel(_nextAction),
+                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                              ),
+                            ],
                           ),
                   ),
                 ),

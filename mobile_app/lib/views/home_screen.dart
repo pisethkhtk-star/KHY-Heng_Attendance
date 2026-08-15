@@ -43,8 +43,13 @@ class HomeScreen extends StatelessWidget {
     final langController = Get.find<LanguageController>();
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+    return RefreshIndicator(
+      onRefresh: () async {
+        await attendanceController.fetchRemoteHistory(staffId: authController.user?.employeeId);
+      },
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -396,7 +401,8 @@ class HomeScreen extends StatelessWidget {
           ).animate().fadeIn(delay: 400.ms),
         ],
       ),
-    );
+    ),
+  );
   }
 
   Widget _buildTimeSlotPill(String label, String time, Color color) {

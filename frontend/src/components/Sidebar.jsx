@@ -59,6 +59,12 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
       icon: ClockIcon,
     },
     {
+      path: "/overtime",
+      name: t("overtime"),
+      icon: ClockIcon,
+      resource: "overtime",
+    },
+    {
       key: "Leave",
       name: t("leaveGroup"),
       icon: CalendarIcon,

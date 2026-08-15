@@ -78,6 +78,19 @@ class AppTranslations {
       'my_qr_desc': 'Show this QR code to the office Kiosk scanner',
       'manual_qr_input': 'Or enter QR Code manually',
       'enter_code': 'Enter code here...',
+      // Leave Duration Translations
+      'leave_duration': 'Leave Duration',
+      'half_day': '0.5 Day',
+      'full_day': '1 Day',
+      'multiple_days': 'Multiple Days',
+      'select_shift': 'Select Shift:',
+      'morning': 'Morning',
+      'afternoon': 'Afternoon',
+      'leave_date': 'Leave Date',
+      'requested_duration': 'Requested Duration',
+      'days_count': 'days',
+      'day_count': 'day',
+      'reason_required': 'Please enter a reason / note for your leave request',
     },
     'km': {
       'app_title': 'HR chomnan',
@@ -144,6 +157,20 @@ class AppTranslations {
       'no': 'ទេ',
       'success': 'ជោគជ័យ',
       'error': 'កំហុស',
+
+      // Leave Duration Translations
+      'leave_duration': 'រយៈពេលសុំច្បាប់',
+      'half_day': '០.៥ ថ្ងៃ',
+      'full_day': '១ ថ្ងៃ',
+      'multiple_days': 'ច្រើនថ្ងៃ',
+      'select_shift': 'ជ្រើសរើសវេន៖',
+      'morning': 'ព្រឹក',
+      'afternoon': 'រសៀល',
+      'leave_date': 'កាលបរិច្ឆេទសុំច្បាប់',
+      'requested_duration': 'រយៈពេលស្នើសុំ',
+      'days_count': 'ថ្ងៃ',
+      'day_count': 'ថ្ងៃ',
+      'reason_required': 'សូមបញ្ចូលមូលហេតុនៃការសុំច្បាប់',
 
       // Scanner translations
       'scanner_title': 'ម៉ាស៊ីនស្កេនវត្តមាន',

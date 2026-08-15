@@ -1,6 +1,7 @@
 import 'package:get/get.dart';
 import '../models/leave_model.dart';
 import '../repositories/leave_repository.dart';
+import 'attendance_controller.dart';
 
 class LeaveController extends GetxController {
   final ILeaveRepository _leaveRepository = Get.find<ILeaveRepository>();
@@ -74,7 +75,8 @@ class LeaveController extends GetxController {
                       req.leaveType.toLowerCase() == nameEn.toLowerCase() ||
                       req.leaveType.toLowerCase().contains(nameEn.toLowerCase()) ||
                       req.leaveType.toLowerCase().contains(code.toLowerCase())))
-              .fold<int>(0, (sum, item) => sum + item.totalDays);
+              .fold<double>(0.0, (sum, item) => sum + item.totalDays)
+              .ceil();
 
           final remaining = maxDays - usedCount;
 
@@ -93,7 +95,6 @@ class LeaveController extends GetxController {
         ];
       }
     } catch (e) {
-      print('General error in fetchRemoteLeaves: $e');
       if (_balances.isEmpty) {
         _balances.value = [
           LeaveBalance(typeName: 'Annual Leave (AL)', totalDays: 18, usedDays: 0, remainingDays: 18),
@@ -108,8 +109,9 @@ class LeaveController extends GetxController {
     required String type,
     required String startDate,
     required String endDate,
-    required int days,
+    required double days,
     required String reason,
+    String durationType = 'Full Day',
     String? staffId,
   }) async {
     _isSubmitting.value = true;
@@ -119,12 +121,18 @@ class LeaveController extends GetxController {
       startDate: startDate,
       endDate: endDate,
       reason: reason,
-      durationType: days == 1 ? 'Full Day' : 'Multiple Days',
+      durationType: durationType,
       staffId: staffId,
     );
 
     if (result['success'] == true) {
       await fetchRemoteLeaves(staffId: staffId);
+      // Immediately refresh attendance history so overridden null slots reflect on home screen!
+      try {
+        if (Get.isRegistered<AttendanceController>()) {
+          await Get.find<AttendanceController>().fetchRemoteHistory(staffId: staffId);
+        }
+      } catch (_) {}
     } else {
       final newRequest = LeaveItem(
         id: 'lv-${DateTime.now().millisecondsSinceEpoch}',
@@ -141,7 +149,7 @@ class LeaveController extends GetxController {
     }
 
     _isSubmitting.value = false;
-    return true;
+    return result['success'] == true;
   }
 
   Future<Map<String, dynamic>> cancelLeave(String id, {String? staffId}) async {
@@ -149,6 +157,11 @@ class LeaveController extends GetxController {
     final result = await _leaveRepository.cancelLeaveRequest(id);
     if (result['success'] == true) {
       await fetchRemoteLeaves(staffId: staffId);
+      try {
+        if (Get.isRegistered<AttendanceController>()) {
+          await Get.find<AttendanceController>().fetchRemoteHistory(staffId: staffId);
+        }
+      } catch (_) {}
     }
     _isSubmitting.value = false;
     return result;
@@ -167,7 +180,8 @@ class LeaveController extends GetxController {
                (typeName.contains('unpaid') && req.leaveType.toLowerCase().contains('unpaid')) ||
                (typeName.contains('special') && req.leaveType.toLowerCase().contains('special')) ||
                (typeName.contains('personal') && req.leaveType.toLowerCase().contains('personal'))))
-          .fold<int>(0, (sum, item) => sum + item.totalDays);
+          .fold<double>(0.0, (sum, item) => sum + item.totalDays)
+          .ceil();
 
       final remaining = balance.totalDays - usedCount;
 

@@ -167,13 +167,13 @@ export const create = async (req, res) => {
       }
     }
 
-    const createPromises = dates.map(date => {
+    const createPromises = dates.map(async date => {
       let finalReason = reason;
       if (durationType === 'Morning' || durationType === 'Afternoon') {
         finalReason = reason ? `${reason} (${durationType})` : `(${durationType})`;
       }
 
-      return prisma.leave.create({
+      const newLeave = await prisma.leave.create({
         data: {
           staffId,
           leaveDate: date,
@@ -183,9 +183,97 @@ export const create = async (req, res) => {
           status: 'Pending'
         }
       });
+
+      // Override attendance record for this leave date according to durationType!
+      try {
+        const existingAttendance = await prisma.attendance.findUnique({
+          where: {
+            staffId_attendanceDate: {
+              staffId,
+              attendanceDate: date
+            }
+          }
+        });
+
+        const noteText = `Leave: ${leaveType} (${durationType})`;
+
+        if (durationType === 'Morning') {
+          if (existingAttendance) {
+            await prisma.attendance.update({
+              where: { id: existingAttendance.id },
+              data: {
+                checkin1: null,
+                checkout1: null,
+                note: existingAttendance.note ? `${existingAttendance.note} | ${noteText}` : noteText
+              }
+            });
+          } else {
+            await prisma.attendance.create({
+              data: {
+                staffId,
+                attendanceDate: date,
+                checkin1: null,
+                checkout1: null,
+                note: noteText
+              }
+            });
+          }
+        } else if (durationType === 'Afternoon') {
+          if (existingAttendance) {
+            await prisma.attendance.update({
+              where: { id: existingAttendance.id },
+              data: {
+                checkin2: null,
+                checkout2: null,
+                note: existingAttendance.note ? `${existingAttendance.note} | ${noteText}` : noteText
+              }
+            });
+          } else {
+            await prisma.attendance.create({
+              data: {
+                staffId,
+                attendanceDate: date,
+                checkin2: null,
+                checkout2: null,
+                note: noteText
+              }
+            });
+          }
+        } else {
+          // Full Day / Multiple Days
+          if (existingAttendance) {
+            await prisma.attendance.update({
+              where: { id: existingAttendance.id },
+              data: {
+                checkin1: null,
+                checkout1: null,
+                checkin2: null,
+                checkout2: null,
+                note: existingAttendance.note ? `${existingAttendance.note} | ${noteText}` : noteText
+              }
+            });
+          } else {
+            await prisma.attendance.create({
+              data: {
+                staffId,
+                attendanceDate: date,
+                checkin1: null,
+                checkout1: null,
+                checkin2: null,
+                checkout2: null,
+                note: noteText
+              }
+            });
+          }
+        }
+      } catch (attError) {
+        console.error('Error overriding attendance on leave create:', attError);
+      }
+
+      return newLeave;
     });
 
-    const leavesCreated = await prisma.$transaction(createPromises);
+    const leavesCreated = await Promise.all(createPromises);
     res.status(201).json(leavesCreated[0]);
   } catch (error) {
     console.error('Create leave request error:', error);
@@ -255,7 +343,7 @@ export const updateStatus = async (req, res) => {
       }
     });
 
-    // If approved, create a skeleton attendance record for the leave day so they aren't marked absent
+    // If approved, update or create attendance record with appropriate null slots based on leave reason/duration
     if (status === 'Approved') {
       const attendanceDate = leave.leaveDate;
       const existingAttendance = await prisma.attendance.findUnique({
@@ -267,15 +355,77 @@ export const updateStatus = async (req, res) => {
         }
       });
 
-      if (!existingAttendance) {
-        // Log leave check-in simulation to prevent absent tags
-        await prisma.attendance.create({
-          data: {
-            staffId: leave.staffId,
-            attendanceDate,
-            note: `Approved Leave: ${leave.leaveType}`
-          }
-        });
+      const isMorning = leave.reason?.includes('(Morning)') || parseFloat(leave.amountDays) === 0.5;
+      const isAfternoon = leave.reason?.includes('(Afternoon)');
+      const noteText = `Approved Leave: ${leave.leaveType} (${isMorning ? 'Morning' : isAfternoon ? 'Afternoon' : 'Full Day'})`;
+
+      if (isMorning) {
+        if (existingAttendance) {
+          await prisma.attendance.update({
+            where: { id: existingAttendance.id },
+            data: {
+              checkin1: null,
+              checkout1: null,
+              note: existingAttendance.note ? `${existingAttendance.note} | ${noteText}` : noteText
+            }
+          });
+        } else {
+          await prisma.attendance.create({
+            data: {
+              staffId: leave.staffId,
+              attendanceDate,
+              checkin1: null,
+              checkout1: null,
+              note: noteText
+            }
+          });
+        }
+      } else if (isAfternoon) {
+        if (existingAttendance) {
+          await prisma.attendance.update({
+            where: { id: existingAttendance.id },
+            data: {
+              checkin2: null,
+              checkout2: null,
+              note: existingAttendance.note ? `${existingAttendance.note} | ${noteText}` : noteText
+            }
+          });
+        } else {
+          await prisma.attendance.create({
+            data: {
+              staffId: leave.staffId,
+              attendanceDate,
+              checkin2: null,
+              checkout2: null,
+              note: noteText
+            }
+          });
+        }
+      } else {
+        if (existingAttendance) {
+          await prisma.attendance.update({
+            where: { id: existingAttendance.id },
+            data: {
+              checkin1: null,
+              checkout1: null,
+              checkin2: null,
+              checkout2: null,
+              note: existingAttendance.note ? `${existingAttendance.note} | ${noteText}` : noteText
+            }
+          });
+        } else {
+          await prisma.attendance.create({
+            data: {
+              staffId: leave.staffId,
+              attendanceDate,
+              checkin1: null,
+              checkout1: null,
+              checkin2: null,
+              checkout2: null,
+              note: noteText
+            }
+          });
+        }
       }
     }
 

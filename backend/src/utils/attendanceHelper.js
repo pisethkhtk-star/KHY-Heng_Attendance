@@ -43,63 +43,48 @@ const timeToMinutes = (timeStr) => {
 // Determine the action automatically based on current time and existing attendance
 export const determineAutoAction = (employee, existingAttendance, timeString) => {
   const currentMinutes = timeToMinutes(timeString);
-  const s1EndMinutes = timeToMinutes(employee.shift1End);
-  const s2StartMinutes = timeToMinutes(employee.shift2Start);
-  const s2EndMinutes = employee.shift2End ? timeToMinutes(employee.shift2End) : 1020;
+  const s1StartMinutes = timeToMinutes(employee?.shift1Start || '08:00');
+  const s1EndMinutes = timeToMinutes(employee?.shift1End || '12:00');
+  const s2StartMinutes = timeToMinutes(employee?.shift2Start || '13:00');
+  const s2EndMinutes = timeToMinutes(employee?.shift2End || '17:00');
 
   const checkin1 = existingAttendance?.checkin1;
   const checkout1 = existingAttendance?.checkout1;
   const checkin2 = existingAttendance?.checkin2;
   const checkout2 = existingAttendance?.checkout2;
 
-  // If we already checked in today (either checkin1 or checkin2) and it is late in the day (e.g. past shift 2 end - 120 mins),
-  // we should treat the scan as checkout_2 rather than starting a new checkin.
-  const isLateDay = currentMinutes >= (s2EndMinutes - 120);
-  if (isLateDay && (checkin1 || checkin2) && !checkout2) {
-    if (!checkin2 || currentMinutes > timeToMinutes(checkin2)) {
-      return 'checkout_2';
-    }
+  const hasCheckIn1 = checkin1 && checkin1 !== '--:--' && checkin1 !== '-';
+  const hasCheckOut1 = checkout1 && checkout1 !== '--:--' && checkout1 !== '-';
+  const hasCheckIn2 = checkin2 && checkin2 !== '--:--' && checkin2 !== '-';
+  const hasCheckOut2 = checkout2 && checkout2 !== '--:--' && checkout2 !== '-';
+
+  if (hasCheckIn1 && hasCheckOut1 && hasCheckIn2 && hasCheckOut2) {
+    return 'completed';
   }
 
-  // 1. If we already checked in 2 but haven't checked out 2 (enforce that current time is after checkin2)
-  if (checkin2 && currentMinutes > timeToMinutes(checkin2) && !checkout2) {
-    return 'checkout_2';
-  }
-
-  // 2. If we are in the Shift 2 window or have already finished Shift 1
-  const isPastShift1 = currentMinutes >= s1EndMinutes;
-  if (checkout1 || (isPastShift1 && !checkin1)) {
-    if (!checkin2) {
-      return 'checkin_2';
-    }
-  }
-
-  // 3. If we checked in 1 but haven't checked out 1
-  if (checkin1 && !checkout1) {
-    const midpoint = s1EndMinutes + (s2StartMinutes - s1EndMinutes) / 2;
-    if (currentMinutes < midpoint) {
-      return 'checkout_1';
+  // 1. If scan time is past Shift 1 End (12:00 PM / afternoon)
+  if (currentMinutes >= s1EndMinutes) {
+    if (!hasCheckIn1) {
+      // IF Scan_Time >= Shift 1 End and Check 1 is null -> return checkin_2
+      if (!hasCheckIn2) return 'checkin_2';
+      if (!hasCheckOut2) return 'checkout_2';
+      return 'completed';
     } else {
-      if (!checkin2) {
-        return 'checkin_2';
+      if (!hasCheckOut1 && currentMinutes <= s2StartMinutes) {
+        return 'checkout_1';
       }
-      return 'checkout_2';
+      if (!hasCheckIn2) return 'checkin_2';
+      if (!hasCheckOut2) return 'checkout_2';
+      return 'completed';
     }
+  } else {
+    // 2. Scan time is before Shift 1 End (morning)
+    if (!hasCheckIn1) return 'checkin_1';
+    if (!hasCheckOut1) return 'checkout_1';
+    if (!hasCheckIn2) return 'checkin_2';
+    if (!hasCheckOut2) return 'checkout_2';
+    return 'completed';
   }
-
-  // 4. If we haven't checked in 1 and we are before shift 1 end
-  if (!checkin1 && currentMinutes < s1EndMinutes) {
-    return 'checkin_1';
-  }
-
-  // Fallbacks
-  if (!checkin1) return 'checkin_1';
-  if (checkin1 && currentMinutes <= timeToMinutes(checkin1)) return 'checkin_1';
-  if (!checkout1) return 'checkout_1';
-  if (checkout1 && currentMinutes <= timeToMinutes(checkout1)) return 'checkout_1';
-  if (!checkin2) return 'checkin_2';
-  if (checkin2 && currentMinutes <= timeToMinutes(checkin2)) return 'checkin_2';
-  return 'checkout_2';
 };
 
 // Perform core attendance processing

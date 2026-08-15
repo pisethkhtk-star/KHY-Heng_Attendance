@@ -2,6 +2,7 @@ import 'package:get/get.dart';
 import 'package:intl/intl.dart';
 import '../models/attendance_model.dart';
 import '../repositories/attendance_repository.dart';
+import 'auth_controller.dart';
 
 class AttendanceController extends GetxController {
   final IAttendanceRepository _attendanceRepository = Get.find<IAttendanceRepository>();
@@ -42,7 +43,11 @@ class AttendanceController extends GetxController {
   }
 
   Future<void> fetchRemoteHistory({String? staffId}) async {
-    final parsed = await _attendanceRepository.fetchHistoryRecords(staffId: staffId);
+    final effectiveStaffId = (staffId != null && staffId.isNotEmpty)
+        ? staffId
+        : (Get.isRegistered<AuthController>() ? Get.find<AuthController>().user?.employeeId : null);
+
+    final parsed = await _attendanceRepository.fetchHistoryRecords(staffId: effectiveStaffId, forceRefresh: true);
     _historyRecords.value = parsed;
 
     _presentCount.value = _historyRecords.where((r) => r.status == 'Present').length;
@@ -50,11 +55,13 @@ class AttendanceController extends GetxController {
     _leaveCount.value = _historyRecords.where((r) => r.status == 'On Leave').length;
     _absentCount.value = _historyRecords.where((r) => r.status == 'Absent').length;
 
-    // Sync today's check-in/out steps and session time slots from database
+    // Sync today's check-in/out steps and session time slots from database for this specific employee
     final todayStr = DateFormat('yyyy-MM-dd').format(DateTime.now());
     AttendanceRecord? todayRecord;
     for (final record in _historyRecords) {
-      if (record.rawDate.contains(todayStr) || record.date.contains(todayStr)) {
+      final matchesDate = record.rawDate.contains(todayStr) || record.date.contains(todayStr);
+      final matchesStaff = effectiveStaffId == null || effectiveStaffId.isEmpty || record.staffId == effectiveStaffId;
+      if (matchesDate && matchesStaff) {
         todayRecord = record;
         break;
       }
@@ -75,7 +82,23 @@ class AttendanceController extends GetxController {
       } else if (_checkIn1.value != null) {
         _currentStep.value = 1;
       } else {
-        _currentStep.value = 0;
+        final now = DateTime.now();
+        if (now.hour >= 12) {
+          _currentStep.value = 2; // Check In 2
+        } else {
+          _currentStep.value = 0; // Check In 1
+        }
+      }
+    } else {
+      _checkIn1.value = null;
+      _checkOut1.value = null;
+      _checkIn2.value = null;
+      _checkOut2.value = null;
+      final now = DateTime.now();
+      if (now.hour >= 12) {
+        _currentStep.value = 2; // Check In 2
+      } else {
+        _currentStep.value = 0; // Check In 1
       }
     }
   }
@@ -84,23 +107,37 @@ class AttendanceController extends GetxController {
     final nowStr = DateFormat('hh:mm a').format(DateTime.now());
     final todayStr = DateFormat('yyyy-MM-dd').format(DateTime.now());
 
-    switch (_currentStep.value) {
-      case 0:
-        _checkIn1.value = nowStr;
-        _currentStep.value = 1;
-        break;
-      case 1:
-        _checkOut1.value = nowStr;
-        _currentStep.value = 2;
-        break;
-      case 2:
-        _checkIn2.value = nowStr;
-        _currentStep.value = 3;
-        break;
-      case 3:
-        _checkOut2.value = nowStr;
-        _currentStep.value = 4;
-        break;
+    if (action == 'checkin_1') {
+      _checkIn1.value = nowStr;
+      _currentStep.value = 1;
+    } else if (action == 'checkout_1') {
+      _checkOut1.value = nowStr;
+      _currentStep.value = 2;
+    } else if (action == 'checkin_2') {
+      _checkIn2.value = nowStr;
+      _currentStep.value = 3;
+    } else if (action == 'checkout_2') {
+      _checkOut2.value = nowStr;
+      _currentStep.value = 4;
+    } else {
+      switch (_currentStep.value) {
+        case 0:
+          _checkIn1.value = nowStr;
+          _currentStep.value = 1;
+          break;
+        case 1:
+          _checkOut1.value = nowStr;
+          _currentStep.value = 2;
+          break;
+        case 2:
+          _checkIn2.value = nowStr;
+          _currentStep.value = 3;
+          break;
+        case 3:
+          _checkOut2.value = nowStr;
+          _currentStep.value = 4;
+          break;
+      }
     }
 
     _upsertTodayRecord(todayStr, staffId);

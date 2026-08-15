@@ -82,6 +82,8 @@ model Employee {
   updatedAt     DateTime     @updatedAt @map("updated_at")
   attendances    Attendance[]
   leaves         Leave[]
+  overtimes      Overtime[]   @relation("EmployeeOvertimes")
+  managedOvertimes Overtime[] @relation("ManagerOvertimes")
   faceData       EmployeeFaceData[]
   qrCodes        EmployeeQRCode[]
   attendanceLogs AttendanceLog[]
@@ -185,12 +187,13 @@ model RolePermission {
 }
 
 model KioskSetting {
-  id        String   @id @default(uuid()) @db.Uuid
-  name      String   @default("Branch Location")
-  latitude  Float    @default(11.5564)
-  longitude Float    @default(104.9282)
-  radius    Float    @default(100.0) // Allowed radius in meters
-  updatedAt DateTime @updatedAt @map("updated_at")
+  id        String     @id @default(uuid()) @db.Uuid
+  name      String     @default("Branch Location")
+  latitude  Float      @default(11.5564)
+  longitude Float      @default(104.9282)
+  radius    Float      @default(100.0) // Allowed radius in meters
+  updatedAt DateTime   @updatedAt @map("updated_at")
+  overtimes Overtime[]
 
   @@map("kiosk_settings")
 }
@@ -245,4 +248,36 @@ model LeaveApprovalRule {
   updatedAt    DateTime    @updatedAt @map("updated_at")
 
   @@map("leave_approval_rules")
+}
+
+model Overtime {
+  id             String        @id @default(uuid()) @db.Uuid
+  staffId        String        @map("staff_id")
+  employee       Employee      @relation("EmployeeOvertimes", fields: [staffId], references: [staffId], onDelete: Cascade)
+  managerId      String?       @map("manager_id")
+  manager        Employee?     @relation("ManagerOvertimes", fields: [managerId], references: [staffId], onDelete: SetNull)
+  managerName    String?       @map("manager_name")
+  branchId       String?       @map("branch_id") @db.Uuid
+  branchLocation KioskSetting? @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  branch         String?       @default("")
+  fromDate       DateTime      @map("from_date") @db.Date
+  toDate         DateTime      @map("to_date") @db.Date
+  startTime      String        @map("start_time") // e.g. "17:30"
+  endTime        String        @map("end_time")   // e.g. "20:30"
+  amountDay      Decimal       @default(0) @map("amount_day") @db.Decimal(5, 2)
+  reason         String?       @db.Text
+  status         LeaveStatus   @default(Pending)
+  comment        String?       @db.Text
+  requestedAt    DateTime      @default(now()) @map("requested_at")
+  approvedAt     DateTime?     @map("approved_at")
+  createdBy      String?       @map("created_by")
+  createdAt      DateTime      @default(now()) @map("created_at")
+  updatedAt      DateTime      @updatedAt @map("updated_at")
+
+  @@index([staffId])
+  @@index([managerId])
+  @@index([branchId])
+  @@index([fromDate])
+  @@index([toDate])
+  @@map("overtimes")
 }
