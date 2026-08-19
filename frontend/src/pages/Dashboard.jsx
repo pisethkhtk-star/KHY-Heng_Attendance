@@ -9,7 +9,7 @@ import {
   ExclamationCircleIcon,
   CalendarDaysIcon,
 } from '@heroicons/react/24/outline';
-import { formatTime12Hour } from './Attendance';
+import { formatTime12Hour } from '../utils/dateUtils';
 
 const Dashboard = () => {
   const { user } = useAuth();

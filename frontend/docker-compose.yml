@@ -1,0 +1,20 @@
+services:
+  frontend1:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost:8080/api}
+    image: frontend1:latest
+    container_name: hr_attendance_frontend1
+    restart: unless-stopped
+    ports:
+      - "${FRONTEND_PORT:-5173}:80"
+    environment:
+      TZ: Asia/Phnom_Penh
+    networks:
+      - app-network
+
+networks:
+  app-network:
+    driver: bridge

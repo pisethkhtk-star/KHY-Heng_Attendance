@@ -58,7 +58,7 @@ const Employees = () => {
   const [formPhoto, setFormPhoto] = useState('');
   const [formFaceDescriptor, setFormFaceDescriptor] = useState(null);
   const [formPhotoStatus, setFormPhotoStatus] = useState('idle'); // idle, processing, success, error
-  const [formPhotoError, setFormPhotoError] = useState('');
+
   const [profilePhoto, setProfilePhoto] = useState(''); // profile photo (simple upload, no face detect)
   const [profilePhotoLoading, setProfilePhotoLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
@@ -373,82 +373,6 @@ const Employees = () => {
     }
   };
 
-  const handleFormPhotoUpload = async (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    setFormPhotoStatus('processing');
-    setFormPhotoError('');
-
-    try {
-      if (!window.faceapi) {
-        throw new Error('Face recognition models are loading. Please wait.');
-      }
-
-      const MODEL_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model/';
-      if (!window.faceapi.nets.tinyFaceDetector.params) {
-        await window.faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL);
-      }
-      if (!window.faceapi.nets.faceLandmark68Net.params) {
-        await window.faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL);
-      }
-      if (!window.faceapi.nets.faceRecognitionNet.params) {
-        await window.faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL);
-      }
-
-      const img = new Image();
-      img.src = URL.createObjectURL(file);
-      await new Promise((resolve, reject) => {
-        img.onload = resolve;
-        img.onerror = () => reject(new Error('Failed to load image file.'));
-      });
-
-      const detection = await window.faceapi.detectSingleFace(
-        img,
-        new window.faceapi.TinyFaceDetectorOptions()
-      ).withFaceLandmarks().withFaceDescriptor();
-
-      if (!detection) {
-        throw new Error(locale === 'kh'
-          ? 'រូបភាពមិនច្បាស់ ឬរកមិនឃើញផ្ទៃមុខឡើយ! សូមសាកល្បងរូបភាពផ្សេង។'
-          : 'Image is not clear or no face detected. Please try another image.'
-        );
-      }
-
-      const descriptorArray = Array.from(detection.descriptor);
-
-      const canvas = document.createElement('canvas');
-      const maxDim = 300;
-      let width = img.width;
-      let height = img.height;
-      if (width > height) {
-        if (width > maxDim) {
-          height *= maxDim / width;
-          width = maxDim;
-        }
-      } else {
-        if (height > maxDim) {
-          width *= maxDim / height;
-          height = maxDim;
-        }
-      }
-      canvas.width = width;
-      canvas.height = height;
-      const ctx = canvas.getContext('2d');
-      ctx.drawImage(img, 0, 0, width, height);
-      const base64Photo = canvas.toDataURL('image/jpeg', 0.8);
-
-      setFormPhoto(base64Photo);
-      setFormFaceDescriptor(descriptorArray);
-      setFormPhotoStatus('success');
-      playSound('success');
-    } catch (err) {
-      console.error(err);
-      setFormPhotoStatus('error');
-      setFormPhotoError(err.message || 'Error processing uploaded image.');
-      playSound('error');
-    }
-  };
 
   const handleCloseFaceModal = () => {
     if (streamRef.current) {

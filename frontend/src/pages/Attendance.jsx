@@ -4,23 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
 import { MagnifyingGlassIcon, PencilIcon, PlusIcon, TrashIcon } from '@heroicons/react/24/outline';
 
-export const formatTime12Hour = (timeStr) => {
-  if (!timeStr) return '-';
-  const parts = timeStr.split(':');
-  if (parts.length < 2) return timeStr;
-
-  let hours = parseInt(parts[0], 10);
-  const minutes = parts[1];
-
-  if (isNaN(hours)) return timeStr;
-
-  const ampm = hours >= 12 ? 'PM' : 'AM';
-  hours = hours % 12;
-  hours = hours ? hours : 12;
-
-  const formattedHours = String(hours).padStart(2, '0');
-  return `${formattedHours}:${minutes} ${ampm}`;
-};
+import { formatTime12Hour } from '../utils/dateUtils';
 
 const TimePicker12Hour = ({ label, value, onChange }) => {
   const parseTimeTo12Hour = (time24) => {
@@ -206,35 +190,6 @@ const Attendance = () => {
     }
   };
 
-  const parseTimeTo12Hour = (time24) => {
-    if (!time24) return { hour: '', minute: '', ampm: 'AM' };
-    const parts = time24.split(':');
-    if (parts.length < 2) return { hour: '', minute: '', ampm: 'AM' };
-
-    let hours = parseInt(parts[0], 10);
-    const minutes = parts[1];
-
-    if (isNaN(hours)) return { hour: '', minute: '', ampm: 'AM' };
-
-    const ampm = hours >= 12 ? 'PM' : 'AM';
-    hours = hours % 12;
-    hours = hours ? hours : 12;
-
-    return {
-      hour: String(hours).padStart(2, '0'),
-      minute: minutes,
-      ampm
-    };
-  };
-
-  const formatTimeTo24Hour = (hour, minute, ampm) => {
-    if (!hour || !minute) return '';
-    let h = parseInt(hour, 10);
-    if (isNaN(h)) return '';
-    if (ampm === 'PM' && h < 12) h += 12;
-    if (ampm === 'AM' && h === 12) h = 0;
-    return `${String(h).padStart(2, '0')}:${String(minute).padStart(2, '0')}:00`;
-  };
 
   const handleOpenEditModal = (log) => {
     setErrorMsg('');

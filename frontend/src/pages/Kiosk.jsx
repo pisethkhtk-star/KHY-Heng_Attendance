@@ -37,11 +37,6 @@ const Kiosk = () => {
 
   // Kiosk Verification and Locked Camera States
   const [isUnlocked, setIsUnlocked] = useState(false);
-  const [searchStaffId, setSearchStaffId] = useState('');
-  const [showVerifyModal, setShowVerifyModal] = useState(false);
-  const [verifying, setVerifying] = useState(false);
-  const [verifyError, setVerifyError] = useState('');
-  const [matchedEmployee, setMatchedEmployee] = useState(null);
   const [nextAction, setNextAction] = useState('checkin_1');
   const [earlyCheckoutReason, setEarlyCheckoutReason] = useState('');
   const [showReasonModal, setShowReasonModal] = useState(false);
@@ -129,11 +124,8 @@ const Kiosk = () => {
       const timeOptions = { timeZone: 'Asia/Phnom_Penh', hour: '2-digit', minute: '2-digit', hour12: false };
       const currentTimeStr = now.toLocaleTimeString('en-US', timeOptions);
 
-      const currentMinutes = timeToMinutes(currentTimeStr);
-      const s1StartMinutes = timeToMinutes(matched.shift1Start);
       const s1EndMinutes = timeToMinutes(matched.shift1End);
       const s2StartMinutes = timeToMinutes(matched.shift2Start);
-      const s2EndMinutes = timeToMinutes(matched.shift2End);
 
       const checkin1 = todayRec?.checkin1;
       const checkout1 = todayRec?.checkout1;
