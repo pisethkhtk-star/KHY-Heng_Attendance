@@ -42,15 +42,15 @@ class LeaveController extends GetxController {
               final code = allowance['code']?.toString() ?? '';
               final nameEn = allowance['nameEn']?.toString() ?? allowance['nameKh']?.toString() ?? code;
               final typeName = code.isNotEmpty ? '$nameEn ($code)' : nameEn;
-              final maxDays = (allowance['maxDays'] as num?)?.toInt() ?? 18;
-              final usedDays = (allowance['usedDays'] as num?)?.toInt() ?? 0;
+              final maxDays = (allowance['maxDays'] as num?)?.toDouble() ?? 18.0;
+              final usedDays = (allowance['usedDays'] as num?)?.toDouble() ?? 0.0;
               final remaining = maxDays - usedDays;
 
               return LeaveBalance(
                 typeName: typeName,
                 totalDays: maxDays,
                 usedDays: usedDays,
-                remainingDays: remaining < 0 ? 0 : remaining,
+                remainingDays: remaining < 0 ? 0.0 : remaining,
               );
             }).toList();
             return; // Successful fetch, stop here!
@@ -64,7 +64,7 @@ class LeaveController extends GetxController {
           final code = typeJson['code']?.toString() ?? '';
           final nameEn = typeJson['nameEn']?.toString() ?? typeJson['nameKh']?.toString() ?? 'Leave';
           final typeName = code.isNotEmpty ? '$nameEn ($code)' : nameEn;
-          final maxDays = (typeJson['maxDays'] as num?)?.toInt() ?? 18;
+          final maxDays = (typeJson['maxDays'] as num?)?.toDouble() ?? 18.0;
 
           final usedCount = _leaveRequests
               .where((req) =>
@@ -73,31 +73,30 @@ class LeaveController extends GetxController {
                       req.leaveType.toLowerCase() == nameEn.toLowerCase() ||
                       req.leaveType.toLowerCase().contains(nameEn.toLowerCase()) ||
                       req.leaveType.toLowerCase().contains(code.toLowerCase())))
-              .fold<double>(0.0, (sum, item) => sum + item.totalDays)
-              .ceil();
+              .fold<double>(0.0, (sum, item) => sum + item.totalDays);
 
           final remaining = maxDays - usedCount;
 
           return LeaveBalance(
             typeName: typeName,
             totalDays: maxDays,
-            usedDays: usedCount < 0 ? 0 : usedCount,
-            remainingDays: remaining < 0 ? 0 : remaining,
+            usedDays: usedCount < 0 ? 0.0 : usedCount,
+            remainingDays: remaining < 0 ? 0.0 : remaining,
           );
         }).toList();
       } else if (_balances.isEmpty) {
         _balances.value = [
-          LeaveBalance(typeName: 'Annual Leave (AL)', totalDays: 18, usedDays: 0, remainingDays: 18),
-          LeaveBalance(typeName: 'Personal Leave (PL)', totalDays: 7, usedDays: 0, remainingDays: 7),
-          LeaveBalance(typeName: 'Sick Leave (SL)', totalDays: 12, usedDays: 0, remainingDays: 12),
+          LeaveBalance(typeName: 'Annual Leave (AL)', totalDays: 18.0, usedDays: 0.0, remainingDays: 18.0),
+          LeaveBalance(typeName: 'Personal Leave (PL)', totalDays: 7.0, usedDays: 0.0, remainingDays: 7.0),
+          LeaveBalance(typeName: 'Sick Leave (SL)', totalDays: 12.0, usedDays: 0.0, remainingDays: 12.0),
         ];
       }
     } catch (e) {
       if (_balances.isEmpty) {
         _balances.value = [
-          LeaveBalance(typeName: 'Annual Leave (AL)', totalDays: 18, usedDays: 0, remainingDays: 18),
-          LeaveBalance(typeName: 'Personal Leave (PL)', totalDays: 7, usedDays: 0, remainingDays: 7),
-          LeaveBalance(typeName: 'Sick Leave (SL)', totalDays: 12, usedDays: 0, remainingDays: 12),
+          LeaveBalance(typeName: 'Annual Leave (AL)', totalDays: 18.0, usedDays: 0.0, remainingDays: 18.0),
+          LeaveBalance(typeName: 'Personal Leave (PL)', totalDays: 7.0, usedDays: 0.0, remainingDays: 7.0),
+          LeaveBalance(typeName: 'Sick Leave (SL)', totalDays: 12.0, usedDays: 0.0, remainingDays: 12.0),
         ];
       }
     }
@@ -178,16 +177,15 @@ class LeaveController extends GetxController {
                (typeName.contains('unpaid') && req.leaveType.toLowerCase().contains('unpaid')) ||
                (typeName.contains('special') && req.leaveType.toLowerCase().contains('special')) ||
                (typeName.contains('personal') && req.leaveType.toLowerCase().contains('personal'))))
-          .fold<double>(0.0, (sum, item) => sum + item.totalDays)
-          .ceil();
+          .fold<double>(0.0, (sum, item) => sum + item.totalDays);
 
       final remaining = balance.totalDays - usedCount;
 
       return LeaveBalance(
         typeName: balance.typeName,
         totalDays: balance.totalDays,
-        usedDays: usedCount < 0 ? 0 : usedCount,
-        remainingDays: remaining < 0 ? 0 : remaining,
+        usedDays: usedCount < 0 ? 0.0 : usedCount,
+        remainingDays: remaining < 0 ? 0.0 : remaining,
       );
     }).toList();
   }

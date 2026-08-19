@@ -24,7 +24,7 @@ public class EmployeeQRCode {
     @Column(name = "staff_id", nullable = false)
     private String staffId;
 
-    @Column(name = "qr_token", unique = true, nullable = false)
+    @Column(name = "qr_token", unique = true, nullable = false, columnDefinition = "TEXT")
     private String qrToken;
 
     @Column(name = "is_active")

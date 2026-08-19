@@ -1,10 +1,10 @@
-package com.example.demo;
+package com.hrchomnan.backend1;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 
 @SpringBootTest
-class DemoApplicationTests {
+class Backend1ApplicationTests {
 
 	@Test
 	void contextLoads() {

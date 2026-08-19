@@ -3,12 +3,14 @@ package com.hrchomnan.backend1.controller;
 import com.hrchomnan.backend1.enums.Role;
 import com.hrchomnan.backend1.model.RolePermission;
 import com.hrchomnan.backend1.repository.RolePermissionRepository;
+import lombok.Data;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 @RestController
 @RequestMapping("/permissions")
@@ -19,7 +21,7 @@ public class PermissionController {
 
     @GetMapping
     public ResponseEntity<List<RolePermission>> getAllPermissions(@RequestParam(required = false) String role) {
-        if (role != null) {
+        if (role != null && !role.isBlank()) {
             try {
                 Role roleEnum = Role.valueOf(role);
                 return ResponseEntity.ok(rolePermissionRepository.findByRole(roleEnum));
@@ -28,13 +30,45 @@ public class PermissionController {
         return ResponseEntity.ok(rolePermissionRepository.findAll());
     }
 
+    @Data
+    public static class BatchPermissionsRequest {
+        private List<RolePermission> permissions;
+    }
+
     @PutMapping
-    public ResponseEntity<?> updatePermission(@RequestBody RolePermission permission) {
-        return rolePermissionRepository.findByRoleAndResource(permission.getRole(), permission.getResource())
-                .map(existing -> {
-                    existing.setCanAccess(permission.getCanAccess());
-                    return ResponseEntity.ok(rolePermissionRepository.save(existing));
-                })
-                .orElseGet(() -> ResponseEntity.ok(rolePermissionRepository.save(permission)));
+    public ResponseEntity<?> updatePermissions(@RequestBody Object payload) {
+        if (payload instanceof Map<?, ?> map && map.containsKey("permissions")) {
+            Object permsObj = map.get("permissions");
+            if (permsObj instanceof List<?> list) {
+                for (Object item : list) {
+                    if (item instanceof Map<?, ?> pMap) {
+                        try {
+                            String roleStr = (String) pMap.get("role");
+                            String resource = (String) pMap.get("resource");
+                            Boolean canAccess = (Boolean) pMap.get("canAccess");
+
+                            if (roleStr != null && resource != null && canAccess != null) {
+                                Role role = Role.valueOf(roleStr);
+                                Optional<RolePermission> existing = rolePermissionRepository.findByRoleAndResource(role, resource);
+                                if (existing.isPresent()) {
+                                    RolePermission perm = existing.get();
+                                    perm.setCanAccess(canAccess);
+                                    rolePermissionRepository.save(perm);
+                                } else {
+                                    rolePermissionRepository.save(RolePermission.builder()
+                                            .role(role)
+                                            .resource(resource)
+                                            .canAccess(canAccess)
+                                            .build());
+                                }
+                            }
+                        } catch (Exception ignored) {}
+                    }
+                }
+                return ResponseEntity.ok(Map.of("message", "Permissions updated successfully"));
+            }
+        }
+
+        return ResponseEntity.ok(Map.of("message", "Permissions updated successfully"));
     }
 }

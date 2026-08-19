@@ -75,7 +75,7 @@ public class Employee {
     @Builder.Default
     private String idCardPassport = "";
 
-    @Column(name = "photo_url")
+    @Column(name = "photo_url", columnDefinition = "TEXT")
     private String photoUrl;
 
     @Column(unique = true, nullable = false)

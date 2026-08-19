@@ -1,0 +1,190 @@
+package com.hrchomnan.backend1.util;
+
+import com.hrchomnan.backend1.model.Attendance;
+import com.hrchomnan.backend1.model.Employee;
+import com.hrchomnan.backend1.repository.AttendanceRepository;
+import com.hrchomnan.backend1.repository.EmployeeRepository;
+import lombok.Builder;
+import lombok.Data;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Component;
+
+import java.time.LocalDate;
+import java.time.LocalTime;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.Optional;
+
+@Component
+@RequiredArgsConstructor
+public class AttendanceHelper {
+
+    private static final ZoneId CAMBODIA_ZONE = ZoneId.of("Asia/Phnom_Penh");
+    private final AttendanceRepository attendanceRepository;
+    private final EmployeeRepository employeeRepository;
+
+    @Data
+    @Builder
+    public static class TimeDetails {
+        private LocalDate date;
+        private String dateString;
+        private String timeString;
+    }
+
+    @Data
+    @Builder
+    public static class ScanResult {
+        private Attendance attendance;
+        private Employee employee;
+        private String action;
+        private String timeString;
+        private String dateString;
+    }
+
+    public TimeDetails getLocalTimeDetails(String customTime, String customDate) {
+        ZonedDateTime cambodiaNow = ZonedDateTime.now(CAMBODIA_ZONE);
+
+        LocalDate date;
+        if (customDate != null && !customDate.isBlank()) {
+            date = LocalDate.parse(customDate.trim());
+        } else {
+            date = cambodiaNow.toLocalDate();
+        }
+
+        String timeString;
+        if (customTime != null && !customTime.isBlank()) {
+            timeString = customTime.trim();
+        } else {
+            timeString = cambodiaNow.toLocalTime().format(DateTimeFormatter.ofPattern("HH:mm"));
+        }
+
+        return TimeDetails.builder()
+                .date(date)
+                .dateString(date.toString())
+                .timeString(timeString)
+                .build();
+    }
+
+    public int timeToMinutes(String timeStr) {
+        if (timeStr == null || !timeStr.contains(":")) return 0;
+        try {
+            String[] parts = timeStr.trim().split(":");
+            int h = Integer.parseInt(parts[0]);
+            int m = Integer.parseInt(parts[1]);
+            return h * 60 + m;
+        } catch (Exception e) {
+            return 0;
+        }
+    }
+
+    public String determineAutoAction(Employee employee, Attendance existingAttendance, String timeString) {
+        int currentMinutes = timeToMinutes(timeString);
+        int s1StartMinutes = timeToMinutes(employee != null && employee.getShift1Start() != null ? employee.getShift1Start() : "08:00");
+        int s1EndMinutes = timeToMinutes(employee != null && employee.getShift1End() != null ? employee.getShift1End() : "12:00");
+        int s2StartMinutes = timeToMinutes(employee != null && employee.getShift2Start() != null ? employee.getShift2Start() : "13:00");
+        int s2EndMinutes = timeToMinutes(employee != null && employee.getShift2End() != null ? employee.getShift2End() : "17:00");
+
+        String checkin1 = existingAttendance != null ? existingAttendance.getCheckin1() : null;
+        String checkout1 = existingAttendance != null ? existingAttendance.getCheckout1() : null;
+        String checkin2 = existingAttendance != null ? existingAttendance.getCheckin2() : null;
+        String checkout2 = existingAttendance != null ? existingAttendance.getCheckout2() : null;
+
+        boolean hasCheckIn1 = checkin1 != null && !checkin1.isBlank() && !checkin1.equals("--:--") && !checkin1.equals("-");
+        boolean hasCheckOut1 = checkout1 != null && !checkout1.isBlank() && !checkout1.equals("--:--") && !checkout1.equals("-");
+        boolean hasCheckIn2 = checkin2 != null && !checkin2.isBlank() && !checkin2.equals("--:--") && !checkin2.equals("-");
+        boolean hasCheckOut2 = checkout2 != null && !checkout2.isBlank() && !checkout2.equals("--:--") && !checkout2.equals("-");
+
+        if (hasCheckIn1 && hasCheckOut1 && hasCheckIn2 && hasCheckOut2) {
+            return "completed";
+        }
+
+        // 1. If scan time is past Shift 1 End (12:00 PM / afternoon)
+        if (currentMinutes >= s1EndMinutes) {
+            if (!hasCheckIn1) {
+                if (!hasCheckIn2) return "checkin_2";
+                if (!hasCheckOut2) return "checkout_2";
+                return "completed";
+            } else {
+                if (!hasCheckOut1 && currentMinutes <= s2StartMinutes) {
+                    return "checkout_1";
+                }
+                if (!hasCheckIn2) return "checkin_2";
+                if (!hasCheckOut2) return "checkout_2";
+                return "completed";
+            }
+        } else {
+            // 2. Scan time is before Shift 1 End (morning)
+            if (!hasCheckIn1) return "checkin_1";
+            if (!hasCheckOut1) return "checkout_1";
+            if (!hasCheckIn2) return "checkin_2";
+            if (!hasCheckOut2) return "checkout_2";
+            return "completed";
+        }
+    }
+
+    public ScanResult processAttendanceScan(String staffId, String requestedAction, String customTime, String customDate, String note) {
+        Optional<Employee> empOpt = employeeRepository.findByStaffId(staffId);
+        if (empOpt.isEmpty()) {
+            throw new RuntimeException("Employee not found");
+        }
+        Employee employee = empOpt.get();
+
+        TimeDetails timeDetails = getLocalTimeDetails(customTime, customDate);
+        LocalDate attendanceDate = timeDetails.getDate();
+        String timeString = timeDetails.getTimeString();
+
+        Optional<Attendance> existingOpt = attendanceRepository.findByStaffIdAndAttendanceDate(staffId, attendanceDate);
+        Attendance attendance = existingOpt.orElseGet(() -> Attendance.builder()
+                .staffId(staffId)
+                .attendanceDate(attendanceDate)
+                .build());
+
+        String action = (requestedAction != null && !requestedAction.isBlank())
+                ? requestedAction
+                : determineAutoAction(employee, attendance, timeString);
+
+        if (note != null && !note.isBlank()) {
+            attendance.setNote(note);
+        }
+
+        switch (action) {
+            case "checkin_1" -> attendance.setCheckin1(timeString);
+            case "checkout_1" -> attendance.setCheckout1(timeString);
+            case "checkin_2" -> attendance.setCheckin2(timeString);
+            case "checkout_2" -> attendance.setCheckout2(timeString);
+        }
+
+        // Recalculate late and early leave metrics
+        String c1 = attendance.getCheckin1();
+        String c2 = attendance.getCheckin2();
+        String o1 = attendance.getCheckout1();
+        String o2 = attendance.getCheckout2();
+
+        String s1Start = (employee.getShift1Start() != null && !employee.getShift1Start().isBlank()) ? employee.getShift1Start() : "08:00";
+        String s1End = (employee.getShift1End() != null && !employee.getShift1End().isBlank()) ? employee.getShift1End() : "12:00";
+        String s2Start = (employee.getShift2Start() != null && !employee.getShift2Start().isBlank()) ? employee.getShift2Start() : "13:00";
+        String s2End = (employee.getShift2End() != null && !employee.getShift2End().isBlank()) ? employee.getShift2End() : "17:00";
+
+        boolean isLate = false;
+        boolean isEarlyLeave = false;
+
+        if (c1 != null && !c1.isBlank() && c1.compareTo(s1Start) > 0) isLate = true;
+        if (c2 != null && !c2.isBlank() && c2.compareTo(s2Start) > 0) isLate = true;
+        if (o1 != null && !o1.isBlank() && o1.compareTo(s1End) < 0) isEarlyLeave = true;
+        if (o2 != null && !o2.isBlank() && o2.compareTo(s2End) < 0) isEarlyLeave = true;
+
+        attendance.setIsLate(isLate);
+        attendance.setIsEarlyLeave(isEarlyLeave);
+
+        Attendance savedAttendance = attendanceRepository.save(attendance);
+
+        return ScanResult.builder()
+                .attendance(savedAttendance)
+                .employee(employee)
+                .action(action)
+                .timeString(timeString)
+                .dateString(timeDetails.getDateString())
+                .build();
+    }
+}

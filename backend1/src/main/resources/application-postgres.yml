@@ -1,6 +1,6 @@
 spring:
   datasource:
-    url: ${DATABASE_URL:jdbc:postgresql://localhost:5432/employee_attendance_db}
+    url: ${DATABASE_URL:jdbc:postgresql://127.0.0.1:5432/employee_attendance_db}
     username: ${DB_USERNAME:postgres}
     password: ${DB_PASSWORD:postgre}
     driver-class-name: org.postgresql.Driver

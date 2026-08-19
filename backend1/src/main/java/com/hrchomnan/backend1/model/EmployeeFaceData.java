@@ -27,7 +27,7 @@ public class EmployeeFaceData {
     @Column(name = "face_descriptor", columnDefinition = "TEXT")
     private String faceDescriptor;
 
-    @Column(name = "photo_url")
+    @Column(name = "photo_url", columnDefinition = "TEXT")
     private String photoUrl;
 
     @CreationTimestamp

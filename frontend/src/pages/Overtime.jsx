@@ -267,22 +267,22 @@ const Overtime = () => {
   };
 
   return (
-    <div className="space-y-6">
-      {/* Header section */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+    <div className="space-y-6 text-slate-100">
+      {/* Title block */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 glass-card p-6 rounded-2xl glow-indigo">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-[var(--text-primary)] font-khmer flex items-center gap-2.5">
-            <ClockIcon className="h-7 w-7 text-[var(--brand-blue)]" />
-            {t('overtime')}
-          </h1>
-          <p className="text-sm text-[var(--text-secondary)] mt-1 font-khmer">
+          <h2 className="text-xl font-bold text-white font-khmer flex items-center gap-2.5">
+            <ClockIcon className="h-6 w-6 text-indigo-400" />
+            <span>{t('overtime')}</span>
+          </h2>
+          <p className="text-slate-400 text-xs mt-1 font-khmer">
             {t('overtimeSubtitle')}
           </p>
         </div>
 
         <button
           onClick={handleOpenRequestModal}
-          className="inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-[var(--brand-blue)] hover:bg-[var(--brand-blue-hover)] text-white text-sm font-semibold rounded-xl shadow-md shadow-[var(--brand-blue)]/20 transition-all font-khmer cursor-pointer"
+          className="flex items-center gap-2 bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white px-4 py-2.5 rounded-xl font-semibold text-sm transition-all shadow-md shadow-indigo-500/25 font-khmer cursor-pointer border-none outline-none w-full sm:w-auto justify-center"
         >
           <PlusIcon className="h-5 w-5" />
           <span>{t('requestOvertime')}</span>
@@ -291,122 +291,124 @@ const Overtime = () => {
 
       {/* Summary Stat Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-5 gap-3.5">
-        <div className="bg-[var(--bg-card)] border border-[var(--border-card)] rounded-2xl p-4 shadow-sm flex items-center justify-between">
+        <div className="glass-card p-4 rounded-2xl border border-white/5 flex items-center justify-between">
           <div>
-            <p className="text-xs text-[var(--text-secondary)] font-medium font-khmer">{t('totalRequests')}</p>
-            <p className="text-2xl font-black text-[var(--text-primary)] mt-1">{stats.total}</p>
+            <p className="text-xs text-slate-400 font-medium font-khmer">{t('totalRequests')}</p>
+            <p className="text-2xl font-black text-white mt-1">{stats.total}</p>
           </div>
-          <div className="h-10 w-10 rounded-xl bg-blue-500/10 text-blue-500 flex items-center justify-center">
+          <div className="h-10 w-10 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 flex items-center justify-center">
             <CalendarDaysIcon className="h-5 w-5" />
           </div>
         </div>
 
-        <div className="bg-[var(--bg-card)] border border-[var(--border-card)] rounded-2xl p-4 shadow-sm flex items-center justify-between">
+        <div className="glass-card p-4 rounded-2xl border border-white/5 flex items-center justify-between">
           <div>
-            <p className="text-xs text-amber-500 font-medium font-khmer">{t('pendingRequests')}</p>
-            <p className="text-2xl font-black text-amber-500 mt-1">{stats.pending}</p>
+            <p className="text-xs text-amber-400 font-medium font-khmer">{t('pendingRequests')}</p>
+            <p className="text-2xl font-black text-amber-400 mt-1">{stats.pending}</p>
           </div>
-          <div className="h-10 w-10 rounded-xl bg-amber-500/10 text-amber-500 flex items-center justify-center">
+          <div className="h-10 w-10 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-400 flex items-center justify-center">
             <ClockIcon className="h-5 w-5" />
           </div>
         </div>
 
-        <div className="bg-[var(--bg-card)] border border-[var(--border-card)] rounded-2xl p-4 shadow-sm flex items-center justify-between">
+        <div className="glass-card p-4 rounded-2xl border border-white/5 flex items-center justify-between">
           <div>
-            <p className="text-xs text-emerald-500 font-medium font-khmer">{t('approvedRequests')}</p>
-            <p className="text-2xl font-black text-emerald-500 mt-1">{stats.approved}</p>
+            <p className="text-xs text-emerald-400 font-medium font-khmer">{t('approvedRequests')}</p>
+            <p className="text-2xl font-black text-emerald-400 mt-1">{stats.approved}</p>
           </div>
-          <div className="h-10 w-10 rounded-xl bg-emerald-500/10 text-emerald-500 flex items-center justify-center">
+          <div className="h-10 w-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center">
             <CheckCircleIcon className="h-5 w-5" />
           </div>
         </div>
 
-        <div className="bg-[var(--bg-card)] border border-[var(--border-card)] rounded-2xl p-4 shadow-sm flex items-center justify-between">
+        <div className="glass-card p-4 rounded-2xl border border-white/5 flex items-center justify-between">
           <div>
-            <p className="text-xs text-rose-500 font-medium font-khmer">{t('rejectedRequests')}</p>
-            <p className="text-2xl font-black text-rose-500 mt-1">{stats.rejected}</p>
+            <p className="text-xs text-rose-400 font-medium font-khmer">{t('rejectedRequests')}</p>
+            <p className="text-2xl font-black text-rose-400 mt-1">{stats.rejected}</p>
           </div>
-          <div className="h-10 w-10 rounded-xl bg-rose-500/10 text-rose-500 flex items-center justify-center">
+          <div className="h-10 w-10 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-400 flex items-center justify-center">
             <XCircleIcon className="h-5 w-5" />
           </div>
         </div>
 
-        <div className="bg-[var(--bg-card)] border border-[var(--border-card)] rounded-2xl p-4 shadow-sm flex items-center justify-between col-span-2 sm:col-span-1">
+        <div className="glass-card p-4 rounded-2xl border border-white/5 flex items-center justify-between col-span-2 sm:col-span-1">
           <div>
-            <p className="text-xs text-[var(--brand-blue)] font-medium font-khmer">{t('totalApprovedDays')}</p>
-            <p className="text-2xl font-black text-[var(--brand-blue)] mt-1">{stats.totalDays} <span className="text-xs font-normal font-khmer">{t('daysUnit')}</span></p>
+            <p className="text-xs text-indigo-300 font-medium font-khmer">{t('totalApprovedDays')}</p>
+            <p className="text-2xl font-black text-indigo-300 mt-1">
+              {stats.totalDays} <span className="text-xs font-normal font-khmer">{t('daysUnit')}</span>
+            </p>
           </div>
-          <div className="h-10 w-10 rounded-xl bg-indigo-500/10 text-[var(--brand-blue)] flex items-center justify-center">
+          <div className="h-10 w-10 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 flex items-center justify-center">
             <ClockIcon className="h-5 w-5" />
           </div>
         </div>
       </div>
 
       {/* Filter and Search Bar */}
-      <div className="bg-[var(--bg-card)] border border-[var(--border-card)] rounded-2xl p-4 shadow-sm">
+      <div className="glass-card p-4 rounded-2xl">
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-3">
           {/* Search */}
           <div>
-            <label className="block text-xs font-semibold text-[var(--text-secondary)] mb-1 font-khmer">{t('search')}</label>
+            <label className="block text-xs font-semibold text-slate-400 mb-1 font-khmer">{t('search')}</label>
             <input
               type="text"
               placeholder={t('searchPlaceholderOvertime')}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full bg-[var(--bg-app)] border border-[var(--border-card)] text-[var(--text-primary)] text-sm rounded-xl px-3 py-2 outline-none focus:border-[var(--brand-blue)] font-khmer"
+              className="w-full py-2 px-3 border border-white/10 bg-slate-950/60 text-white rounded-xl text-xs sm:text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/20 outline-none transition-all font-khmer"
             />
           </div>
 
           {/* Status Filter */}
           <div>
-            <label className="block text-xs font-semibold text-[var(--text-secondary)] mb-1 font-khmer">{t('status')}</label>
+            <label className="block text-xs font-semibold text-slate-400 mb-1 font-khmer">{t('status')}</label>
             <select
               value={filterStatus}
               onChange={(e) => setFilterStatus(e.target.value)}
-              className="w-full bg-[var(--bg-app)] border border-[var(--border-card)] text-[var(--text-primary)] text-sm rounded-xl px-3 py-2 outline-none focus:border-[var(--brand-blue)] font-khmer"
+              className="w-full py-2 px-3 border border-white/10 bg-slate-950/60 text-white rounded-xl text-xs sm:text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/20 focus:bg-slate-900 outline-none transition-all font-khmer"
             >
-              <option value="">{t('allStatus')}</option>
-              <option value="Pending">{t('pending')}</option>
-              <option value="Approved">{t('approved')}</option>
-              <option value="Rejected">{t('rejected')}</option>
+              <option value="" className="bg-slate-900">{t('allStatus')}</option>
+              <option value="Pending" className="bg-slate-900">{t('pending')}</option>
+              <option value="Approved" className="bg-slate-900">{t('approved')}</option>
+              <option value="Rejected" className="bg-slate-900">{t('rejected')}</option>
             </select>
           </div>
 
           {/* Branch Filter */}
           <div>
-            <label className="block text-xs font-semibold text-[var(--text-secondary)] mb-1 font-khmer">{t('branch')}</label>
+            <label className="block text-xs font-semibold text-slate-400 mb-1 font-khmer">{t('branch')}</label>
             <select
               value={filterBranch}
               onChange={(e) => setFilterBranch(e.target.value)}
-              className="w-full bg-[var(--bg-app)] border border-[var(--border-card)] text-[var(--text-primary)] text-sm rounded-xl px-3 py-2 outline-none focus:border-[var(--brand-blue)] font-khmer"
+              className="w-full py-2 px-3 border border-white/10 bg-slate-950/60 text-white rounded-xl text-xs sm:text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/20 focus:bg-slate-900 outline-none transition-all font-khmer"
             >
-              <option value="">{t('allBranches')}</option>
+              <option value="" className="bg-slate-900">{t('allBranches')}</option>
               {branches.map(b => (
-                <option key={b.id} value={b.name}>{b.name}</option>
+                <option key={b.id} value={b.name} className="bg-slate-900">{b.name}</option>
               ))}
             </select>
           </div>
 
           {/* Start Date Filter */}
           <div>
-            <label className="block text-xs font-semibold text-[var(--text-secondary)] mb-1 font-khmer">{t('fromDate')}</label>
+            <label className="block text-xs font-semibold text-slate-400 mb-1 font-khmer">{t('fromDate')}</label>
             <input
               type="date"
               value={startDateFilter}
               onChange={(e) => setStartDateFilter(e.target.value)}
-              className="w-full bg-[var(--bg-app)] border border-[var(--border-card)] text-[var(--text-primary)] text-sm rounded-xl px-3 py-2 outline-none focus:border-[var(--brand-blue)]"
+              className="w-full py-2 px-3 border border-white/10 bg-slate-950/60 text-white rounded-xl text-xs sm:text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/20 outline-none transition-all"
             />
           </div>
 
           {/* End Date Filter */}
           <div>
-            <label className="block text-xs font-semibold text-[var(--text-secondary)] mb-1 font-khmer">{t('toDate')}</label>
+            <label className="block text-xs font-semibold text-slate-400 mb-1 font-khmer">{t('toDate')}</label>
             <div className="flex gap-2">
               <input
                 type="date"
                 value={endDateFilter}
                 onChange={(e) => setEndDateFilter(e.target.value)}
-                className="w-full bg-[var(--bg-app)] border border-[var(--border-card)] text-[var(--text-primary)] text-sm rounded-xl px-3 py-2 outline-none focus:border-[var(--brand-blue)]"
+                className="w-full py-2 px-3 border border-white/10 bg-slate-950/60 text-white rounded-xl text-xs sm:text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/20 outline-none transition-all"
               />
               {(filterStatus || filterBranch || startDateFilter || endDateFilter || search) && (
                 <button
@@ -417,7 +419,7 @@ const Overtime = () => {
                     setEndDateFilter('');
                     setSearch('');
                   }}
-                  className="px-2.5 py-2 bg-rose-500/10 text-rose-500 hover:bg-rose-500/20 rounded-xl transition cursor-pointer"
+                  className="px-2.5 py-2 bg-rose-500/10 text-rose-400 border border-rose-500/20 hover:bg-rose-500/20 rounded-xl transition cursor-pointer"
                   title={t('clear')}
                 >
                   <ArrowPathIcon className="h-4 w-4" />
@@ -429,41 +431,41 @@ const Overtime = () => {
       </div>
 
       {/* Main Table */}
-      <div className="bg-[var(--bg-card)] border border-[var(--border-card)] rounded-2xl shadow-sm overflow-hidden">
+      <div className="glass-card rounded-2xl overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse text-sm">
-            <thead>
-              <tr className="border-b border-[var(--border-card)] bg-[var(--bg-app)]/50 text-[var(--text-secondary)] text-xs uppercase tracking-wider font-semibold font-khmer">
-                <th className="py-3.5 px-4">{t('employee')}</th>
-                <th className="py-3.5 px-4">{t('manager')}</th>
-                <th className="py-3.5 px-4">{t('branch')}</th>
-                <th className="py-3.5 px-4">{t('fromDate')}</th>
-                <th className="py-3.5 px-4">{t('toDate')}</th>
-                <th className="py-3.5 px-4">{t('startTime')}</th>
-                <th className="py-3.5 px-4">{t('endTime')}</th>
-                <th className="py-3.5 px-4">{t('amountDay')}</th>
-                <th className="py-3.5 px-4 min-w-[140px]">{t('reason')}</th>
-                <th className="py-3.5 px-4">{t('status')}</th>
-                <th className="py-3.5 px-4 min-w-[130px]">{t('comment')}</th>
-                <th className="py-3.5 px-4 whitespace-nowrap">{t('requestedAt')}</th>
-                <th className="py-3.5 px-4 whitespace-nowrap">{t('approvedAt')}</th>
-                <th className="py-3.5 px-4">{t('createdBy')}</th>
-                <th className="py-3.5 px-4 text-center">{t('actions')}</th>
+          <table className="w-full text-left text-sm text-slate-300">
+            <thead className="bg-slate-950/80 text-xs text-slate-300 uppercase border-b border-white/10">
+              <tr>
+                <th className="py-4 px-6 font-khmer">{t('employee')}</th>
+                <th className="py-4 px-6 font-khmer">{t('manager')}</th>
+                <th className="py-4 px-6 font-khmer">{t('branch')}</th>
+                <th className="py-4 px-6 font-khmer">{t('fromDate')}</th>
+                <th className="py-4 px-6 font-khmer">{t('toDate')}</th>
+                <th className="py-4 px-6 font-khmer">{t('startTime')}</th>
+                <th className="py-4 px-6 font-khmer">{t('endTime')}</th>
+                <th className="py-4 px-6 text-center font-khmer">{t('amountDay')}</th>
+                <th className="py-4 px-6 min-w-[140px] font-khmer">{t('reason')}</th>
+                <th className="py-4 px-6 font-khmer">{t('status')}</th>
+                <th className="py-4 px-6 min-w-[130px] font-khmer">{t('comment')}</th>
+                <th className="py-4 px-6 whitespace-nowrap font-khmer">{t('requestedAt')}</th>
+                <th className="py-4 px-6 whitespace-nowrap font-khmer">{t('approvedAt')}</th>
+                <th className="py-4 px-6 font-khmer">{t('createdBy')}</th>
+                <th className="py-4 px-6 text-right font-khmer">{t('actions')}</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-[var(--border-card)] text-[var(--text-primary)]">
+            <tbody className="divide-y divide-white/5">
               {loading ? (
                 <tr>
-                  <td colSpan="15" className="py-12 text-center text-[var(--text-secondary)] font-khmer">
+                  <td colSpan="15" className="py-12 text-center text-slate-400 font-khmer">
                     <div className="inline-flex items-center gap-2">
-                      <ArrowPathIcon className="h-5 w-5 animate-spin text-[var(--brand-blue)]" />
+                      <ArrowPathIcon className="h-5 w-5 animate-spin text-indigo-400" />
                       <span>{t('loading')}</span>
                     </div>
                   </td>
                 </tr>
               ) : overtimes.length === 0 ? (
                 <tr>
-                  <td colSpan="15" className="py-12 text-center text-[var(--text-secondary)] font-khmer">
+                  <td colSpan="15" className="py-12 text-center text-slate-500 font-khmer">
                     {t('noOvertimeData')}
                   </td>
                 </tr>
@@ -476,86 +478,86 @@ const Overtime = () => {
                     : (item.managerName || '-');
 
                   return (
-                    <tr key={item.id} className="hover:bg-[var(--bg-app)]/40 transition-colors">
+                    <tr key={item.id} className="hover:bg-white/5 transition-colors">
                       {/* 1. Employee */}
-                      <td className="py-3.5 px-4 whitespace-nowrap">
+                      <td className="py-4 px-6 whitespace-nowrap">
                         <div className="flex items-center gap-2.5">
-                          <div className="h-8 w-8 rounded-full bg-[var(--brand-blue)]/10 text-[var(--brand-blue)] font-bold text-xs flex items-center justify-center border border-[var(--brand-blue)]/20">
+                          <div className="h-8 w-8 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-300 font-bold text-xs flex items-center justify-center">
                             {item.employee?.nameEn?.charAt(0) || item.staffId?.charAt(0) || 'E'}
                           </div>
                           <div>
-                            <p className="font-semibold text-xs text-[var(--text-primary)] font-khmer">{empName}</p>
-                            <p className="text-[11px] text-[var(--text-secondary)] font-mono">{item.staffId}</p>
+                            <p className="font-semibold text-xs text-white font-khmer">{empName}</p>
+                            <p className="text-[11px] text-slate-400 font-mono">{item.staffId}</p>
                           </div>
                         </div>
                       </td>
 
                       {/* 2. Manager */}
-                      <td className="py-3.5 px-4 whitespace-nowrap text-xs">
-                        <div className="flex items-center gap-1.5 text-[var(--text-secondary)]">
+                      <td className="py-4 px-6 whitespace-nowrap text-xs">
+                        <div className="flex items-center gap-1.5 text-slate-300">
                           <UserCircleIcon className="h-4 w-4 text-indigo-400 flex-shrink-0" />
                           <span className="font-medium font-khmer">{managerDisplay}</span>
                         </div>
                       </td>
 
                       {/* 3. Branch */}
-                      <td className="py-3.5 px-4 whitespace-nowrap text-xs">
-                        <div className="flex items-center gap-1 text-[var(--text-secondary)]">
-                          <BuildingOfficeIcon className="h-3.5 w-3.5 text-slate-400 flex-shrink-0" />
+                      <td className="py-4 px-6 whitespace-nowrap text-xs">
+                        <div className="flex items-center gap-1 text-slate-400">
+                          <BuildingOfficeIcon className="h-3.5 w-3.5 text-slate-500 flex-shrink-0" />
                           <span className="font-khmer">{branchDisplay}</span>
                         </div>
                       </td>
 
                       {/* 4. fromDate */}
-                      <td className="py-3.5 px-4 whitespace-nowrap text-xs font-mono text-[var(--text-primary)]">
+                      <td className="py-4 px-6 whitespace-nowrap text-xs font-mono text-white">
                         {formatDate(item.fromDate)}
                       </td>
 
-                      {/* 5. todate */}
-                      <td className="py-3.5 px-4 whitespace-nowrap text-xs font-mono text-[var(--text-primary)]">
+                      {/* 5. toDate */}
+                      <td className="py-4 px-6 whitespace-nowrap text-xs font-mono text-white">
                         {formatDate(item.toDate)}
                       </td>
 
                       {/* 6. starttime */}
-                      <td className="py-3.5 px-4 whitespace-nowrap text-xs font-mono text-emerald-600 dark:text-emerald-400 font-semibold">
+                      <td className="py-4 px-6 whitespace-nowrap text-xs font-mono text-emerald-400 font-semibold">
                         {item.startTime || '-'}
                       </td>
 
                       {/* 7. endtime */}
-                      <td className="py-3.5 px-4 whitespace-nowrap text-xs font-mono text-blue-600 dark:text-blue-400 font-semibold">
+                      <td className="py-4 px-6 whitespace-nowrap text-xs font-mono text-indigo-400 font-semibold">
                         {item.endTime || '-'}
                       </td>
 
                       {/* 8. Amount_day */}
-                      <td className="py-3.5 px-4 whitespace-nowrap">
-                        <span className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-bold bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20 font-mono">
+                      <td className="py-4 px-6 whitespace-nowrap text-center">
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-lg text-xs font-bold bg-slate-950/60 border border-white/10 text-indigo-300 font-mono">
                           {item.amountDay} {parseFloat(item.amountDay) > 1 ? t('daysUnit') : t('dayUnit')}
                         </span>
                       </td>
 
                       {/* 9. Reason */}
-                      <td className="py-3.5 px-4 text-xs max-w-[200px] truncate text-[var(--text-secondary)] font-khmer" title={item.reason || ''}>
+                      <td className="py-4 px-6 text-xs max-w-[200px] truncate text-slate-300 font-khmer" title={item.reason || ''}>
                         {item.reason || '-'}
                       </td>
 
                       {/* 10. Status */}
-                      <td className="py-3.5 px-4 whitespace-nowrap">
-                        <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold font-khmer ${
+                      <td className="py-4 px-6 whitespace-nowrap">
+                        <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium font-khmer ring-1 ${
                           item.status === 'Approved'
-                            ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20'
+                            ? 'bg-emerald-500/10 text-emerald-300 ring-emerald-500/20'
                             : item.status === 'Rejected'
-                              ? 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20'
-                              : 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20'
+                              ? 'bg-rose-500/10 text-rose-300 ring-rose-500/20'
+                              : 'bg-amber-500/10 text-amber-300 ring-amber-500/20'
                         }`}>
                           <span className={`h-1.5 w-1.5 rounded-full ${
-                            item.status === 'Approved' ? 'bg-emerald-500' : item.status === 'Rejected' ? 'bg-rose-500' : 'bg-amber-500'
+                            item.status === 'Approved' ? 'bg-emerald-400' : item.status === 'Rejected' ? 'bg-rose-400' : 'bg-amber-400'
                           }`} />
                           {item.status === 'Approved' ? t('approved') : item.status === 'Rejected' ? t('rejected') : t('pending')}
                         </span>
                       </td>
 
                       {/* 11. Comment */}
-                      <td className="py-3.5 px-4 text-xs text-[var(--text-secondary)] font-khmer max-w-[160px] truncate" title={item.comment || ''}>
+                      <td className="py-4 px-6 text-xs text-slate-300 font-khmer max-w-[160px] truncate" title={item.comment || ''}>
                         {item.comment ? (
                           <div className="flex items-center gap-1">
                             <ChatBubbleLeftEllipsisIcon className="h-3.5 w-3.5 text-indigo-400 flex-shrink-0" />
@@ -565,35 +567,35 @@ const Overtime = () => {
                       </td>
 
                       {/* 12. RequestedAt */}
-                      <td className="py-3.5 px-4 whitespace-nowrap text-xs text-[var(--text-secondary)] font-mono">
+                      <td className="py-4 px-6 whitespace-nowrap text-xs text-slate-400 font-mono">
                         {formatDateTime(item.requestedAt)}
                       </td>
 
                       {/* 13. Approved At */}
-                      <td className="py-3.5 px-4 whitespace-nowrap text-xs text-[var(--text-secondary)] font-mono">
+                      <td className="py-4 px-6 whitespace-nowrap text-xs text-slate-400 font-mono">
                         {formatDateTime(item.approvedAt)}
                       </td>
 
                       {/* 14. Created by */}
-                      <td className="py-3.5 px-4 whitespace-nowrap text-xs text-[var(--text-secondary)] font-khmer">
+                      <td className="py-4 px-6 whitespace-nowrap text-xs text-slate-300 font-khmer">
                         {item.createdBy || '-'}
                       </td>
 
                       {/* 15. Actions */}
-                      <td className="py-3.5 px-4 whitespace-nowrap text-center">
+                      <td className="py-4 px-6 whitespace-nowrap text-right space-x-2">
                         <div className="inline-flex items-center gap-1.5">
                           {canApprove && item.status === 'Pending' && (
                             <>
                               <button
                                 onClick={() => handleOpenDecision(item, 'Approved')}
-                                className="p-1.5 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 rounded-lg transition cursor-pointer"
+                                className="inline-flex p-1.5 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/25 rounded-xl transition-colors border border-emerald-500/20 cursor-pointer"
                                 title={t('approve')}
                               >
                                 <CheckIcon className="h-4 w-4" />
                               </button>
                               <button
                                 onClick={() => handleOpenDecision(item, 'Rejected')}
-                                className="p-1.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 dark:text-rose-400 rounded-lg transition cursor-pointer"
+                                className="inline-flex p-1.5 bg-rose-500/10 text-rose-400 hover:bg-rose-500/25 rounded-xl transition-colors border border-rose-500/20 cursor-pointer"
                                 title={t('reject')}
                               >
                                 <XMarkIcon className="h-4 w-4" />
@@ -604,7 +606,7 @@ const Overtime = () => {
                           {(canApprove || (user?.staffId === item.staffId && item.status === 'Pending')) && (
                             <button
                               onClick={() => handleDelete(item.id)}
-                              className="p-1.5 bg-slate-500/10 hover:bg-rose-500/20 hover:text-rose-500 text-[var(--text-secondary)] rounded-lg transition cursor-pointer"
+                              className="inline-flex p-1.5 bg-rose-500/10 hover:bg-rose-500/25 border border-rose-500/20 text-rose-400 rounded-xl transition-colors cursor-pointer"
                               title={t('delete')}
                             >
                               <TrashIcon className="h-4 w-4" />
@@ -623,16 +625,16 @@ const Overtime = () => {
 
       {/* 1. Request Overtime Modal */}
       {showRequestModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-          <div className="bg-[var(--bg-card)] border border-[var(--border-card)] rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-            <div className="px-6 py-4 border-b border-[var(--border-card)] flex items-center justify-between">
-              <h2 className="text-lg font-bold text-[var(--text-primary)] font-khmer flex items-center gap-2">
-                <ClockIcon className="h-5 w-5 text-[var(--brand-blue)]" />
-                {t('requestOvertime')}
-              </h2>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-md px-4 py-10">
+          <div className="w-full max-w-lg bg-slate-900/90 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl overflow-hidden glow-indigo max-h-[85vh] overflow-y-auto">
+            <div className="px-6 py-4 bg-slate-950/60 border-b border-white/10 flex items-center justify-between">
+              <h3 className="font-bold text-white font-khmer flex items-center gap-2">
+                <ClockIcon className="h-5 w-5 text-indigo-400" />
+                <span>{t('requestOvertime')}</span>
+              </h3>
               <button
                 onClick={() => setShowRequestModal(false)}
-                className="text-[var(--text-secondary)] hover:text-[var(--text-primary)] rounded-lg p-1 cursor-pointer"
+                className="text-slate-400 hover:text-white rounded-lg p-1 cursor-pointer bg-transparent border-none"
               >
                 <XMarkIcon className="h-5 w-5" />
               </button>
@@ -640,7 +642,7 @@ const Overtime = () => {
 
             <form onSubmit={handleSubmitRequest} className="p-6 space-y-4">
               {formError && (
-                <div className="p-3 bg-rose-500/10 border border-rose-500/20 text-rose-600 dark:text-rose-400 text-xs font-semibold rounded-xl font-khmer">
+                <div className="p-3 bg-rose-500/10 border border-rose-500/20 text-rose-300 text-xs font-semibold rounded-xl font-khmer text-center">
                   {formError}
                 </div>
               )}
@@ -648,8 +650,8 @@ const Overtime = () => {
               {/* Employee selector for Admin/HR/Manager */}
               {['Admin', 'HR', 'Manager'].includes(user?.role) && employees.length > 0 ? (
                 <div>
-                  <label className="block text-xs font-semibold text-[var(--text-secondary)] mb-1 font-khmer">
-                    {t('employee')} <span className="text-rose-500">*</span>
+                  <label className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase font-khmer">
+                    {t('employee')} <span className="text-rose-400">*</span>
                   </label>
                   <select
                     value={selectedStaffId}
@@ -662,11 +664,11 @@ const Overtime = () => {
                         if (bMatch) setSelectedBranchId(bMatch.id);
                       }
                     }}
-                    className="w-full bg-[var(--bg-app)] border border-[var(--border-card)] text-[var(--text-primary)] text-sm rounded-xl px-3 py-2.5 outline-none focus:border-[var(--brand-blue)] font-khmer"
+                    className="block w-full py-2 px-3 border border-white/10 bg-slate-950/60 text-white rounded-xl text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/20 focus:bg-slate-900 outline-none transition-all font-khmer"
                     required
                   >
                     {employees.map(e => (
-                      <option key={e.staffId} value={e.staffId}>
+                      <option key={e.staffId} value={e.staffId} className="bg-slate-900">
                         {e.staffId} - {getLocalizedName(e.nameEn, e.nameKh)}
                       </option>
                     ))}
@@ -674,19 +676,19 @@ const Overtime = () => {
                 </div>
               ) : (
                 <div>
-                  <label className="block text-xs font-semibold text-[var(--text-secondary)] mb-1 font-khmer">{t('employee')}</label>
+                  <label className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase font-khmer">{t('employee')}</label>
                   <input
                     type="text"
                     disabled
                     value={`${user?.staffId} - ${getLocalizedName(user?.nameEn, user?.nameKh)}`}
-                    className="w-full bg-[var(--bg-app)]/50 border border-[var(--border-card)] text-[var(--text-secondary)] text-sm rounded-xl px-3 py-2.5 outline-none font-khmer"
+                    className="block w-full py-2 px-3 border border-white/10 bg-slate-950/40 text-slate-400 rounded-xl text-sm outline-none font-khmer"
                   />
                 </div>
               )}
 
               {/* Branch */}
               <div>
-                <label className="block text-xs font-semibold text-[var(--text-secondary)] mb-1 font-khmer">{t('branch')}</label>
+                <label className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase font-khmer">{t('branch')}</label>
                 <select
                   value={selectedBranchId}
                   onChange={(e) => {
@@ -694,20 +696,20 @@ const Overtime = () => {
                     const b = branches.find(x => x.id === e.target.value);
                     if (b) setSelectedBranchName(b.name);
                   }}
-                  className="w-full bg-[var(--bg-app)] border border-[var(--border-card)] text-[var(--text-primary)] text-sm rounded-xl px-3 py-2.5 outline-none focus:border-[var(--brand-blue)] font-khmer"
+                  className="block w-full py-2 px-3 border border-white/10 bg-slate-950/60 text-white rounded-xl text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/20 focus:bg-slate-900 outline-none transition-all font-khmer"
                 >
-                  <option value="">{t('selectBranch')}</option>
+                  <option value="" className="bg-slate-900">{t('selectBranch')}</option>
                   {branches.map(b => (
-                    <option key={b.id} value={b.id}>{b.name}</option>
+                    <option key={b.id} value={b.id} className="bg-slate-900">{b.name}</option>
                   ))}
                 </select>
               </div>
 
               {/* Date Range: From Date & To Date */}
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-semibold text-[var(--text-secondary)] mb-1 font-khmer">
-                    {t('fromDate')} <span className="text-rose-500">*</span>
+                  <label className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase font-khmer">
+                    {t('fromDate')} <span className="text-rose-400">*</span>
                   </label>
                   <input
                     type="date"
@@ -717,12 +719,12 @@ const Overtime = () => {
                       setFromDate(e.target.value);
                       if (toDate < e.target.value) setToDate(e.target.value);
                     }}
-                    className="w-full bg-[var(--bg-app)] border border-[var(--border-card)] text-[var(--text-primary)] text-sm rounded-xl px-3 py-2 outline-none focus:border-[var(--brand-blue)]"
+                    className="block w-full py-2 px-3 border border-white/10 bg-slate-950/60 text-white rounded-xl text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/20 outline-none transition-all"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-[var(--text-secondary)] mb-1 font-khmer">
-                    {t('toDate')} <span className="text-rose-500">*</span>
+                  <label className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase font-khmer">
+                    {t('toDate')} <span className="text-rose-400">*</span>
                   </label>
                   <input
                     type="date"
@@ -730,42 +732,42 @@ const Overtime = () => {
                     value={toDate}
                     min={fromDate}
                     onChange={(e) => setToDate(e.target.value)}
-                    className="w-full bg-[var(--bg-app)] border border-[var(--border-card)] text-[var(--text-primary)] text-sm rounded-xl px-3 py-2 outline-none focus:border-[var(--brand-blue)]"
+                    className="block w-full py-2 px-3 border border-white/10 bg-slate-950/60 text-white rounded-xl text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/20 outline-none transition-all"
                   />
                 </div>
               </div>
 
               {/* Time: Start Time & End Time */}
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-semibold text-[var(--text-secondary)] mb-1 font-khmer">
-                    {t('startTime')} <span className="text-rose-500">*</span>
+                  <label className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase font-khmer">
+                    {t('startTime')} <span className="text-rose-400">*</span>
                   </label>
                   <input
                     type="time"
                     required
                     value={startTime}
                     onChange={(e) => setStartTime(e.target.value)}
-                    className="w-full bg-[var(--bg-app)] border border-[var(--border-card)] text-[var(--text-primary)] text-sm rounded-xl px-3 py-2 outline-none focus:border-[var(--brand-blue)]"
+                    className="block w-full py-2 px-3 border border-white/10 bg-slate-950/60 text-white rounded-xl text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/20 outline-none transition-all font-bold font-mono"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-[var(--text-secondary)] mb-1 font-khmer">
-                    {t('endTime')} <span className="text-rose-500">*</span>
+                  <label className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase font-khmer">
+                    {t('endTime')} <span className="text-rose-400">*</span>
                   </label>
                   <input
                     type="time"
                     required
                     value={endTime}
                     onChange={(e) => setEndTime(e.target.value)}
-                    className="w-full bg-[var(--bg-app)] border border-[var(--border-card)] text-[var(--text-primary)] text-sm rounded-xl px-3 py-2 outline-none focus:border-[var(--brand-blue)]"
+                    className="block w-full py-2 px-3 border border-white/10 bg-slate-950/60 text-white rounded-xl text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/20 outline-none transition-all font-bold font-mono"
                   />
                 </div>
               </div>
 
               {/* Amount_day Calculation */}
               <div>
-                <label className="block text-xs font-semibold text-[var(--text-secondary)] mb-1 font-khmer">
+                <label className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase font-khmer">
                   {t('amountDay')}
                 </label>
                 <input
@@ -775,17 +777,17 @@ const Overtime = () => {
                   required
                   value={amountDay}
                   onChange={(e) => setAmountDay(e.target.value)}
-                  className="w-full bg-[var(--bg-app)] border border-[var(--border-card)] text-[var(--text-primary)] text-sm rounded-xl px-3 py-2 outline-none focus:border-[var(--brand-blue)] font-mono font-bold"
+                  className="block w-full py-2 px-3 border border-white/10 bg-slate-950/60 text-white rounded-xl text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/20 outline-none transition-all font-mono font-bold"
                 />
-                <p className="text-[11px] text-[var(--text-secondary)] mt-1 font-khmer">
+                <p className="text-[11px] text-slate-400 mt-1 font-khmer">
                   {t('overtimeAutoCalculateHint')}
                 </p>
               </div>
 
               {/* Reason / Note */}
               <div>
-                <label className="block text-xs font-semibold text-[var(--text-secondary)] mb-1 font-khmer">
-                  {t('reason')} <span className="text-rose-500">*</span>
+                <label className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase font-khmer">
+                  {t('reason')} <span className="text-rose-400">*</span>
                 </label>
                 <textarea
                   rows="3"
@@ -793,23 +795,23 @@ const Overtime = () => {
                   placeholder={t('reason')}
                   value={reason}
                   onChange={(e) => setReason(e.target.value)}
-                  className="w-full bg-[var(--bg-app)] border border-[var(--border-card)] text-[var(--text-primary)] text-sm rounded-xl p-3 outline-none focus:border-[var(--brand-blue)] font-khmer resize-none"
+                  className="block w-full py-2 px-3 border border-white/10 bg-slate-950/60 text-white rounded-xl text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/20 outline-none transition-all font-khmer resize-none"
                 />
               </div>
 
               {/* Submit Buttons */}
-              <div className="flex items-center justify-end gap-3 pt-3 border-t border-[var(--border-card)]">
+              <div className="flex items-center justify-end gap-2.5 pt-4 border-t border-white/10">
                 <button
                   type="button"
                   onClick={() => setShowRequestModal(false)}
-                  className="px-4 py-2.5 border border-[var(--border-card)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] rounded-xl text-sm font-semibold transition font-khmer cursor-pointer"
+                  className="py-2 px-4 text-xs font-semibold border border-white/10 text-slate-400 rounded-xl hover:bg-white/5 transition-colors font-khmer cursor-pointer bg-transparent"
                 >
                   {t('cancel')}
                 </button>
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="px-5 py-2.5 bg-[var(--brand-blue)] hover:bg-[var(--brand-blue-hover)] text-white text-sm font-semibold rounded-xl shadow-md transition disabled:opacity-50 font-khmer cursor-pointer"
+                  className="py-2 px-4 text-xs font-semibold bg-gradient-to-r from-indigo-500 to-purple-600 text-white rounded-xl hover:from-indigo-600 hover:to-purple-700 transition-all shadow-md shadow-indigo-500/25 font-khmer cursor-pointer border-none outline-none disabled:opacity-50"
                 >
                   {isSubmitting ? t('loading') : t('submit')}
                 </button>
@@ -821,55 +823,55 @@ const Overtime = () => {
 
       {/* 2. Review Decision (Approve/Reject) Modal */}
       {showDecisionModal && selectedOvertime && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-          <div className="bg-[var(--bg-card)] border border-[var(--border-card)] rounded-2xl w-full max-w-md shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-            <div className="px-6 py-4 border-b border-[var(--border-card)] flex items-center justify-between">
-              <h2 className="text-lg font-bold text-[var(--text-primary)] font-khmer flex items-center gap-2">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-md px-4 py-10">
+          <div className="w-full max-w-md bg-slate-900/90 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl overflow-hidden glow-indigo">
+            <div className="px-6 py-4 bg-slate-950/60 border-b border-white/10 flex items-center justify-between">
+              <h3 className="font-bold text-white font-khmer flex items-center gap-2">
                 {decisionType === 'Approved' ? (
-                  <CheckCircleIcon className="h-6 w-6 text-emerald-500" />
+                  <CheckCircleIcon className="h-5 w-5 text-emerald-400" />
                 ) : (
-                  <XCircleIcon className="h-6 w-6 text-rose-500" />
+                  <XCircleIcon className="h-5 w-5 text-rose-400" />
                 )}
-                {decisionType === 'Approved' ? t('approveOvertimeTitle') : t('rejectOvertimeTitle')}
-              </h2>
+                <span>{decisionType === 'Approved' ? t('approveOvertimeTitle') : t('rejectOvertimeTitle')}</span>
+              </h3>
               <button
                 onClick={() => setShowDecisionModal(false)}
-                className="text-[var(--text-secondary)] hover:text-[var(--text-primary)] rounded-lg p-1 cursor-pointer"
+                className="text-slate-400 hover:text-white rounded-lg p-1 cursor-pointer bg-transparent border-none"
               >
                 <XMarkIcon className="h-5 w-5" />
               </button>
             </div>
 
             <div className="p-6 space-y-4">
-              <div className="bg-[var(--bg-app)]/60 rounded-xl p-3.5 border border-[var(--border-card)] space-y-2 text-xs">
+              <div className="bg-slate-950/60 rounded-xl p-3.5 border border-white/5 space-y-2 text-xs">
                 <div className="flex justify-between">
-                  <span className="text-[var(--text-secondary)] font-khmer">{t('employee')}៖</span>
-                  <span className="font-semibold text-[var(--text-primary)] font-khmer">
+                  <span className="text-slate-400 font-khmer">{t('employee')}៖</span>
+                  <span className="font-semibold text-white font-khmer">
                     {getLocalizedName(selectedOvertime.employee?.nameEn, selectedOvertime.employee?.nameKh)} ({selectedOvertime.staffId})
                   </span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-[var(--text-secondary)] font-khmer">{t('fromDate')} - {t('toDate')}៖</span>
-                  <span className="font-mono text-[var(--text-primary)]">
+                  <span className="text-slate-400 font-khmer">{t('fromDate')} - {t('toDate')}៖</span>
+                  <span className="font-mono text-white">
                     {formatDate(selectedOvertime.fromDate)} {selectedOvertime.fromDate !== selectedOvertime.toDate ? `→ ${formatDate(selectedOvertime.toDate)}` : ''}
                   </span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-[var(--text-secondary)] font-khmer">{t('amountDay')}៖</span>
-                  <span className="font-mono text-[var(--text-primary)] font-bold">
+                  <span className="text-slate-400 font-khmer">{t('amountDay')}៖</span>
+                  <span className="font-mono text-indigo-300 font-bold">
                     {selectedOvertime.startTime} - {selectedOvertime.endTime} ({selectedOvertime.amountDay} {t('daysUnit')})
                   </span>
                 </div>
                 {selectedOvertime.reason && (
-                  <div className="pt-1 border-t border-[var(--border-card)]/50">
-                    <p className="text-[var(--text-secondary)] font-khmer">{t('reason')}៖</p>
-                    <p className="font-medium text-[var(--text-primary)] font-khmer mt-0.5">{selectedOvertime.reason}</p>
+                  <div className="pt-2 border-t border-white/5">
+                    <p className="text-slate-400 font-khmer">{t('reason')}៖</p>
+                    <p className="font-medium text-slate-200 font-khmer mt-0.5">{selectedOvertime.reason}</p>
                   </div>
                 )}
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-[var(--text-secondary)] mb-1 font-khmer">
+                <label className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase font-khmer">
                   {t('managerCommentLabel')}
                 </label>
                 <textarea
@@ -877,15 +879,15 @@ const Overtime = () => {
                   placeholder={t('managerCommentPlaceholder')}
                   value={decisionComment}
                   onChange={(e) => setDecisionComment(e.target.value)}
-                  className="w-full bg-[var(--bg-app)] border border-[var(--border-card)] text-[var(--text-primary)] text-sm rounded-xl p-3 outline-none focus:border-[var(--brand-blue)] font-khmer resize-none"
+                  className="block w-full py-2 px-3 border border-white/10 bg-slate-950/60 text-white rounded-xl text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/20 outline-none transition-all font-khmer resize-none"
                 />
               </div>
 
-              <div className="flex items-center justify-end gap-3 pt-3 border-t border-[var(--border-card)]">
+              <div className="flex items-center justify-end gap-2.5 pt-4 border-t border-white/10">
                 <button
                   type="button"
                   onClick={() => setShowDecisionModal(false)}
-                  className="px-4 py-2 border border-[var(--border-card)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] rounded-xl text-sm font-semibold transition font-khmer cursor-pointer"
+                  className="py-2 px-4 text-xs font-semibold border border-white/10 text-slate-400 rounded-xl hover:bg-white/5 transition-colors font-khmer cursor-pointer bg-transparent"
                 >
                   {t('cancel')}
                 </button>
@@ -893,10 +895,10 @@ const Overtime = () => {
                   type="button"
                   onClick={handleSubmitDecision}
                   disabled={isSubmittingDecision}
-                  className={`px-5 py-2 text-white text-sm font-semibold rounded-xl shadow-md transition disabled:opacity-50 font-khmer cursor-pointer ${
+                  className={`py-2 px-4 text-xs font-semibold rounded-xl shadow-md transition-all font-khmer cursor-pointer border-none outline-none disabled:opacity-50 text-white ${
                     decisionType === 'Approved'
-                      ? 'bg-emerald-600 hover:bg-emerald-700'
-                      : 'bg-rose-600 hover:bg-rose-700'
+                      ? 'bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 shadow-emerald-500/25'
+                      : 'bg-gradient-to-r from-rose-500 to-red-600 hover:from-rose-600 hover:to-red-700 shadow-rose-500/25'
                   }`}
                 >
                   {isSubmittingDecision

@@ -19,29 +19,29 @@ class HttpApiClient implements BaseApiClient {
       final String webHost = Uri.base.host.isNotEmpty ? Uri.base.host : 'localhost';
       return [
         primaryUrl,
-        'http://$currentWifiIp:5050/api',
+        'http://$currentWifiIp:8080/api',
         'http://$currentWifiIp/api',
-        'http://$webHost:5050/api',
-        'http://localhost:5050/api',
+        'http://$webHost:8080/api',
+        'http://localhost:8080/api',
       ];
     }
     try {
       if (defaultTargetPlatform == TargetPlatform.android) {
         return [
-          primaryUrl,                       // Configured Server (e.g. http://98.90.129.131:5050/api)
-          'http://$currentWifiIp:5050/api', // Direct Node backend (Port 5050)
-          'http://$currentWifiIp/api',      // Nginx Hosted Backend (Port 80)
-          'http://10.0.2.2:5050/api',        // Android Emulator -> Node backend
-          'http://127.0.0.1:5050/api',
+          primaryUrl,                       // Configured Server (e.g. http://98.90.129.131:8080/api)
+          'http://$currentWifiIp:8080/api', // Direct backend1 (Port 8080)
+          'http://$currentWifiIp/api',      // Hosted Backend (Port 80)
+          'http://10.0.2.2:8080/api',        // Android Emulator -> backend1
+          'http://127.0.0.1:8080/api',
         ];
       }
     } catch (_) {}
     return [
       primaryUrl,
-      'http://$currentWifiIp:5050/api',
+      'http://$currentWifiIp:8080/api',
       'http://$currentWifiIp/api',
-      'http://10.0.2.2:5050/api',
-      'http://localhost:5050/api',
+      'http://10.0.2.2:8080/api',
+      'http://localhost:8080/api',
     ];
   }
 

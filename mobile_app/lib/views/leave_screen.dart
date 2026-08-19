@@ -165,11 +165,11 @@ class _LeaveScreenState extends State<LeaveScreen> {
                             textBaseline: TextBaseline.alphabetic,
                             children: [
                               Text(
-                                '${item.remainingDays}',
+                                item.formattedRemaining,
                                 style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: AppColors.primary),
                               ),
                               Text(
-                                ' / ${item.totalDays} days',
+                                ' / ${item.formattedTotal} days',
                                 style: const TextStyle(fontSize: 12, color: Colors.grey),
                               ),
                             ],

@@ -73,7 +73,7 @@ class AuthRepository implements IAuthRepository {
     }
     return AuthResponse(
       success: false,
-      message: 'Unable to connect to database server. Please verify backend is running at port 5050.',
+      message: 'Unable to connect to database server. Please verify backend1 is running.',
     );
   }
 

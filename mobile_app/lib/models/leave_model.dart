@@ -56,9 +56,9 @@ class LeaveItem {
 
 class LeaveBalance {
   final String typeName;
-  final int totalDays;
-  final int usedDays;
-  final int remainingDays;
+  final double totalDays;
+  final double usedDays;
+  final double remainingDays;
 
   LeaveBalance({
     required this.typeName,
@@ -68,4 +68,16 @@ class LeaveBalance {
   });
 
   double get percentageUsed => totalDays > 0 ? (usedDays / totalDays) : 0.0;
+
+  static String formatDays(double val) {
+    if (val % 1 == 0) {
+      return val.toInt().toString();
+    }
+    return val.toStringAsFixed(1);
+  }
+
+  String get formattedRemaining => formatDays(remainingDays);
+  String get formattedTotal => formatDays(totalDays);
+  String get formattedUsed => formatDays(usedDays);
 }
+

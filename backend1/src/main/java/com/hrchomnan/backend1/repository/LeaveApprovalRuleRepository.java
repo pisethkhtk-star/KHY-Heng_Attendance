@@ -10,4 +10,6 @@ import java.util.UUID;
 @Repository
 public interface LeaveApprovalRuleRepository extends JpaRepository<LeaveApprovalRule, UUID> {
     List<LeaveApprovalRule> findByApproverId(String approverId);
+    List<LeaveApprovalRule> findByTargetStaffId(String targetStaffId);
+    List<LeaveApprovalRule> findByTargetDeptId(UUID targetDeptId);
 }
