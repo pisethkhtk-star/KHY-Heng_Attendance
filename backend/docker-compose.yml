@@ -1,10 +1,10 @@
 services:
-  backend1:
+  backend:
     build:
       context: .
       dockerfile: Dockerfile
-    image: backend1:latest
-    container_name: hr_attendance_backend1
+    image: backend:latest
+    container_name: hr_attendance_backend
     restart: unless-stopped
     environment:
       DATABASE_URL: ${DATABASE_URL:-jdbc:postgresql://postgres:5432/employee_attendance_db}

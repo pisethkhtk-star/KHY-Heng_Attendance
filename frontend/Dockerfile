@@ -1,4 +1,4 @@
-# Multi-stage Dockerfile for frontend1 (Vite + React SPA)
+# Multi-stage Dockerfile for frontend (Vite + React SPA)
 
 # Stage 1: Build React Application
 FROM node:20-alpine AS builder
