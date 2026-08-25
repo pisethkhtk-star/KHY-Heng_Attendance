@@ -4,12 +4,12 @@ services:
       context: .
       dockerfile: Dockerfile
       args:
-        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost:8080/api}
-    image: frontend:latest
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-}
+    image: hr-chomnan-frontend:latest
     container_name: hr_attendance_frontend
     restart: unless-stopped
     ports:
-      - "${FRONTEND_PORT:-5173}:80"
+      - "${FRONTEND_PORT:-80}:80"
     environment:
       TZ: Asia/Phnom_Penh
     networks:
@@ -18,3 +18,4 @@ services:
 networks:
   app-network:
     driver: bridge
+
