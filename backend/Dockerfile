@@ -29,7 +29,7 @@ RUN apk add --no-cache curl tzdata
 ENV TZ=Asia/Phnom_Penh
 
 # Copy JAR from builder stage
-COPY --from=builder /app/build/libs/*-SNAPSHOT.jar app.jar
+COPY --from=builder /app/build/libs/*.jar app.jar
 
 EXPOSE 8080
 

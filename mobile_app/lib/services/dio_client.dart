@@ -5,7 +5,7 @@ import 'package:mobile_app/core/constants/api_config.dart';
 class DioClient {
   late final Dio _dio;
 
-  // Base URL for Spring Boot backend1
+  // Base URL for Spring Boot backend
   // Android physical device / local network uses 192.168.88.139
   // Android Emulator uses 10.0.2.2
   static String get baseUrl => ApiConfig.baseUrl;
@@ -70,14 +70,14 @@ class DioClient {
     return await _dio.delete(path);
   }
 
-  // Health check endpoint for Spring Boot backend1
-  Future<bool> checkBackend1Health() async {
+  // Health check endpoint for Spring Boot backend
+  Future<bool> checkBackendHealth() async {
     try {
       final response = await get('/health');
       return response.statusCode == 200 && response.data['status'] == 'UP';
     } catch (e) {
       if (kDebugMode) {
-        print('Backend1 Health Check failed: $e');
+        print('Backend Health Check failed: $e');
       }
       return false;
     }

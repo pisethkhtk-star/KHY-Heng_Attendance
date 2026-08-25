@@ -20,25 +20,85 @@ const Login = () => {
   const [scanLock, setScanLock] = useState(false);
   const qrScannerRef = useRef(null);
 
-  const startQrScanner = () => {
+  const playSound = (type = 'success') => {
+    try {
+      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      if (type === 'success') {
+        osc.frequency.setValueAtTime(800, ctx.currentTime);
+        gain.gain.setValueAtTime(0.05, ctx.currentTime);
+        osc.start();
+        osc.frequency.setValueAtTime(1000, ctx.currentTime + 0.08);
+        gain.gain.setValueAtTime(0, ctx.currentTime + 0.16);
+        setTimeout(() => { osc.stop(); ctx.close(); }, 200);
+      } else {
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(150, ctx.currentTime);
+        gain.gain.setValueAtTime(0.1, ctx.currentTime);
+        osc.start();
+        gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.3);
+        setTimeout(() => { osc.stop(); ctx.close(); }, 400);
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const startQrScanner = async () => {
     setQrError('');
+    if (qrScannerRef.current) {
+      await stopQrScanner();
+    }
+
+    const element = document.getElementById("login-qr-reader");
+    if (!element) return;
+
     const html5Qrcode = new Html5Qrcode("login-qr-reader");
     qrScannerRef.current = html5Qrcode;
 
     const config = { fps: 10, qrbox: { width: 180, height: 180 } };
-    html5Qrcode.start(
-      { facingMode: "user" },
-      config,
-      async (decodedText) => {
-        handleQrLogin(decodedText);
-      },
-      () => {
-        // quiet
+
+    try {
+      // 1. Try front/user camera
+      await html5Qrcode.start(
+        { facingMode: "user" },
+        config,
+        (decodedText) => handleQrLogin(decodedText),
+        () => {}
+      );
+    } catch (errUser) {
+      console.warn("User camera facingMode failed, trying environment fallback:", errUser);
+      try {
+        // 2. Try back/environment camera
+        await html5Qrcode.start(
+          { facingMode: "environment" },
+          config,
+          (decodedText) => handleQrLogin(decodedText),
+          () => {}
+        );
+      } catch (errEnv) {
+        console.warn("Environment camera failed, trying getCameras fallback:", errEnv);
+        try {
+          const cameras = await Html5Qrcode.getCameras();
+          if (cameras && cameras.length > 0) {
+            await html5Qrcode.start(
+              cameras[0].id,
+              config,
+              (decodedText) => handleQrLogin(decodedText),
+              () => {}
+            );
+          } else {
+            setQrError(locale === 'kh' ? 'រកមិនឃើញកាមេរ៉ាលើឧបករណ៍របស់អ្នកឡើយ' : 'No camera detected on this device');
+          }
+        } catch (errAll) {
+          console.error("All camera initialization failed:", errAll);
+          setQrError(locale === 'kh' ? 'មិនអាចបើកកាមេរ៉ាបានទេ (សូមពិនិត្យមើល Camera Permission)' : 'Failed to access camera. Please check permissions.');
+        }
       }
-    ).catch(err => {
-      console.error("QR scanner start error:", err);
-      setQrError("Failed to access camera for QR Code Scanner");
-    });
+    }
   };
 
   const stopQrScanner = async () => {
@@ -59,20 +119,47 @@ const Login = () => {
     setScanLock(true);
     setQrError('');
 
-    // Stop scanner temporary during verification
+    // Stop scanner temporarily during verification
     await stopQrScanner();
 
     const result = await loginWithQR(decodedText);
     if (!result.success) {
+      playSound('error');
       setQrError(result.message);
       setScanLock(false);
       // Restart scanner after 2 seconds
       setTimeout(() => {
         setScanLock(false);
-        if (qrScannerRef.current === null) {
+        if (loginMode === 'qrcode' && qrScannerRef.current === null) {
           startQrScanner();
         }
       }, 2000);
+    } else {
+      playSound('success');
+    }
+  };
+
+  const handleFileQrScan = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setQrError('');
+    setScanLock(true);
+
+    try {
+      let scanner = qrScannerRef.current;
+      if (!scanner) {
+        scanner = new Html5Qrcode("login-qr-reader");
+      }
+      const decodedText = await scanner.scanFile(file, true);
+      if (decodedText) {
+        await handleQrLogin(decodedText);
+      }
+    } catch (err) {
+      console.error("Error scanning file:", err);
+      playSound('error');
+      setQrError(locale === 'kh' ? 'មិនអាចអាន QR Code ពីរូបភាពនេះបានទេ សូមសាកល្បងម្ដងទៀត' : 'Could not detect a QR Code in this image. Please try again.');
+      setScanLock(false);
     }
   };
 
@@ -105,11 +192,6 @@ const Login = () => {
       setErrorMsg(result.message);
       setSubmitting(false);
     }
-  };
-
-  const fillQuickCredentials = (e, p) => {
-    setEmail(e);
-    setPassword(p);
   };
 
   return (
@@ -210,6 +292,14 @@ const Login = () => {
                   <div className="w-28 h-28 border border-[var(--brand-blue)]/20 rounded-lg"></div>
                 </div>
                 <div id="login-qr-reader" className="w-full h-full object-cover [&_video]:object-cover [&_video]:w-full [&_video]:h-full" />
+                {scanLock && (
+                  <div className="absolute inset-0 bg-slate-950/70 backdrop-blur-xs flex items-center justify-center z-20">
+                    <div className="flex flex-col items-center gap-2">
+                      <div className="w-8 h-8 border-3 border-indigo-400 border-t-transparent rounded-full animate-spin"></div>
+                      <span className="text-xs font-semibold text-white font-khmer">កំពុងផ្ទៀងផ្ទាត់...</span>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {qrError && (
@@ -222,41 +312,22 @@ const Login = () => {
                 <span className="inline-block w-2 h-2 rounded-full bg-[var(--brand-blue)] animate-ping"></span>
                 <span>{locale === 'kh' ? "សូមបង្ហាញកូដ QR ផ្ទាល់ខ្លួនរបស់លោកអ្នក" : "Please show your personal QR code badge"}</span>
               </div>
+
+              {/* Upload QR Code Image Option */}
+              <div className="mt-4 pt-3 border-t border-[var(--border-card)] w-full flex justify-center">
+                <label className="cursor-pointer inline-flex items-center gap-2 text-xs font-medium text-[var(--brand-blue)] hover:underline font-khmer">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={handleFileQrScan}
+                  />
+                  <span>📁 {locale === 'kh' ? 'ឬផ្ទុករូបភាព QR Code ពីឧបករណ៍' : 'Or upload QR code image'}</span>
+                </label>
+              </div>
             </div>
           )}
 
-          {/* Quick Links for Testing */}
-          <div className="mt-8 border-t border-[var(--border-card)] pt-6">
-            <h3 className="text-center text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider mb-4 font-khmer">
-              Quick Accounts for Testing (សាកល្បងគណនីគំរូ)
-            </h3>
-            <div className="grid grid-cols-2 gap-2 text-xs">
-              <button
-                onClick={() => fillQuickCredentials('admin@attendance.com', 'admin123')}
-                className="p-2 text-left bg-[var(--bg-app)] hover:bg-[var(--border-card)] rounded-[12px] text-[var(--text-primary)] border border-[var(--border-card)] transition-all outline-none cursor-pointer"
-              >
-                <strong>Admin:</strong> admin@attendance.com (admin123)
-              </button>
-              <button
-                onClick={() => fillQuickCredentials('hr@attendance.com', 'hr123')}
-                className="p-2 text-left bg-[var(--bg-app)] hover:bg-[var(--border-card)] rounded-[12px] text-[var(--text-primary)] border border-[var(--border-card)] transition-all outline-none cursor-pointer"
-              >
-                <strong>HR:</strong> hr@attendance.com (hr123)
-              </button>
-              <button
-                onClick={() => fillQuickCredentials('manager@attendance.com', 'manager123')}
-                className="p-2 text-left bg-[var(--bg-app)] hover:bg-[var(--border-card)] rounded-[12px] text-[var(--text-primary)] border border-[var(--border-card)] transition-all outline-none cursor-pointer"
-              >
-                <strong>Manager:</strong> manager@attendance.com (manager123)
-              </button>
-              <button
-                onClick={() => fillQuickCredentials('rath@attendance.com', 'emp123')}
-                className="p-2 text-left bg-[var(--bg-app)] hover:bg-[var(--border-card)] rounded-[12px] text-[var(--text-primary)] border border-[var(--border-card)] transition-all outline-none cursor-pointer"
-              >
-                <strong>Employee:</strong> rath@attendance.com (emp123)
-              </button>
-            </div>
-          </div>
         </div>
 
         {/* Global Language Toggle */}

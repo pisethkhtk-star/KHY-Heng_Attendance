@@ -431,7 +431,6 @@ const Employees = () => {
     setFormPhoto('');
     setFormFaceDescriptor(null);
     setFormPhotoStatus('idle');
-    setFormPhotoError('');
     setProfilePhoto('');
     setErrorMsg('');
     setShowModal(true);
@@ -460,7 +459,6 @@ const Employees = () => {
     setFormPhoto(emp.faceData?.[0]?.photoUrl || '');
     setFormFaceDescriptor(null);
     setFormPhotoStatus(emp.faceData?.[0]?.photoUrl ? 'success' : 'idle');
-    setFormPhotoError('');
     setProfilePhoto(emp.photoUrl || '');
     setErrorMsg('');
     setShowModal(true);
@@ -604,13 +602,13 @@ const Employees = () => {
             <table className="w-full text-left text-sm text-slate-300">
               <thead className="bg-slate-950/80 text-xs text-slate-300 uppercase border-b border-white/10">
                 <tr>
-                  <th className="py-4 px-6 font-khmer">{t("staffId")}</th>
+                  <th className="py-4 px-6 font-khmer whitespace-nowrap">{t("staffId")}</th>
                   <th className="py-4 px-6 font-khmer">{t("employees")}</th>
-                  <th className="py-4 px-6 font-khmer">{t("gender")}</th>
-                  <th className="py-4 px-6 font-khmer">{t("branch")}</th>
-                  <th className="py-4 px-6 font-khmer">{t("status")}</th>
-                  <th className="py-4 px-6 font-khmer">{t("joinDate")}</th>
-                  <th className="py-4 px-6 text-right font-khmer">{t("actions")}</th>
+                  <th className="py-4 px-6 font-khmer whitespace-nowrap">{t("gender")}</th>
+                  <th className="py-4 px-6 font-khmer whitespace-nowrap">{t("branch")}</th>
+                  <th className="py-4 px-6 font-khmer whitespace-nowrap">{t("status")}</th>
+                  <th className="py-4 px-6 font-khmer whitespace-nowrap">{t("joinDate")}</th>
+                  <th className="py-4 px-6 text-right font-khmer whitespace-nowrap">{t("actions")}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-white/5">
@@ -623,7 +621,7 @@ const Employees = () => {
                 ) : (
                   employees.map((emp) => (
                     <tr key={emp.id} className="hover:bg-white/5 transition-colors">
-                      <td className="py-4 px-6 font-semibold text-white">{emp.staffId}</td>
+                      <td className="py-4 px-6 font-semibold text-white whitespace-nowrap">{emp.staffId}</td>
                       <td className="py-4 px-6">
                         <div className="flex items-center gap-3">
                           {/* Profile Avatar */}
@@ -649,9 +647,9 @@ const Employees = () => {
                           </div>
                         </div>
                       </td>
-                      <td className="py-4 px-6 font-khmer text-slate-300">{emp.gender === 'Male' ? t("male") : emp.gender === 'Female' ? t("female") : t("other")}</td>
-                      <td className="py-4 px-6 text-slate-300">{emp.branch}</td>
-                      <td className="py-4 px-6">
+                      <td className="py-4 px-6 font-khmer text-slate-300 whitespace-nowrap">{emp.gender === 'Male' ? t("male") : emp.gender === 'Female' ? t("female") : t("other")}</td>
+                      <td className="py-4 px-6 text-slate-300 whitespace-nowrap">{emp.branch}</td>
+                      <td className="py-4 px-6 whitespace-nowrap">
                         <span
                           className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium font-khmer ring-1 ${emp.status === 'Active'
                             ? 'bg-emerald-500/10 text-emerald-300 ring-emerald-500/20'
@@ -663,55 +661,57 @@ const Employees = () => {
                           {emp.status === 'Active' ? t("active") : emp.status === 'Inactive' ? t("inactive") : t("suspended")}
                         </span>
                       </td>
-                      <td className="py-4 px-6 text-slate-300">
+                      <td className="py-4 px-6 text-slate-300 whitespace-nowrap">
                         {emp.joinDate ? new Date(emp.joinDate).toLocaleDateString() : '-'}
                       </td>
-                      <td className="py-4 px-6 text-right space-x-2">
-                        {/* Always show View Profile button */}
-                        <button
-                          onClick={() => {
-                            setProfileEmp(emp);
-                            setShowProfileModal(true);
-                          }}
-                          className="inline-flex p-2 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/25 border border-emerald-500/20 rounded-lg transition-colors cursor-pointer"
-                          title={t("viewProfile")}
-                        >
-                          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 0 1 0-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178Z" />
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
-                          </svg>
-                        </button>
+                      <td className="py-4 px-6 text-right whitespace-nowrap">
+                        <div className="flex items-center justify-end gap-1.5">
+                          {/* Always show View Profile button */}
+                          <button
+                            onClick={() => {
+                              setProfileEmp(emp);
+                              setShowProfileModal(true);
+                            }}
+                            className="inline-flex p-2 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/25 border border-emerald-500/20 rounded-lg transition-colors cursor-pointer"
+                            title={t("viewProfile")}
+                          >
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 0 1 0-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178Z" />
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
+                            </svg>
+                          </button>
 
-                        {!isReadOnly && (
-                          <>
-                            <button
-                              onClick={() => handleOpenQrModal(emp)}
-                              className="inline-flex p-2 bg-cyan-500/10 text-cyan-400 hover:bg-cyan-500/25 border border-cyan-500/20 rounded-lg transition-colors cursor-pointer"
-                              title="View QR Code"
-                            >
-                              <QrCodeIcon className="h-4 w-4" />
-                            </button>
-                            <button
-                              onClick={() => handleOpenFaceModal(emp)}
-                              className="inline-flex p-2 bg-purple-500/10 text-purple-400 hover:bg-purple-500/25 border border-purple-500/20 rounded-lg transition-colors cursor-pointer"
-                              title="Enroll Face Descriptor"
-                            >
-                              <CameraIcon className="h-4 w-4" />
-                            </button>
-                            <button
-                              onClick={() => handleOpenEditModal(emp)}
-                              className="inline-flex p-2 bg-indigo-500/10 text-indigo-400 hover:bg-indigo-500/25 border border-indigo-500/20 rounded-lg transition-colors cursor-pointer"
-                            >
-                              <PencilIcon className="h-4 w-4" />
-                            </button>
-                            <button
-                              onClick={() => handleDelete(emp.id)}
-                              className="inline-flex p-2 bg-rose-500/10 text-rose-400 hover:bg-rose-500/25 border border-rose-500/20 rounded-lg transition-colors cursor-pointer"
-                            >
-                              <TrashIcon className="h-4 w-4" />
-                            </button>
-                          </>
-                        )}
+                          {!isReadOnly && (
+                            <>
+                              <button
+                                onClick={() => handleOpenQrModal(emp)}
+                                className="inline-flex p-2 bg-cyan-500/10 text-cyan-400 hover:bg-cyan-500/25 border border-cyan-500/20 rounded-lg transition-colors cursor-pointer"
+                                title="View QR Code"
+                              >
+                                <QrCodeIcon className="h-4 w-4" />
+                              </button>
+                              <button
+                                onClick={() => handleOpenFaceModal(emp)}
+                                className="inline-flex p-2 bg-purple-500/10 text-purple-400 hover:bg-purple-500/25 border border-purple-500/20 rounded-lg transition-colors cursor-pointer"
+                                title="Enroll Face Descriptor"
+                              >
+                                <CameraIcon className="h-4 w-4" />
+                              </button>
+                              <button
+                                onClick={() => handleOpenEditModal(emp)}
+                                className="inline-flex p-2 bg-indigo-500/10 text-indigo-400 hover:bg-indigo-500/25 border border-indigo-500/20 rounded-lg transition-colors cursor-pointer"
+                              >
+                                <PencilIcon className="h-4 w-4" />
+                              </button>
+                              <button
+                                onClick={() => handleDelete(emp.id)}
+                                className="inline-flex p-2 bg-rose-500/10 text-rose-400 hover:bg-rose-500/25 border border-rose-500/20 rounded-lg transition-colors cursor-pointer"
+                              >
+                                <TrashIcon className="h-4 w-4" />
+                              </button>
+                            </>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   ))

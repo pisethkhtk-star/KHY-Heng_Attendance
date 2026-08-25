@@ -84,7 +84,7 @@ After=syslog.target network.target postgresql.service
 [Service]
 User=ubuntu
 WorkingDirectory=/var/www/hr-backend
-ExecStart=/usr/bin/java -XX:+UseContainerSupport -XX:MaxRAMPercentage=75.0 -Dfile.encoding=UTF-8 -jar /var/www/hr-backend/backend1-0.0.1-SNAPSHOT.jar
+ExecStart=/usr/bin/java -XX:+UseContainerSupport -XX:MaxRAMPercentage=75.0 -Dfile.encoding=UTF-8 -jar /var/www/hr-backend/backend-0.0.1-SNAPSHOT.jar
 Environment="DATABASE_URL=jdbc:postgresql://127.0.0.1:5432/employee_attendance_db"
 Environment="DB_USERNAME=postgres"
 Environment="DB_PASSWORD=YourSecurePasswordHere"

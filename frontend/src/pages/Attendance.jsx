@@ -379,6 +379,15 @@ const Attendance = () => {
   }, [startDate, endDate, search, filterDept, filterBranch]);
 
   const displayLogs = logs.filter(log => {
+    // Hide record if all checkin/checkout times are null or empty
+    const hasAnyTime = Boolean(
+      (log.checkin1 && log.checkin1 !== '-' && log.checkin1 !== '--:--') ||
+      (log.checkout1 && log.checkout1 !== '-' && log.checkout1 !== '--:--') ||
+      (log.checkin2 && log.checkin2 !== '-' && log.checkin2 !== '--:--') ||
+      (log.checkout2 && log.checkout2 !== '-' && log.checkout2 !== '--:--')
+    );
+    if (!hasAnyTime) return false;
+
     if (!search || !search.trim()) return true;
     const q = search.trim().toLowerCase();
     const stId = (log.employee?.staffId || log.staffId || '').toLowerCase();
@@ -484,16 +493,16 @@ const Attendance = () => {
             <table className="w-full text-left text-sm text-slate-300">
               <thead className="bg-slate-950/80 text-xs text-slate-300 uppercase border-b border-white/10">
                 <tr>
-                  <th className="py-4 px-6 font-khmer">{t("leaveDate")}</th>
-                  {user.role !== 'Employee' && <th className="py-4 px-6 font-khmer">{t("staffId")}</th>}
-                  {user.role !== 'Employee' && <th className="py-4 px-6 font-khmer">{t("employees")}</th>}
-                  <th className="py-4 px-6 font-khmer">{t("checkin1")}</th>
-                  <th className="py-4 px-6 font-khmer">{t("checkout1")}</th>
-                  <th className="py-4 px-6 font-khmer">{t("checkin2")}</th>
-                  <th className="py-4 px-6 font-khmer">{t("checkout2")}</th>
-                  <th className="py-4 px-6 font-khmer">{t("status")}</th>
-                  <th className="py-4 px-6 font-khmer">{t("description")}</th>
-                  {(hasPermission('edit_attendance') || hasPermission('delete_attendance')) && <th className="py-4 px-6 font-khmer text-right">Actions</th>}
+                  <th className="py-4 px-6 font-khmer whitespace-nowrap">{t("leaveDate")}</th>
+                  {user.role !== 'Employee' && <th className="py-4 px-6 font-khmer whitespace-nowrap">{t("staffId")}</th>}
+                  {user.role !== 'Employee' && <th className="py-4 px-6 font-khmer whitespace-nowrap">{t("employees")}</th>}
+                  <th className="py-4 px-6 font-khmer whitespace-nowrap">{t("checkin1")}</th>
+                  <th className="py-4 px-6 font-khmer whitespace-nowrap">{t("checkout1")}</th>
+                  <th className="py-4 px-6 font-khmer whitespace-nowrap">{t("checkin2")}</th>
+                  <th className="py-4 px-6 font-khmer whitespace-nowrap">{t("checkout2")}</th>
+                  <th className="py-4 px-6 font-khmer whitespace-nowrap">{t("status")}</th>
+                  <th className="py-4 px-6 font-khmer whitespace-nowrap">{t("description")}</th>
+                  {(hasPermission('edit_attendance') || hasPermission('delete_attendance')) && <th className="py-4 px-6 font-khmer text-right whitespace-nowrap">Actions</th>}
                 </tr>
               </thead>
               <tbody className="divide-y divide-white/5">
@@ -506,31 +515,31 @@ const Attendance = () => {
                 ) : (
                   displayLogs.map((log) => (
                     <tr key={log.id} className="hover:bg-white/5 transition-colors">
-                      <td className="py-4 px-6 font-semibold text-white">
-                        {new Date(log.attendanceDate).toLocaleDateString()}
+                      <td className="py-4 px-6 font-semibold text-white whitespace-nowrap">
+                        {log.attendanceDate ? new Date(log.attendanceDate).toLocaleDateString() : '-'}
                       </td>
                       {user.role !== 'Employee' && (
-                        <td className="py-4 px-6 font-semibold text-white">
-                          {log.employee.staffId}
+                        <td className="py-4 px-6 font-semibold text-white whitespace-nowrap">
+                          {log.employee?.staffId || log.staffId || '-'}
                         </td>
                       )}
                       {user.role !== 'Employee' && (
                         <td className="py-4 px-6">
                           <div>
                             <p className="font-semibold text-white">
-                              {getLocalizedName(log.employee.nameEn, log.employee.nameKh)}
+                              {getLocalizedName(log.employee?.nameEn, log.employee?.nameKh) || log.staffId || '-'}
                             </p>
                             <p className="text-xs text-slate-400">
-                              {getLocalizedName(log.employee.department.nameEn, log.employee.department.nameKh)}
+                              {getLocalizedName(log.employee?.department?.nameEn, log.employee?.department?.nameKh) || '-'}
                             </p>
                           </div>
                         </td>
                       )}
-                      <td className="py-4 px-6">{formatTime12Hour(log.checkin1)}</td>
-                      <td className="py-4 px-6">{formatTime12Hour(log.checkout1)}</td>
-                      <td className="py-4 px-6">{formatTime12Hour(log.checkin2)}</td>
-                      <td className="py-4 px-6">{formatTime12Hour(log.checkout2)}</td>
-                      <td className="py-4 px-6 space-y-1">
+                      <td className="py-4 px-6 whitespace-nowrap">{formatTime12Hour(log.checkin1)}</td>
+                      <td className="py-4 px-6 whitespace-nowrap">{formatTime12Hour(log.checkout1)}</td>
+                      <td className="py-4 px-6 whitespace-nowrap">{formatTime12Hour(log.checkin2)}</td>
+                      <td className="py-4 px-6 whitespace-nowrap">{formatTime12Hour(log.checkout2)}</td>
+                      <td className="py-4 px-6 space-y-1 whitespace-nowrap">
                         {log.isLate && (
                           <span className="inline-flex items-center rounded-full bg-amber-500/10 px-2 py-0.5 text-xs font-medium text-amber-300 ring-1 ring-inset ring-amber-500/20 font-khmer">
                             {t("late")}
@@ -541,36 +550,33 @@ const Attendance = () => {
                             {t("earlyLeave")}
                           </span>
                         )}
-                        {!log.isLate && !log.isEarlyLeave && (log.checkin1 || log.checkin2) && (
+                        {!log.isLate && !log.isEarlyLeave && (log.checkin1 || log.checkin2 || log.checkout1 || log.checkout2) && (
                           <span className="inline-flex items-center rounded-full bg-emerald-500/10 px-2 py-0.5 text-xs font-medium text-emerald-300 ring-1 ring-inset ring-emerald-500/20 font-khmer">
                             {t("normal")}
-                          </span>
-                        )}
-                        {!(log.checkin1 || log.checkin2) && (
-                          <span className="inline-flex items-center rounded-full bg-slate-500/10 px-2 py-0.5 text-xs font-medium text-slate-400 ring-1 ring-inset ring-slate-500/20 font-khmer">
-                            On Leave / Absent
                           </span>
                         )}
                       </td>
                       <td className="py-4 px-6 text-xs italic text-slate-400">{log.note || '-'}</td>
                       {(hasPermission('edit_attendance') || hasPermission('delete_attendance')) && (
-                        <td className="py-4 px-6 text-right space-x-2">
-                          {hasPermission('edit_attendance') && (
-                            <button
-                              onClick={() => handleOpenEditModal(log)}
-                              className="inline-flex p-2 bg-indigo-500/10 hover:bg-indigo-500/25 border border-indigo-500/20 rounded-xl text-indigo-400 transition-colors cursor-pointer"
-                            >
-                              <PencilIcon className="h-4 w-4" />
-                            </button>
-                          )}
-                          {hasPermission('delete_attendance') && (
-                            <button
-                              onClick={() => handleDelete(log.id)}
-                              className="inline-flex p-2 bg-rose-500/10 hover:bg-rose-500/25 border border-rose-500/20 rounded-xl text-rose-400 transition-colors cursor-pointer"
-                            >
-                              <TrashIcon className="h-4 w-4" />
-                            </button>
-                          )}
+                        <td className="py-4 px-6 text-right whitespace-nowrap">
+                          <div className="flex items-center justify-end gap-1.5">
+                            {hasPermission('edit_attendance') && (
+                              <button
+                                onClick={() => handleOpenEditModal(log)}
+                                className="inline-flex p-2 bg-indigo-500/10 hover:bg-indigo-500/25 border border-indigo-500/20 rounded-xl text-indigo-400 transition-colors cursor-pointer"
+                              >
+                                <PencilIcon className="h-4 w-4" />
+                              </button>
+                            )}
+                            {hasPermission('delete_attendance') && (
+                              <button
+                                onClick={() => handleDelete(log.id)}
+                                className="inline-flex p-2 bg-rose-500/10 hover:bg-rose-500/25 border border-rose-500/20 rounded-xl text-rose-400 transition-colors cursor-pointer"
+                              >
+                                <TrashIcon className="h-4 w-4" />
+                              </button>
+                            )}
+                          </div>
                         </td>
                       )}
                     </tr>

@@ -4,7 +4,21 @@ const getBaseUrl = () => {
   if (import.meta.env.VITE_API_BASE_URL) {
     return import.meta.env.VITE_API_BASE_URL;
   }
-  return import.meta.env.DEV ? 'http://localhost:8080/api' : '/api';
+
+  if (typeof window !== 'undefined' && window.location) {
+    const { hostname, port } = window.location;
+    // When accessing via the AWS server IP or direct hostname
+    if (hostname === '100.56.149.110') {
+      // If served via standard HTTP/HTTPS proxy (Nginx port 80/443), use relative /api
+      if (!port || port === '80' || port === '443') {
+        return '/api';
+      }
+      // If frontend dev server running or direct access
+      return 'http://100.56.149.110:8080/api';
+    }
+  }
+
+  return import.meta.env.DEV ? 'http://100.56.149.110:8080/api' : '/api';
 };
 
 const api = axios.create({

@@ -5,6 +5,7 @@ import { useLanguage } from '../context/LanguageContext';
 import {
   HomeIcon,
   ClockIcon,
+  BoltIcon,
   CalendarIcon,
   DocumentChartBarIcon,
   ComputerDesktopIcon,
@@ -61,7 +62,7 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
     {
       path: "/overtime",
       name: t("overtime"),
-      icon: ClockIcon,
+      icon: BoltIcon,
       resource: "overtime",
     },
     {

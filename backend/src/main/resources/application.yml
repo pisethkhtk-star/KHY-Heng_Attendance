@@ -1,11 +1,12 @@
 server:
   port: 8080
+  address: 0.0.0.0
   servlet:
     context-path: /api
 
 spring:
   application:
-    name: backend1
+    name: backend
   datasource:
     url: ${DATABASE_URL:jdbc:postgresql://127.0.0.1:5432/employee_attendance_db}
     driver-class-name: org.postgresql.Driver
@@ -27,4 +28,4 @@ jwt:
 logging:
   level:
     root: INFO
-    com.hrchomnan.backend1: INFO
+    com.hrchomnan.backend: INFO

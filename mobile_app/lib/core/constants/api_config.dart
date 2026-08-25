@@ -1,6 +1,6 @@
 class ApiConfig {
   /// The server IP or Domain address (e.g., '98.90.129.131' or 'api.example.com')
-  static const String serverHost = '98.90.129.131';
+  static const String serverHost = '192.168.88.66';
 
   /// Set port (e.g. '8080' for direct Spring Boot, '' or '80' / '443' for standard web ports)
   static const String serverPort = '8080';

@@ -29,9 +29,9 @@ class HttpApiClient implements BaseApiClient {
       if (defaultTargetPlatform == TargetPlatform.android) {
         return [
           primaryUrl,                       // Configured Server (e.g. http://98.90.129.131:8080/api)
-          'http://$currentWifiIp:8080/api', // Direct backend1 (Port 8080)
+          'http://$currentWifiIp:8080/api', // Direct backend (Port 8080)
           'http://$currentWifiIp/api',      // Hosted Backend (Port 80)
-          'http://10.0.2.2:8080/api',        // Android Emulator -> backend1
+          'http://10.0.2.2:8080/api',        // Android Emulator -> backend
           'http://127.0.0.1:8080/api',
         ];
       }
