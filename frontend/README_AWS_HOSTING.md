@@ -1,6 +1,6 @@
 # 🌐 ការដាក់ដំណើរការ Frontend លើ AWS Ubuntu Server (Port 80)
 
-ឯកសារនេះបង្ហាញពីរបៀបដាក់ដំណើរការ **React Vite (Single Page Application) + Nginx Web Server** លើ **AWS EC2 Ubuntu Server** (IP: `100.56.149.110`)។
+ឯកសារនេះបង្ហាញពីរបៀបដាក់ដំណើរការ **React Vite (Single Page Application) + Nginx Web Server** លើ **AWS EC2 Ubuntu Server** (IP: `34.232.147.247`)។
 
 ---
 
@@ -16,7 +16,7 @@
 
 ចូលទៅកាន់ Ubuntu Server តាមរយៈ SSH៖
 ```bash
-ssh -i "your-key.pem" ubuntu@100.56.149.110
+ssh -i "your-key.pem" ubuntu@34.232.147.247
 ```
 
 ចូលទៅកាន់ Folder Frontend រួចដំណើរការ Script៖
@@ -63,6 +63,6 @@ sudo systemctl restart nginx
 ---
 
 ## 5. 🔗 អាសយដ្ឋានចូលប្រើប្រាស់
-- **Web App URL**: `http://100.56.149.110` (ដំណើរការលើ Port 80)
-- **Login Page**: `http://100.56.149.110/login`
-- **Kiosk Mode**: `http://100.56.149.110/kiosk`
+- **Web App URL**: `http://34.232.147.247` (ដំណើរការលើ Port 80)
+- **Login Page**: `http://34.232.147.247/login`
+- **Kiosk Mode**: `http://34.232.147.247/kiosk`

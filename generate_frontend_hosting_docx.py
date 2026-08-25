@@ -118,7 +118,7 @@ def build_frontend_hosting_doc(output_path):
     title_p.alignment = WD_ALIGN_PARAGRAPH.CENTER
     title_p.paragraph_format.space_before = Pt(0)
     title_p.paragraph_format.space_after = Pt(4)
-    run_title = title_p.add_run("មគ្គុទ្ទេសក៍ការដាក់ដំណើរការ FRONTEND លើ AWS UBUNTU SERVER\n(React Vite SPA + Nginx Web Server on AWS EC2: 100.56.149.110)")
+    run_title = title_p.add_run("មគ្គុទ្ទេសក៍ការដាក់ដំណើរការ FRONTEND លើ AWS UBUNTU SERVER\n(React Vite SPA + Nginx Web Server on AWS EC2: 34.232.147.247)")
     run_title.font.name = 'Khmer OS Muol Light'
     run_title.font.size = Pt(14)
     run_title.bold = True
@@ -128,7 +128,7 @@ def build_frontend_hosting_doc(output_path):
     sub_p = doc.add_paragraph()
     sub_p.alignment = WD_ALIGN_PARAGRAPH.CENTER
     sub_p.paragraph_format.space_after = Pt(10)
-    run_sub = sub_p.add_run("AWS Server IP: 100.56.149.110 | Port: 80 (HTTP) | React 18 + Vite + TailwindCSS")
+    run_sub = sub_p.add_run("AWS Server IP: 34.232.147.247 | Port: 80 (HTTP) | React 18 + Vite + TailwindCSS")
     run_sub.font.name = 'Segoe UI'
     run_sub.font.size = Pt(9.5)
     run_sub.bold = True
@@ -161,11 +161,11 @@ def build_frontend_hosting_doc(output_path):
     tbl.columns[1].width = Inches(4.2)
     
     spec_data = [
-        ("AWS Server Public IP", "100.56.149.110"),
+        ("AWS Server Public IP", "34.232.147.247"),
         ("Web Frontend Port", "Port 80 (HTTP Standard Web Port)"),
         ("Technology Stack", "React 18, Vite, TailwindCSS, Axios, Leaflet Map, Face API"),
         ("Web Server Engine", "Nginx Alpine (Gzip Compression, SPA Fallback, Cache-Control)"),
-        ("API Routing", "Reverse Proxy /api/ -> http://100.56.149.110:8080/api")
+        ("API Routing", "Reverse Proxy /api/ -> Backend Spring Boot API")
     ]
 
     for i, (k, v) in enumerate(spec_data):
@@ -206,7 +206,7 @@ def build_frontend_hosting_doc(output_path):
     r.font.color.rgb = RGBColor(0, 51, 102)
 
     doc.add_paragraph("បើក Terminal (ឬ PowerShell) នៅលើកុំព្យូទ័ររបស់អ្នក រួចដំណើរការបញ្ជា៖")
-    add_code_block(doc, 'chmod 400 "C:/path/to/your-key.pem"\nssh -i "C:/path/to/your-key.pem" ubuntu@100.56.149.110')
+    add_code_block(doc, 'chmod 400 "C:/path/to/your-key.pem"\nssh -i "C:/path/to/your-key.pem" ubuntu@34.232.147.247')
 
     # SECTION 3: 1-COMMAND DEPLOYMENT
     h3 = doc.add_heading(level=1)
@@ -302,10 +302,10 @@ def build_frontend_hosting_doc(output_path):
     tbl_url.columns[1].width = Inches(4.3)
     
     url_data = [
-        ("Web Frontend (Home)", "http://100.56.149.110"),
-        ("Admin & Staff Login", "http://100.56.149.110/login"),
-        ("Kiosk Face Attendance", "http://100.56.149.110/kiosk"),
-        ("Employee Management", "http://100.56.149.110/employees")
+        ("Web Frontend (Home)", "http://34.232.147.247"),
+        ("Admin & Staff Login", "http://34.232.147.247/login"),
+        ("Kiosk Face Attendance", "http://34.232.147.247/kiosk"),
+        ("Employee Management", "http://34.232.147.247/employees")
     ]
 
     for i, (name, link) in enumerate(url_data):
@@ -332,11 +332,10 @@ def build_frontend_hosting_doc(output_path):
     p_foot = doc.add_paragraph()
     p_foot.alignment = WD_ALIGN_PARAGRAPH.CENTER
     p_foot.paragraph_format.space_before = Pt(16)
-    r_f = p_foot.add_run("― ចប់មគ្គុទ្ទេសក៍ការដាក់ដំណើរការ FRONTEND លើ AWS UBUNTU ―\nServer IP: 100.56.149.110 | Port 80 (HTTP) | HR Chomnan System")
+    r_f = p_foot.add_run("― ចប់មគ្គុទ្ទេសក៍ការដាក់ដំណើរការ FRONTEND លើ AWS UBUNTU ―\nServer IP: 34.232.147.247 | Port 80 (HTTP) | HR Chomnan System")
     r_f.font.name = "Khmer OS Siemreap"
     r_f.font.size = Pt(9)
     r_f.font.color.rgb = RGBColor(120, 120, 120)
-
     doc.save(output_path)
     print(f"Document successfully generated at: {output_path}")
 
