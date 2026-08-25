@@ -118,7 +118,7 @@ def build_backend_hosting_doc(output_path):
     title_p.alignment = WD_ALIGN_PARAGRAPH.CENTER
     title_p.paragraph_format.space_before = Pt(0)
     title_p.paragraph_format.space_after = Pt(4)
-    run_title = title_p.add_run("មគ្គុទ្ទេសក៍ការដាក់ដំណើរការ BACKEND លើ AWS UBUNTU SERVER\n(Spring Boot 3.4 + PostgreSQL 16 on AWS EC2: 100.56.149.110)")
+    run_title = title_p.add_run("មគ្គុទ្ទេសក៍ការដាក់ដំណើរការ BACKEND លើ AWS UBUNTU SERVER\n(Spring Boot 3.4 + PostgreSQL 16 on AWS EC2)")
     run_title.font.name = 'Khmer OS Muol Light'
     run_title.font.size = Pt(14)
     run_title.bold = True
@@ -128,7 +128,7 @@ def build_backend_hosting_doc(output_path):
     sub_p = doc.add_paragraph()
     sub_p.alignment = WD_ALIGN_PARAGRAPH.CENTER
     sub_p.paragraph_format.space_after = Pt(10)
-    run_sub = sub_p.add_run("AWS Server IP: 100.56.149.110 | Port: 8080 | Java 21 | Docker Compose")
+    run_sub = sub_p.add_run("Spring Boot (Port 8080) | PostgreSQL (Port 5432) | Docker Installation Included")
     run_sub.font.name = 'Segoe UI'
     run_sub.font.size = Pt(9.5)
     run_sub.bold = True
@@ -161,7 +161,7 @@ def build_backend_hosting_doc(output_path):
     tbl.columns[1].width = Inches(4.2)
     
     spec_data = [
-        ("AWS Server Public IP", "100.56.149.110"),
+        ("Architecture", "Docker Compose Multi-Container Setup"),
         ("Spring Boot Backend", "Java 21 (Eclipse Temurin) - Port 8080 (Context: /api)"),
         ("Database Engine", "PostgreSQL 16 Alpine - Port 5432 (Internal Docker Network)"),
         ("Database Name", "employee_attendance_db (Persistent Volume: postgres_data)"),
@@ -207,13 +207,32 @@ def build_backend_hosting_doc(output_path):
     r.font.color.rgb = RGBColor(0, 51, 102)
 
     doc.add_paragraph("បើក Terminal (ឬ PowerShell) នៅលើកុំព្យូទ័ររបស់អ្នក រួចដំណើរការបញ្ជា៖")
-    add_code_block(doc, 'chmod 400 "C:/path/to/your-key.pem"\nssh -i "C:/path/to/your-key.pem" ubuntu@100.56.149.110')
+    add_code_block(doc, 'chmod 400 "C:/path/to/your-key.pem"\nssh -i "C:/path/to/your-key.pem" ubuntu@YOUR_SERVER_IP')
 
-    # SECTION 3: 1-COMMAND DEPLOYMENT
+    # SECTION 3: DOCKER INSTALLATION
     h3 = doc.add_heading(level=1)
     h3.paragraph_format.space_before = Pt(10)
     h3.paragraph_format.space_after = Pt(6)
-    r = h3.add_run("៣. ការដាក់ដំណើរការ Backend ដោយស្វ័យប្រវត្តិ (1-Command Fast Deploy)")
+    r = h3.add_run("៣. របៀបដំឡើង Docker និង Docker Compose លើ Ubuntu Server")
+    r.font.name = "Khmer OS Muol Light"
+    r.font.size = Pt(12)
+    r.font.color.rgb = RGBColor(0, 51, 102)
+
+    doc.add_paragraph("ប្រសិនបើ Ubuntu Server របស់អ្នកមិនទាន់មាន Docker សូម Copy & Paste បញ្ជាខាងក្រោមដើម្បីដំឡើង Docker Engine និង Docker Compose ផ្លូវការ (Official Docker Engine)៖")
+
+    doc.add_paragraph("ក. ដំឡើង Docker ពេញលេញដោយស្វ័យប្រវត្តិ (Official Script):")
+    add_code_block(doc, '# ១. Update Package List & Install Prereqs\nsudo apt-get update -y\nsudo apt-get install -y ca-certificates curl gnupg lsb-release\n\n# ២. បន្ថែម Official Docker GPG Key & Repository\nsudo mkdir -p /etc/apt/keyrings\ncurl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg --yes\necho "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null\n\n# ៣. ដំឡើង Docker Engine + CLI + Containerd + Docker Compose\nsudo apt-get update -y\nsudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin docker-compose\n\n# ៤. ផ្ដល់សិទ្ធិឱ្យ User បច្ចុប្បន្នប្រើ Docker ដោយមិនបាច់វាយ sudo\nsudo usermod -aG docker $USER\nsudo systemctl enable --now docker\nnewgrp docker')
+
+    doc.add_paragraph("ខ. ផ្ទៀងផ្ទាត់ការដំឡើង Docker (Verification):")
+    add_code_block(doc, 'docker --version\ndocker compose version')
+
+    add_callout(doc, "លទ្ធផលជោគជ័យនៃការដំឡើង", "Docker Version នឹងបង្ហាញ: Docker version 27.x ឬថ្មីជាងនេះ\nDocker Compose នឹងបង្ហាញ: Docker Compose version v2.x ឬថ្មីជាងនេះ", "success")
+
+    # SECTION 4: 1-COMMAND DEPLOYMENT
+    h4 = doc.add_heading(level=1)
+    h4.paragraph_format.space_before = Pt(10)
+    h4.paragraph_format.space_after = Pt(6)
+    r = h4.add_run("៤. ការដាក់ដំណើរការ Backend ដោយស្វ័យប្រវត្តិ (1-Command Fast Deploy)")
     r.font.name = "Khmer OS Muol Light"
     r.font.size = Pt(12)
     r.font.color.rgb = RGBColor(0, 51, 102)
@@ -223,31 +242,26 @@ def build_backend_hosting_doc(output_path):
 
     add_callout(doc, "តើ deploy.sh ធ្វើអ្វីខ្លះដោយស្វ័យប្រវត្តិ?", "១. ត្រួតពិនិត្យ និងដំឡើង Docker + Docker Compose បើមិនទាន់មាន\n២. បង្កើត File .env ដោយស្វ័យប្រវត្តិ និងបង្កើត Secure Random JWT Key\n៣. Build Docker Image សម្រាប់ Spring Boot (Java 21) ដោយប្រើ Multi-stage Caching\n៤. បង្កើត Container PostgreSQL 16 និង Spring Boot Backend ឱ្យដំណើរការ\n៥. ត្រួតពិនិត្យសុខភាព (Health Check) នៃ API រហូតដល់ដំណើរការ ១០០%", "success")
 
-    # SECTION 4: MANUAL DEPLOYMENT STEPS
-    h4 = doc.add_heading(level=1)
-    h4.paragraph_format.space_before = Pt(10)
-    h4.paragraph_format.space_after = Pt(6)
-    r = h4.add_run("៤. វិធីដាក់ដំណើរការដោយដៃ (Manual Step-by-Step Deploy)")
+    # SECTION 5: MANUAL DEPLOYMENT STEPS
+    h5 = doc.add_heading(level=1)
+    h5.paragraph_format.space_before = Pt(10)
+    h5.paragraph_format.space_after = Pt(6)
+    r = h5.add_run("៥. វិធីដាក់ដំណើរការដោយដៃ (Manual Step-by-Step Deploy)")
     r.font.name = "Khmer OS Muol Light"
     r.font.size = Pt(12)
     r.font.color.rgb = RGBColor(0, 51, 102)
 
-    doc.add_paragraph("ប្រសិនបើអ្នកចង់បញ្ជាជំហាននីមួយៗដោយខ្លួនឯង សូមអនុវត្តតាមបញ្ជាខាងក្រោម៖")
-
-    doc.add_paragraph("ក. ដំឡើង Docker និង Docker Compose លើ Ubuntu Server៖")
-    add_code_block(doc, 'sudo apt-get update\nsudo apt-get install -y docker.io docker-compose\nsudo usermod -aG docker $USER\nnewgrp docker')
-
-    doc.add_paragraph("ខ. បង្កើត និងកំណត់ File .env សម្រាប់ Backend៖")
+    doc.add_paragraph("ក. បង្កើត និងកំណត់ File .env សម្រាប់ Backend៖")
     add_code_block(doc, 'cd Hr_chomnan/backend\ncp .env.example .env\nnano .env')
 
-    doc.add_paragraph("គ. ចាប់ផ្ដើមដំណើរការ Backend & PostgreSQL ជាមួយ Docker Compose៖")
+    doc.add_paragraph("ខ. ចាប់ផ្ដើមដំណើរការ Backend & PostgreSQL ជាមួយ Docker Compose៖")
     add_code_block(doc, '# Build និង Run Containers ក្នុង Background\ndocker compose up -d --build\n\n# ពិនិត្យមើល Status របស់ Containers\ndocker compose ps')
 
-    # SECTION 5: API TESTING & VERIFICATION
-    h5 = doc.add_heading(level=1)
-    h5.paragraph_format.space_before = Pt(10)
-    h5.paragraph_format.space_after = Pt(6)
-    r = h5.add_run("៥. ការតេស្តសាកល្បង API (Testing & Health Check Endpoints)")
+    # SECTION 6: API TESTING & VERIFICATION
+    h6 = doc.add_heading(level=1)
+    h6.paragraph_format.space_before = Pt(10)
+    h6.paragraph_format.space_after = Pt(6)
+    r = h6.add_run("៦. ការតេស្តសាកល្បង API (Testing & Health Check Endpoints)")
     r.font.name = "Khmer OS Muol Light"
     r.font.size = Pt(12)
     r.font.color.rgb = RGBColor(0, 51, 102)
@@ -263,10 +277,10 @@ def build_backend_hosting_doc(output_path):
     tbl_api.columns[2].width = Inches(3.5)
     
     api_data = [
-        ("Health Check", "GET", "http://100.56.149.110:8080/api/health"),
-        ("Kiosk Settings", "GET", "http://100.56.149.110:8080/api/kiosk-settings"),
-        ("Auth Login", "POST", "http://100.56.149.110:8080/api/auth/login"),
-        ("Face Attendance", "POST", "http://100.56.149.110:8080/api/attendance/face-kiosk")
+        ("Health Check", "GET", "http://YOUR_SERVER_IP:8080/api/health"),
+        ("Kiosk Settings", "GET", "http://YOUR_SERVER_IP:8080/api/kiosk-settings"),
+        ("Auth Login", "POST", "http://YOUR_SERVER_IP:8080/api/auth/login"),
+        ("Face Attendance", "POST", "http://YOUR_SERVER_IP:8080/api/attendance/face-kiosk")
     ]
 
     for i, (name, method, url) in enumerate(api_data):
@@ -300,13 +314,13 @@ def build_backend_hosting_doc(output_path):
     doc.add_paragraph().paragraph_format.space_after = Pt(4)
 
     doc.add_paragraph("តេស្តតាម Terminal លើ Server (Curl Command)៖")
-    add_code_block(doc, '# តេស្តសុខភាព API\ncurl -i http://localhost:8080/api/kiosk-settings\n\n# តេស្តពីម៉ាស៊ីនខាងក្រៅ (កុំព្យូទ័ររបស់អ្នក)\ncurl -i http://100.56.149.110:8080/api/kiosk-settings')
+    add_code_block(doc, '# តេស្តសុខភាព API\ncurl -i http://localhost:8080/api/kiosk-settings\n\n# តេស្តពីម៉ាស៊ីនខាងក្រៅ (កុំព្យូទ័ររបស់អ្នក)\ncurl -i http://YOUR_SERVER_IP:8080/api/kiosk-settings')
 
-    # SECTION 6: MANAGEMENT COMMANDS
-    h6 = doc.add_heading(level=1)
-    h6.paragraph_format.space_before = Pt(10)
-    h6.paragraph_format.space_after = Pt(6)
-    r = h6.add_run("៦. តារាងពាក្យបញ្ជាគ្រប់គ្រង Server សំខាន់ៗ (Useful Commands)")
+    # SECTION 7: MANAGEMENT COMMANDS
+    h7 = doc.add_heading(level=1)
+    h7.paragraph_format.space_before = Pt(10)
+    h7.paragraph_format.space_after = Pt(6)
+    r = h7.add_run("៧. តារាងពាក្យបញ្ជាគ្រប់គ្រង Server សំខាន់ៗ (Useful Commands)")
     r.font.name = "Khmer OS Muol Light"
     r.font.size = Pt(12)
     r.font.color.rgb = RGBColor(0, 51, 102)
@@ -349,11 +363,11 @@ def build_backend_hosting_doc(output_path):
 
     doc.add_paragraph().paragraph_format.space_after = Pt(6)
 
-    # SECTION 7: BACKUP & RESTORE
-    h7 = doc.add_heading(level=1)
-    h7.paragraph_format.space_before = Pt(10)
-    h7.paragraph_format.space_after = Pt(6)
-    r = h7.add_run("៧. ការ Backup និង Restore ទិន្នន័យ Database")
+    # SECTION 8: BACKUP & RESTORE
+    h8 = doc.add_heading(level=1)
+    h8.paragraph_format.space_before = Pt(10)
+    h8.paragraph_format.space_after = Pt(6)
+    r = h8.add_run("៨. ការ Backup និង Restore ទិន្នន័យ Database")
     r.font.name = "Khmer OS Muol Light"
     r.font.size = Pt(12)
     r.font.color.rgb = RGBColor(0, 51, 102)
@@ -368,13 +382,18 @@ def build_backend_hosting_doc(output_path):
     p_foot = doc.add_paragraph()
     p_foot.alignment = WD_ALIGN_PARAGRAPH.CENTER
     p_foot.paragraph_format.space_before = Pt(16)
-    r_f = p_foot.add_run("― ចប់មគ្គុទ្ទេសក៍ការដាក់ដំណើរការ BACKEND លើ AWS UBUNTU ―\nServer IP: 100.56.149.110 | Spring Boot 3.4.2 + PostgreSQL 16 | HR Chomnan System")
+    r_f = p_foot.add_run("― ចប់មគ្គុទ្ទេសក៍ការដាក់ដំណើរការ BACKEND លើ AWS UBUNTU ―\nSpring Boot 3.4.2 + PostgreSQL 16 | HR Chomnan System")
     r_f.font.name = "Khmer OS Siemreap"
     r_f.font.size = Pt(9)
     r_f.font.color.rgb = RGBColor(120, 120, 120)
 
-    doc.save(output_path)
-    print(f"Document successfully generated at: {output_path}")
+    try:
+        doc.save(output_path)
+        print(f"Document successfully generated at: {output_path}")
+    except PermissionError:
+        alt_path = output_path.replace(".docx", "_v2.docx")
+        doc.save(alt_path)
+        print(f"File locked by Word. Saved alternative to: {alt_path}")
 
 if __name__ == "__main__":
     build_backend_hosting_doc(r"d:\project\Hr_chomnan\AWS_Ubuntu_Backend_Hosting_Guide.docx")

@@ -128,7 +128,7 @@ def build_frontend_hosting_doc(output_path):
     sub_p = doc.add_paragraph()
     sub_p.alignment = WD_ALIGN_PARAGRAPH.CENTER
     sub_p.paragraph_format.space_after = Pt(10)
-    run_sub = sub_p.add_run("AWS Server IP: 34.232.147.247 | Port: 80 (HTTP) | React 18 + Vite + TailwindCSS")
+    run_sub = sub_p.add_run("AWS Server IP: 34.232.147.247 | Port: 80 (HTTP) | Docker & Docker Compose Installation Included")
     run_sub.font.name = 'Segoe UI'
     run_sub.font.size = Pt(9.5)
     run_sub.bold = True
@@ -150,7 +150,7 @@ def build_frontend_hosting_doc(output_path):
     r.font.size = Pt(12)
     r.font.color.rgb = RGBColor(0, 51, 102)
 
-    p = doc.add_paragraph("Frontend ត្រូវបានបង្កើតឡើងដោយប្រើ React Vite Single Page Application (SPA) និងបំពាក់ដោយ Nginx Web Server ដែលមានល្បឿនលឿន និងស៊ីធនធាន RAM តិចបំផុត៖")
+    p = doc.add_paragraph("Frontend ត្រូវបានបង្កើតឡើងដោយប្រើ React Vite Single Page Application (SPA) និងដំណើរការលើ Nginx Alpine Container លើ AWS EC2 Ubuntu Server (IP: 34.232.147.247)៖")
     p.paragraph_format.space_after = Pt(6)
 
     # Table Specs
@@ -165,7 +165,7 @@ def build_frontend_hosting_doc(output_path):
         ("Web Frontend Port", "Port 80 (HTTP Standard Web Port)"),
         ("Technology Stack", "React 18, Vite, TailwindCSS, Axios, Leaflet Map, Face API"),
         ("Web Server Engine", "Nginx Alpine (Gzip Compression, SPA Fallback, Cache-Control)"),
-        ("API Routing", "Reverse Proxy /api/ -> Backend Spring Boot API")
+        ("Container Name", "hr_attendance_frontend (Docker Compose)")
     ]
 
     for i, (k, v) in enumerate(spec_data):
@@ -208,11 +208,30 @@ def build_frontend_hosting_doc(output_path):
     doc.add_paragraph("បើក Terminal (ឬ PowerShell) នៅលើកុំព្យូទ័ររបស់អ្នក រួចដំណើរការបញ្ជា៖")
     add_code_block(doc, 'chmod 400 "C:/path/to/your-key.pem"\nssh -i "C:/path/to/your-key.pem" ubuntu@34.232.147.247')
 
-    # SECTION 3: 1-COMMAND DEPLOYMENT
+    # SECTION 3: DOCKER INSTALLATION (NEW & COMPREHENSIVE)
     h3 = doc.add_heading(level=1)
     h3.paragraph_format.space_before = Pt(10)
     h3.paragraph_format.space_after = Pt(6)
-    r = h3.add_run("៣. ការដាក់ដំណើរការ Frontend ដោយស្វ័យប្រវត្តិ (1-Command Fast Deploy)")
+    r = h3.add_run("៣. របៀបដំឡើង Docker និង Docker Compose លើ Ubuntu Server")
+    r.font.name = "Khmer OS Muol Light"
+    r.font.size = Pt(12)
+    r.font.color.rgb = RGBColor(0, 51, 102)
+
+    doc.add_paragraph("ប្រសិនបើ Ubuntu Server របស់អ្នកមិនទាន់មាន Docker សូម Copy & Paste បញ្ជាខាងក្រោមដើម្បីដំឡើង Docker Engine និង Docker Compose ផ្លូវការ (Official Docker Engine)៖")
+
+    doc.add_paragraph("ក. ដំឡើង Docker ពេញលេញដោយស្វ័យប្រវត្តិ (Official Script):")
+    add_code_block(doc, '# ១. Update Package List & Install Prereqs\nsudo apt-get update -y\nsudo apt-get install -y ca-certificates curl gnupg lsb-release\n\n# ២. បន្ថែម Official Docker GPG Key & Repository\nsudo mkdir -p /etc/apt/keyrings\ncurl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg --yes\necho "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null\n\n# ៣. ដំឡើង Docker Engine + CLI + Containerd + Docker Compose\nsudo apt-get update -y\nsudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin docker-compose\n\n# ៤. ផ្ដល់សិទ្ធិឱ្យ User បច្ចុប្បន្នប្រើ Docker ដោយមិនបាច់វាយ sudo\nsudo usermod -aG docker $USER\nsudo systemctl enable --now docker\nnewgrp docker')
+
+    doc.add_paragraph("ខ. ផ្ទៀងផ្ទាត់ការដំឡើង Docker (Verification):")
+    add_code_block(doc, 'docker --version\ndocker compose version')
+
+    add_callout(doc, "លទ្ធផលជោគជ័យនៃការដំឡើង", "Docker Version នឹងបង្ហាញ: Docker version 27.x ឬថ្មីជាងនេះ\nDocker Compose នឹងបង្ហាញ: Docker Compose version v2.x ឬថ្មីជាងនេះ", "success")
+
+    # SECTION 4: 1-COMMAND DEPLOYMENT
+    h4 = doc.add_heading(level=1)
+    h4.paragraph_format.space_before = Pt(10)
+    h4.paragraph_format.space_after = Pt(6)
+    r = h4.add_run("៤. ការដាក់ដំណើរការ Frontend ដោយស្វ័យប្រវត្តិ (1-Command Fast Deploy)")
     r.font.name = "Khmer OS Muol Light"
     r.font.size = Pt(12)
     r.font.color.rgb = RGBColor(0, 51, 102)
@@ -222,11 +241,11 @@ def build_frontend_hosting_doc(output_path):
 
     add_callout(doc, "តើ deploy.sh ធ្វើអ្វីខ្លះដោយស្វ័យប្រវត្តិ?", "១. ត្រួតពិនិត្យ និងដំឡើង Docker + Docker Compose បើមិនទាន់មានលើ Server\n២. Build Production Web Bundle ដោយស្វ័យប្រវត្តិតាមរយៈ Multi-stage Dockerfile\n៣. បង្កើត Container Nginx និងដំណើរការលើ Port 80 ដោយស្វ័យប្រវត្តិ\n៤. Health Check ពិនិត្យមើលថាតើ Web Page អាចបើកបានជោគជ័យឬនៅ", "success")
 
-    # SECTION 4: MANUAL DEPLOYMENT STEPS
-    h4 = doc.add_heading(level=1)
-    h4.paragraph_format.space_before = Pt(10)
-    h4.paragraph_format.space_after = Pt(6)
-    r = h4.add_run("៤. វិធីដាក់ដំណើរការដោយដៃ (Manual Step-by-Step Deploy)")
+    # SECTION 5: MANUAL DEPLOYMENT STEPS
+    h5 = doc.add_heading(level=1)
+    h5.paragraph_format.space_before = Pt(10)
+    h5.paragraph_format.space_after = Pt(6)
+    r = h5.add_run("៥. វិធីដាក់ដំណើរការដោយដៃ (Manual Step-by-Step Deploy)")
     r.font.name = "Khmer OS Muol Light"
     r.font.size = Pt(12)
     r.font.color.rgb = RGBColor(0, 51, 102)
@@ -237,11 +256,11 @@ def build_frontend_hosting_doc(output_path):
     doc.add_paragraph("ជម្រើសទី ២៖ Build Static Files រួចដាក់លើ Nginx ផ្ទាល់លើ Host (Standalone)៖")
     add_code_block(doc, '# ១. ដំឡើង Node.js 20 និង Nginx\nsudo apt-get update\nsudo apt-get install -y nginx nodejs npm\n\n# ២. Install Dependencies និង Build React App\ncd Hr_chomnan/frontend\nnpm install\nnpm run build\n\n# ៣. Copy Files ទៅកាន់ /var/www/html\nsudo cp -r dist/* /var/www/html/\nsudo systemctl restart nginx')
 
-    # SECTION 5: MANAGEMENT COMMANDS
-    h5 = doc.add_heading(level=1)
-    h5.paragraph_format.space_before = Pt(10)
-    h5.paragraph_format.space_after = Pt(6)
-    r = h5.add_run("៥. តារាងពាក្យបញ្ជាគ្រប់គ្រង Frontend សំខាន់ៗ (Useful Commands)")
+    # SECTION 6: MANAGEMENT COMMANDS
+    h6 = doc.add_heading(level=1)
+    h6.paragraph_format.space_before = Pt(10)
+    h6.paragraph_format.space_after = Pt(6)
+    r = h6.add_run("៦. តារាងពាក្យបញ្ជាគ្រប់គ្រង Frontend សំខាន់ៗ (Useful Commands)")
     r.font.name = "Khmer OS Muol Light"
     r.font.size = Pt(12)
     r.font.color.rgb = RGBColor(0, 51, 102)
@@ -283,11 +302,11 @@ def build_frontend_hosting_doc(output_path):
 
     doc.add_paragraph().paragraph_format.space_after = Pt(6)
 
-    # SECTION 6: URL ACCESS
-    h6 = doc.add_heading(level=1)
-    h6.paragraph_format.space_before = Pt(10)
-    h6.paragraph_format.space_after = Pt(6)
-    r = h6.add_run("៦. អាសយដ្ឋានចូលប្រើប្រាស់ Web Application")
+    # SECTION 7: URL ACCESS
+    h7 = doc.add_heading(level=1)
+    h7.paragraph_format.space_before = Pt(10)
+    h7.paragraph_format.space_after = Pt(6)
+    r = h7.add_run("៧. អាសយដ្ឋានចូលប្រើប្រាស់ Web Application")
     r.font.name = "Khmer OS Muol Light"
     r.font.size = Pt(12)
     r.font.color.rgb = RGBColor(0, 51, 102)
@@ -336,8 +355,14 @@ def build_frontend_hosting_doc(output_path):
     r_f.font.name = "Khmer OS Siemreap"
     r_f.font.size = Pt(9)
     r_f.font.color.rgb = RGBColor(120, 120, 120)
-    doc.save(output_path)
-    print(f"Document successfully generated at: {output_path}")
+
+    try:
+        doc.save(output_path)
+        print(f"Document successfully generated at: {output_path}")
+    except PermissionError:
+        alt_path = output_path.replace(".docx", "_v2.docx")
+        doc.save(alt_path)
+        print(f"File locked by Word. Saved alternative to: {alt_path}")
 
 if __name__ == "__main__":
     build_frontend_hosting_doc(r"d:\project\Hr_chomnan\AWS_Ubuntu_Frontend_Hosting_Guide.docx")
