@@ -45,17 +45,19 @@ class _ScannerModalSheetState extends State<ScannerModalSheet> with WidgetsBindi
 
   // Mobile Scanner Controller persistent state
   MobileScannerController? _cameraController;
-  bool _isCameraRunning = false;
 
   // Frontend Kiosk State Alignment
   bool _isUnlocked = false; // Camera lock state, default locked until location/login mode is verified!
-  bool _scanOnBehalf = false; // Scan on behalf checkbox
+  Timer? _cameraTimer; // 30-second countdown timer for QR scanner
+  int _remainingSeconds = 30;
+  final bool _scanOnBehalf = false; // Scan on behalf checkbox
+  bool _isLoadingLocation = false; // Location loading indicator state
   bool _isVerifying = false;
   bool _isProcessing = false;
   String? _statusMessage;
   bool _isSuccess = false;
   bool _isTorchOn = false;
-  bool _isFrontCamera = false;
+  final bool _isFrontCamera = false;
 
   // Next action determined from attendance history
   String _nextAction = 'checkin_1'; // checkin_1, checkout_1, checkin_2, checkout_2
@@ -128,7 +130,7 @@ class _ScannerModalSheetState extends State<ScannerModalSheet> with WidgetsBindi
 
       String determinedAction = 'checkin_1';
 
-      if (hasCheckIn1 && hasCheckOut1 && hasCheckIn2 && hasCheckOut2) {
+      if (hasCheckOut2 || (hasCheckIn1 && hasCheckOut1 && hasCheckIn2 && hasCheckOut2)) {
         determinedAction = 'completed';
       } else if (currentMinutes >= s1EndMinutes) {
         if (!hasCheckIn1) {
@@ -179,33 +181,71 @@ class _ScannerModalSheetState extends State<ScannerModalSheet> with WidgetsBindi
         torchEnabled: false,
         formats: const [BarcodeFormat.qrCode],
         detectionSpeed: DetectionSpeed.normal,
-        detectionTimeoutMs: 1500, // Throttling scans of the same QR code
-        cameraResolution: const Size(1280, 720), // Optimal resolution for fast detection
+        detectionTimeoutMs: 1500,
+        autoStart: true,
       );
     }
   }
 
   Future<void> _startCamera() async {
-    if (kIsWeb || _cameraController == null || _isCameraRunning) return;
+    if (kIsWeb || _cameraController == null) return;
     try {
-      await _cameraController!.start();
-      _isCameraRunning = true;
+      if (!_cameraController!.value.isRunning) {
+        await _cameraController!.start();
+      }
     } catch (e) {
       debugPrint('Error starting camera: $e');
     }
   }
 
   Future<void> _stopCamera() async {
-    if (kIsWeb || _cameraController == null || !_isCameraRunning) return;
+    if (kIsWeb || _cameraController == null) return;
     try {
-      await _cameraController!.stop();
-      _isCameraRunning = false;
+      if (_cameraController!.value.isRunning) {
+        await _cameraController!.stop();
+      }
     } catch (e) {
       debugPrint('Error stopping camera: $e');
     }
   }
 
+  void _startCameraTimer([int seconds = 30]) {
+    _cancelCameraTimer();
+    setState(() {
+      _remainingSeconds = seconds;
+      _statusMessage = null;
+    });
+    _setUnlocked(true);
+    _cameraTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted) {
+        timer.cancel();
+        return;
+      }
+      if (_remainingSeconds <= 1) {
+        timer.cancel();
+        _cameraTimer = null;
+        _setUnlocked(false);
+        setState(() {
+          _remainingSeconds = 0;
+          _statusMessage = '⌛ ផុតកំណត់ពេលស្កេន (30 វិនាទី)! សូមចុចប៊ូតុង "${_getActionLabel(_nextAction)}" ម្តងទៀតដើម្បីបើក Camera';
+        });
+      } else {
+        setState(() {
+          _remainingSeconds--;
+        });
+      }
+    });
+  }
+
+  void _cancelCameraTimer() {
+    _cameraTimer?.cancel();
+    _cameraTimer = null;
+  }
+
   void _setUnlocked(bool unlocked) {
+    if (!unlocked) {
+      _cancelCameraTimer();
+    }
     if (_isUnlocked == unlocked) return;
     setState(() {
       _isUnlocked = unlocked;
@@ -219,19 +259,12 @@ class _ScannerModalSheetState extends State<ScannerModalSheet> with WidgetsBindi
 
   void _toggleTorch() async {
     if (_cameraController != null) {
-      await _cameraController!.toggleTorch();
-      setState(() {
-        _isTorchOn = !_isTorchOn;
-      });
-    }
-  }
-
-  void _switchCamera() async {
-    if (_cameraController != null) {
-      await _cameraController!.switchCamera();
-      setState(() {
-        _isFrontCamera = !_isFrontCamera;
-      });
+      try {
+        await _cameraController!.toggleTorch();
+        setState(() {
+          _isTorchOn = !_isTorchOn;
+        });
+      } catch (_) {}
     }
   }
 
@@ -247,6 +280,7 @@ class _ScannerModalSheetState extends State<ScannerModalSheet> with WidgetsBindi
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _cancelCameraTimer();
     _positionSubscription?.cancel();
     _customQrController.dispose();
     _reasonController.dispose();
@@ -290,6 +324,7 @@ class _ScannerModalSheetState extends State<ScannerModalSheet> with WidgetsBindi
       if (mounted) {
         _setUnlocked(false);
         setState(() {
+          _isLoadingLocation = false;
           _isLocationVerified = false;
           _statusMessage = '❌ សូមអនុញ្ញាតឲ្យប្រើប្រាស់ Camera ដើម្បីស្កេន!';
         });
@@ -300,6 +335,7 @@ class _ScannerModalSheetState extends State<ScannerModalSheet> with WidgetsBindi
     if (widget.isLoginMode) {
       _setUnlocked(true);
       setState(() {
+        _isLoadingLocation = false;
         _isLocationVerified = true;
         _statusMessage = '📷 សូមស្កេន QR Code បុគ្គលិកដើម្បី Login';
       });
@@ -311,6 +347,7 @@ class _ScannerModalSheetState extends State<ScannerModalSheet> with WidgetsBindi
     if (!locationStatus.isGranted) {
       if (mounted) {
         setState(() {
+          _isLoadingLocation = false;
           _isUnlocked = false;
           _isLocationVerified = false;
           _statusMessage = '❌ សូមអនុញ្ញាតឲ្យប្រើប្រាស់ Location ដើម្បីផ្ទៀងផ្ទាត់ទីតាំង!';
@@ -325,7 +362,7 @@ class _ScannerModalSheetState extends State<ScannerModalSheet> with WidgetsBindi
     }
 
     setState(() {
-      _statusMessage = '🔍 កំពុងទាញទិន្នន័យសាខាពី Database...';
+      _isLoadingLocation = true;
     });
 
     // 3. Fetch Real-Time GPS Coordinates (Unless manually simulated by developer buttons)
@@ -342,6 +379,7 @@ class _ScannerModalSheetState extends State<ScannerModalSheet> with WidgetsBindi
       } catch (e) {
         if (mounted) {
           setState(() {
+            _isLoadingLocation = false;
             _isUnlocked = false;
             _isLocationVerified = false;
             _statusMessage = '❌ មិនអាចទាញយកទីតាំង GPS បានឡើយ! សូមប្រាកដថាបើក GPS លើទូរស័ព្ទ';
@@ -447,13 +485,14 @@ class _ScannerModalSheetState extends State<ScannerModalSheet> with WidgetsBindi
       final branchToken = 'branch_qr:$branchId';
 
       if (mounted) {
-        // Keep camera locked until user clicks the "Check" button!
-        _setUnlocked(false);
         setState(() {
+          _isLoadingLocation = false;
           _isLocationVerified = true;
           _matchedBranchName = branchName;
           _matchedBranchToken = branchToken;
-          _statusMessage = null;
+          if (_statusMessage != null && _statusMessage!.startsWith('🔒 មិនគ្រប់លក្ខខណ្ឌ')) {
+            _statusMessage = null;
+          }
           if (_customQrController.text.isEmpty || _customQrController.text.startsWith('branch_qr:')) {
             _customQrController.text = branchToken;
           }
@@ -466,6 +505,7 @@ class _ScannerModalSheetState extends State<ScannerModalSheet> with WidgetsBindi
       if (mounted) {
         _setUnlocked(false); // Force lock the camera preview feed!
         setState(() {
+          _isLoadingLocation = false;
           _isLocationVerified = false;
           _matchedBranchName = closestName;
           _matchedBranchToken = closestBranch != null ? 'branch_qr:${closestBranch['id']}' : null;
@@ -511,7 +551,6 @@ class _ScannerModalSheetState extends State<ScannerModalSheet> with WidgetsBindi
   Future<void> _verifyEmployeeDirectly(String staffId) async {
     setState(() {
       _isVerifying = true;
-      _statusMessage = '🔍 កំពុងផ្ទៀងផ្ទាត់ទិន្នន័យវត្តមានសម្រាប់អត្តលេខ $staffId...';
     });
 
     try {
@@ -554,7 +593,7 @@ class _ScannerModalSheetState extends State<ScannerModalSheet> with WidgetsBindi
       // 🔄 ដំណាក់កាលទី១៖ ការកំណត់មុខងារ Scan (Scan Type Detection)
       String determinedAction = 'checkin_1';
 
-      if (hasCheckIn1 && hasCheckOut1 && hasCheckIn2 && hasCheckOut2) {
+      if (hasCheckOut2 || (hasCheckIn1 && hasCheckOut1 && hasCheckIn2 && hasCheckOut2)) {
         determinedAction = 'completed';
       } else if (currentMinutes >= s1EndMinutes) {
         // ករណី Scan_Time >= Shift_Out_1 (ក្រោយចប់ Shift 1 / ម៉ោងថ្ងៃត្រង់ & រសៀល)
@@ -598,10 +637,22 @@ class _ScannerModalSheetState extends State<ScannerModalSheet> with WidgetsBindi
       }
 
       if (determinedAction == 'completed') {
+        _cancelCameraTimer();
+        _setUnlocked(false); // Lock camera immediately!
         setState(() {
           _isVerifying = false;
-          _statusMessage = '⚠️ អ្នកធ្លាប់បាន check គ្រប់ចំនួន ៤ ដងរួចរាល់ហើយ សម្រាប់ថ្ងៃនេះ!';
+          _nextAction = 'completed';
+          _statusMessage = '⚠️ អ្នកបាន check គ្រប់ចំនួនរួចរាល់ហើយ សម្រាប់ថ្ងៃនេះ!';
         });
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('⚠️ អ្នកបាន check គ្រប់ចំនួនរួចរាល់ហើយ សម្រាប់ថ្ងៃនេះ!'),
+              backgroundColor: AppColors.warning,
+              duration: Duration(seconds: 3),
+            ),
+          );
+        }
         return;
       }
 
@@ -648,14 +699,14 @@ class _ScannerModalSheetState extends State<ScannerModalSheet> with WidgetsBindi
       if (requiresReason) {
         _earlyCheckoutReason = '';
         _reasonController.clear();
-        _setUnlocked(false);
+        _setUnlocked(false); // Lock camera while filling form!
         _showReasonModalDialog();
       } else {
         _earlyCheckoutReason = '';
         if (_isLocationVerified || widget.isLoginMode) {
-          _setUnlocked(true); // Open Camera directly
+          _startCameraTimer(30); // Open Camera for 30 seconds countdown!
           setState(() {
-            _statusMessage = '✅ ម៉ោងត្រឹមត្រូវ! បើក Camera ស្កេន (${_getActionLabel(determinedAction)})';
+            _statusMessage = null;
           });
         } else {
           _setUnlocked(false);
@@ -682,12 +733,42 @@ class _ScannerModalSheetState extends State<ScannerModalSheet> with WidgetsBindi
         return 'Check In 2';
       case 'checkout_2':
         return 'Check Out 2';
+      case 'completed':
+        return 'អ្នកបាន check គ្រប់ចំនួន';
       default:
         return 'Check In/Out';
     }
   }
 
-  void _handleCheckPress() {
+  Future<void> _handleCheckPress() async {
+    // If next action is already completed and not scanning on behalf, block and keep locked!
+    if (!_scanOnBehalf && _nextAction == 'completed') {
+      _cancelCameraTimer();
+      _setUnlocked(false); // Ensure camera is locked!
+      setState(() {
+        _statusMessage = '⚠️ អ្នកបាន check គ្រប់ចំនួនរួចរាល់ហើយ សម្រាប់ថ្ងៃនេះ!';
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('⚠️ អ្នកបាន check គ្រប់ចំនួនរួចរាល់ហើយ សម្រាប់ថ្ងៃនេះ!'),
+            backgroundColor: AppColors.warning,
+            duration: Duration(seconds: 3),
+          ),
+        );
+      }
+      return;
+    }
+
+    // 1. Verify location first if not already verified
+    if (!_isLocationVerified && !widget.isLoginMode) {
+      await _verifyBranchGeofence();
+      if (!_isLocationVerified) {
+        _setUnlocked(false);
+        return;
+      }
+    }
+
     final user = Get.find<AuthController>().user;
     if (_scanOnBehalf) {
       _behalfStaffIdController.clear();
@@ -787,9 +868,9 @@ class _ScannerModalSheetState extends State<ScannerModalSheet> with WidgetsBindi
                 _earlyCheckoutReason = noteText;
                 Navigator.pop(ctx);
                 if (_isLocationVerified || widget.isLoginMode) {
-                  _setUnlocked(true); // Open Camera ONLY after Submit clicked!
+                  _startCameraTimer(30); // Open Camera ONLY after Submit clicked, for 30 seconds!
                   setState(() {
-                    _statusMessage = '✅ បានកត់ត្រាមូលហេតុរួចរាល់! បើក Camera ស្កេន (${_getActionLabel(_nextAction)})';
+                    _statusMessage = null;
                   });
                 } else {
                   _setUnlocked(false);
@@ -876,7 +957,6 @@ class _ScannerModalSheetState extends State<ScannerModalSheet> with WidgetsBindi
 
       setState(() {
         _isProcessing = true;
-        _statusMessage = '🔍 កំពុង Login តាមរយៈ QR Code...';
       });
 
       if (widget.onLoginQrScanned != null) {
@@ -886,14 +966,10 @@ class _ScannerModalSheetState extends State<ScannerModalSheet> with WidgetsBindi
     }
 
     if (!_isUnlocked) {
-      if (_isLocationVerified) {
-        _setUnlocked(true);
-      } else {
-        setState(() {
-          _statusMessage = '🔒 កាមេរ៉ាត្រូវចាក់សោរ! សូមចុចប៊ូតុង "Check" ដើម្បីបើក Camera ជាមុនសិន';
-        });
-        return;
-      }
+      setState(() {
+        _statusMessage = '🔒 កាមេរ៉ាត្រូវចាក់សោរ! សូមចុចប៊ូតុង "${_getActionLabel(_nextAction)}" ដើម្បីបើក Camera ជាមុនសិន';
+      });
+      return;
     }
 
     final now = DateTime.now();
@@ -989,7 +1065,6 @@ class _ScannerModalSheetState extends State<ScannerModalSheet> with WidgetsBindi
 
     setState(() {
       _isProcessing = true;
-      _statusMessage = '🔍 កំពុងផ្ទៀងផ្ទាត់កូដ QR ($tokenToScan)...';
       _isSuccess = false;
     });
 
@@ -1028,7 +1103,8 @@ class _ScannerModalSheetState extends State<ScannerModalSheet> with WidgetsBindi
           'department': department,
         }, action, timeString);
 
-        _setUnlocked(false); // Re-lock camera immediately after success!
+        _cancelCameraTimer();
+        _setUnlocked(false); // Re-lock camera immediately after database insertion success!
         setState(() {
           _isProcessing = false;
           _isSuccess = true;
@@ -1048,7 +1124,8 @@ class _ScannerModalSheetState extends State<ScannerModalSheet> with WidgetsBindi
             setState(() {
               _isSuccess = false;
             });
-            _setUnlocked(_isLocationVerified); // Auto re-unlock camera only if location is verified!
+            // Camera stays locked! Update next action for the user's next action click:
+            _preEvaluateAction();
           }
         });
       } else {
@@ -1129,7 +1206,7 @@ class _ScannerModalSheetState extends State<ScannerModalSheet> with WidgetsBindi
       child: SingleChildScrollView(
         child: Column(
           children: [
-            // Camera Controls (Torch & Switch)
+            // Camera Controls (Torch & Status)
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
@@ -1143,10 +1220,19 @@ class _ScannerModalSheetState extends State<ScannerModalSheet> with WidgetsBindi
                 ),
                 const SizedBox(width: 12),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
                   decoration: BoxDecoration(
-                    color: (_isUnlocked ? AppColors.success : Colors.grey).withValues(alpha: 0.12),
+                    color: (_isUnlocked
+                            ? (_remainingSeconds <= 5 ? AppColors.danger : AppColors.success)
+                            : Colors.grey)
+                        .withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: _isUnlocked
+                          ? (_remainingSeconds <= 5 ? AppColors.danger : AppColors.success)
+                          : Colors.transparent,
+                      width: 1,
+                    ),
                   ),
                   child: Row(
                     children: [
@@ -1154,30 +1240,25 @@ class _ScannerModalSheetState extends State<ScannerModalSheet> with WidgetsBindi
                         width: 8,
                         height: 8,
                         decoration: BoxDecoration(
-                          color: _isUnlocked ? AppColors.success : Colors.grey,
+                          color: _isUnlocked
+                              ? (_remainingSeconds <= 5 ? AppColors.danger : AppColors.success)
+                              : Colors.grey,
                           shape: BoxShape.circle,
                         ),
                       ),
                       const SizedBox(width: 6),
                       Text(
-                        _isUnlocked ? 'Camera Active' : 'Camera Locked',
+                        _isUnlocked ? 'Camera Active (${_remainingSeconds}s)' : 'Camera Locked',
                         style: TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.bold,
-                          color: _isUnlocked ? AppColors.success : Colors.grey,
+                          color: _isUnlocked
+                              ? (_remainingSeconds <= 5 ? AppColors.danger : AppColors.success)
+                              : Colors.grey,
                         ),
                       ),
                     ],
                   ),
-                ),
-                const SizedBox(width: 12),
-                IconButton(
-                  onPressed: _switchCamera,
-                  icon: Icon(
-                    LucideIcons.camera,
-                    color: _isFrontCamera ? AppColors.accent : Colors.grey,
-                  ),
-                  tooltip: 'Switch Camera',
                 ),
               ],
             ),
@@ -1209,7 +1290,71 @@ class _ScannerModalSheetState extends State<ScannerModalSheet> with WidgetsBindi
                     borderRadius: BorderRadius.circular(22),
                     child: Stack(
                       children: [
-                        // Locked Screen Overlay (Matching Frontend Kiosk Locked View)
+                        // Web or Mobile Camera Preview
+                        if (kIsWeb)
+                          WebCameraPreview(
+                            isFrontCamera: _isFrontCamera,
+                            onQRDetected: (decodedText) {
+                              if (_isUnlocked && !_isProcessing && !_isSuccess) {
+                                _customQrController.text = decodedText;
+                                _handleScanAnyQRCode(decodedText);
+                              }
+                            },
+                          )
+                        else
+                          MobileScanner(
+                            controller: _cameraController,
+                            fit: BoxFit.cover,
+                            errorBuilder: (context, error, child) {
+                              return Container(
+                                color: Colors.black,
+                                child: Center(
+                                  child: Padding(
+                                    padding: const EdgeInsets.all(12),
+                                    child: Column(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        const Icon(LucideIcons.cameraOff, color: Colors.white70, size: 32),
+                                        const SizedBox(height: 8),
+                                        Text(
+                                          'Camera: ${error.errorCode.name}',
+                                          textAlign: TextAlign.center,
+                                          style: const TextStyle(color: Colors.white70, fontSize: 11),
+                                        ),
+                                        const SizedBox(height: 8),
+                                        ElevatedButton(
+                                          style: ElevatedButton.styleFrom(
+                                            backgroundColor: AppColors.primary,
+                                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                                          ),
+                                          onPressed: () {
+                                            _cameraController?.start();
+                                          },
+                                          child: const Text('Restart Camera', style: TextStyle(color: Colors.white, fontSize: 11)),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              );
+                            },
+                            onDetect: (capture) {
+                              if (!_isUnlocked || _isProcessing || _isSuccess) return;
+                              final List<Barcode> barcodes = capture.barcodes;
+                              for (final barcode in barcodes) {
+                                final String? rawValue = barcode.rawValue;
+                                if (rawValue != null && rawValue.isNotEmpty) {
+                                  HapticFeedback.lightImpact();
+                                  _stopCamera();
+                                  _customQrController.text = rawValue;
+                                  _handleScanAnyQRCode(rawValue);
+                                  break;
+                                }
+                              }
+                            },
+                          ),
+
+                        // Locked Screen Overlay (Only on top when locked)
                         if (!_isUnlocked)
                           Container(
                             color: isDark ? const Color(0xFF0F172A) : Colors.grey.shade900,
@@ -1242,33 +1387,6 @@ class _ScannerModalSheetState extends State<ScannerModalSheet> with WidgetsBindi
                                 ],
                               ),
                             ),
-                          )
-                        else if (kIsWeb)
-                          WebCameraPreview(
-                            isFrontCamera: _isFrontCamera,
-                            onQRDetected: (decodedText) {
-                              if (!_isProcessing && !_isSuccess) {
-                                _customQrController.text = decodedText;
-                                _handleScanAnyQRCode(decodedText);
-                              }
-                            },
-                          )
-                        else
-                          MobileScanner(
-                            controller: _cameraController,
-                            onDetect: (capture) {
-                              final List<Barcode> barcodes = capture.barcodes;
-                              for (final barcode in barcodes) {
-                                final String? rawValue = barcode.rawValue;
-                                if (rawValue != null && rawValue.isNotEmpty && !_isProcessing && !_isSuccess) {
-                                  HapticFeedback.lightImpact(); // Instant tactile response on scan
-                                  _stopCamera(); // Stop camera instantly to prevent duplicate scans
-                                  _customQrController.text = rawValue;
-                                  _handleScanAnyQRCode(rawValue);
-                                  break;
-                                }
-                              }
-                            },
                           ),
 
                         // Corner Viewfinder Brackets Overlay
@@ -1329,7 +1447,21 @@ class _ScannerModalSheetState extends State<ScannerModalSheet> with WidgetsBindi
             ),
             const SizedBox(height: 14),
 
-            if (_statusMessage != null)
+            if (_isLoadingLocation)
+              const Padding(
+                padding: EdgeInsets.only(bottom: 12),
+                child: Center(
+                  child: SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: AppColors.primary,
+                    ),
+                  ),
+                ),
+              )
+            else if (_statusMessage != null)
               Padding(
                 padding: const EdgeInsets.only(bottom: 12),
                 child: Text(
@@ -1349,13 +1481,18 @@ class _ScannerModalSheetState extends State<ScannerModalSheet> with WidgetsBindi
                 width: double.infinity,
                 child: Container(
                   decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [Color(0xFF4F46E5), Color(0xFF7C3AED)],
+                    gradient: LinearGradient(
+                      colors: (_nextAction == 'completed' && !_scanOnBehalf)
+                          ? [const Color(0xFF059669), const Color(0xFF10B981)]
+                          : [const Color(0xFF4F46E5), const Color(0xFF7C3AED)],
                     ),
                     borderRadius: BorderRadius.circular(16),
                     boxShadow: [
                       BoxShadow(
-                        color: const Color(0xFF4F46E5).withValues(alpha: 0.35),
+                        color: ((_nextAction == 'completed' && !_scanOnBehalf)
+                                ? const Color(0xFF059669)
+                                : const Color(0xFF4F46E5))
+                            .withValues(alpha: 0.35),
                         blurRadius: 16,
                         offset: const Offset(0, 6),
                       ),
@@ -1383,7 +1520,13 @@ class _ScannerModalSheetState extends State<ScannerModalSheet> with WidgetsBindi
                         : Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              const Icon(LucideIcons.camera, size: 20, color: Colors.white),
+                              Icon(
+                                (_nextAction == 'completed' && !_scanOnBehalf)
+                                    ? LucideIcons.checkCircle2
+                                    : LucideIcons.camera,
+                                size: 20,
+                                color: Colors.white,
+                              ),
                               const SizedBox(width: 8),
                               Text(
                                 _getActionLabel(_nextAction),
@@ -1394,35 +1537,35 @@ class _ScannerModalSheetState extends State<ScannerModalSheet> with WidgetsBindi
                   ),
                 ),
               ),
-              const SizedBox(height: 10),
-
-              // Checkbox: Scan on Behalf (Matching Frontend Kiosk)
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Checkbox(
-                    value: _scanOnBehalf,
-                    activeColor: AppColors.primary,
-                    onChanged: (val) => setState(() => _scanOnBehalf = val ?? false),
-                  ),
-                  const Text(
-                    'ចុះវត្តមានជំនួសអ្នកដទៃ (Scan on Behalf)',
-                    style: TextStyle(fontSize: 12, color: AppColors.primary, fontWeight: FontWeight.w600),
-                  ),
-                ],
-              ),
             ] else ...[
-              // Active Action Label & Re-lock Button
+              // Active Action Label, Timer Countdown & Re-lock Button
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                 decoration: BoxDecoration(
-                  color: AppColors.primary.withValues(alpha: 0.12),
+                  color: (_remainingSeconds <= 5 ? AppColors.danger : AppColors.primary).withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
+                  border: Border.all(
+                    color: (_remainingSeconds <= 5 ? AppColors.danger : AppColors.primary).withValues(alpha: 0.3),
+                  ),
                 ),
-                child: Text(
-                  'សកម្មភាព៖ ${_getActionLabel(_nextAction)}',
-                  style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold, fontSize: 12),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      LucideIcons.timer,
+                      size: 16,
+                      color: _remainingSeconds <= 5 ? AppColors.danger : AppColors.primary,
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      'ស្កេនក្នុងរយះពេល៖ ${_remainingSeconds}s (${_getActionLabel(_nextAction)})',
+                      style: TextStyle(
+                        color: _remainingSeconds <= 5 ? AppColors.danger : AppColors.primary,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
                 ),
               ),
               const SizedBox(height: 8),

@@ -7,7 +7,7 @@ plugins {
 
 android {
     namespace = "com.hrchomnan.mobile_app"
-    compileSdk = 36
+    compileSdk = 37
     ndkVersion = flutter.ndkVersion
 
     compileOptions {

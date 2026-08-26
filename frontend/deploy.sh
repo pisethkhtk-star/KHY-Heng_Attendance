@@ -51,7 +51,7 @@ if [ "$HTTP_CODE" -eq 200 ] || [ "$HTTP_CODE" -eq 304 ]; then
     echo -e "${GREEN}======================================================${NC}"
     echo -e "${GREEN}   🎉 FRONTEND DEPLOYED & RUNNING SUCCESSFULLY!       ${NC}"
     echo -e "${GREEN}======================================================${NC}"
-    echo -e "Web App URL:   ${GREEN}http://$(curl -s ifconfig.me || echo '34.232.147.247')${NC}"
+    echo -e "Web App URL:   ${GREEN}http://$(curl -s ifconfig.me || echo '32.195.184.65')${NC}"
     echo -e "Local URL:     ${GREEN}http://localhost:80${NC}"
     echo -e ""
     echo -e "Useful Commands:"

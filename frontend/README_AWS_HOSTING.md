@@ -1,68 +1,83 @@
-# 🌐 ការដាក់ដំណើរការ Frontend លើ AWS Ubuntu Server (Port 80)
+# 🌐 មគ្គុទ្ទេសក៍ដាក់ដំណើរការ (Host) លើ AWS Ubuntu Server
 
-ឯកសារនេះបង្ហាញពីរបៀបដាក់ដំណើរការ **React Vite (Single Page Application) + Nginx Web Server** លើ **AWS EC2 Ubuntu Server** (IP: `34.232.147.247`)។
-
----
-
-## 1. ⚙️ ការកំណត់ AWS Security Group Inbound Rules
-មុនពេលដំណើរការ សូមចូលទៅកាន់ **AWS Console** -> **EC2** -> **Security Groups** -> កែសម្រួល **Inbound Rules**៖
-- **Port 80 (HTTP)**: សម្រាប់ចូលប្រើប្រាស់ Web Frontend តាម Browser (`0.0.0.0/0`)
-- **Port 22 (SSH)**: សម្រាប់ Remote Terminal
-- **Port 8080 (Custom TCP)**: សម្រាប់ Backend API
+ឯកសារនេះបង្ហាញពីរបៀប Host គម្រោង **HR Attendance Frontend (React + Vite + Nginx)** លើ **AWS EC2 Ubuntu Server**៖
+- **Frontend Server IP**: `32.195.184.65` (Port 80)
+- **Backend API Server IP**: `100.56.149.110` (Port 8080)
 
 ---
 
-## 2. 🚀 វិធីដាក់ដំណើរការដោយស្វ័យប្រវត្តិ (1-Command Deploy)
+## 📌 ជំហានទី ១៖ បើក Port លើ AWS Security Group (សំខាន់បំផុត)
 
-ចូលទៅកាន់ Ubuntu Server តាមរយៈ SSH៖
+មុនពេលដំណើរការ សូមចូលទៅកាន់ **AWS Console** របស់អ្នក៖
+1. ចូលទៅ **EC2** -> **Instances** -> ចុចលើ Instance របស់អ្នក -> ជ្រើសរើសផ្ទាំង **Security**
+2. ចុចលើ **Security Group** -> ចុចប៊ូតុង **Edit inbound rules**
+3. បន្ថែម Rules ដូចខាងក្រោម៖
+   - **SSH**: Type: `SSH`, Port: `22`, Source: `0.0.0.0/0` (ឬ My IP)
+   - **HTTP**: Type: `HTTP`, Port: `80`, Source: `0.0.0.0/0` (Anywhere)
+   - **Custom TCP (Backend)**: Port: `8080`, Source: `0.0.0.0/0` (បើកលើ Server `100.56.149.110`)
+4. ចុច **Save rules**
+
+---
+
+## 📌 ជំហានទី ២៖ ភ្ជាប់ទៅកាន់ Server តាមរយៈ SSH (លើកុំព្យូទ័ររបស់អ្នក)
+
+បើក **Terminal** ឬ **PowerShell** លើកុំព្យូទ័ររបស់អ្នក (កន្លែងដែលមាន file key `.pem`) រួចវាយ៖
+
 ```bash
-ssh -i "your-key.pem" ubuntu@34.232.147.247
+ssh -i "your-key.pem" ubuntu@32.195.184.65
 ```
+*(ចំណាំ៖ សូមប្ដូរ `your-key.pem` ទៅជាឈ្មោះ Key Pair ពិតប្រាកដរបស់អ្នក)*
 
-ចូលទៅកាន់ Folder Frontend រួចដំណើរការ Script៖
+---
+
+## 📌 ជំហានទី ៣៖ ទាញយកកូដគម្រោងដាក់លើ Server
+
+ពេលចូលដល់ក្នុង Ubuntu Server ហើយ សូមដំណើរការបញ្ជា៖
+
 ```bash
+# ១. Update ប្រព័ន្ធ Server
+sudo apt update && sudo apt upgrade -y
+
+# ២. Clone កូដពី Git Repository (ប្រសិនបើមិនទាន់បាន clone)
+git clone https://github.com/your-username/your-repo.git Hr_chomnan
+
+# ៣. ចូលទៅកាន់ Folder Frontend
 cd Hr_chomnan/frontend
-chmod +x deploy.sh
-./deploy.sh
 ```
 
 ---
 
-## 3. 🛠️ វិធីដាក់ដំណើរការដោយដៃ (Manual Commands)
+## 📌 ជំហានទី ៤៖ បើកដំណើរការ Host ដោយស្វ័យប្រវត្ត (1-Command Deploy)
 
-### ជម្រើសទី ១៖ ប្រើ Docker Compose (ណែនាំ)
+គ្រាន់តែដំណើរការបញ្ជាមួយជួរនេះ៖
+
 ```bash
-cd Hr_chomnan/frontend
-docker compose up -d --build
+chmod +x deploy.sh && ./deploy.sh
 ```
 
-### ជម្រើសទី ២៖ Build Static Files រួចដាក់លើ Nginx ផ្ទាល់លើ Host
-```bash
-# ១. ដំឡើង Node.js និង Build
-cd Hr_chomnan/frontend
-npm install
-npm run build
-
-# ២. ចម្លង Files ទៅកាន់ Web Directory របស់ Nginx
-sudo cp -r dist/* /var/www/html/
-sudo systemctl restart nginx
-```
+> **ដំណើរការដែល Script នឹងធ្វើដោយស្វ័យប្រវត្ត៖**
+> 1. ដំឡើង Docker និង Docker Compose បើ server មិនទាន់មាន
+> 2. Build React App ជា Production Bundle
+> 3. បង្កើត Nginx Web Server និងរត់លើ Port 80 ភ្លាមៗ
 
 ---
 
-## 4. 🛠️ បញ្ជាសំខាន់ៗពេលគ្រប់គ្រង Frontend
+## 📌 ជំហានទី ៥៖ ចូលប្រើប្រាស់ Web App
+
+បើក Browser (Chrome/Edge/Safari) រួចវាយ៖
+- 🌐 **Web App URL**: `http://32.195.184.65`
+- 🔑 **Login Page**: `http://32.195.184.65/login`
+- 📱 **Kiosk Attendance**: `http://32.195.184.65/kiosk`
+
+---
+
+## 🛠️ ពាក្យបញ្ជាសំខាន់ៗសម្រាប់គ្រប់គ្រង Server ពេលក្រោយ
 
 | កិច្ចការ | ពាក្យបញ្ជា (Command) |
 |---|---|
-| **មើល Logs ផ្ទាល់** | `docker logs -f hr_attendance_frontend` |
-| **ពិនិត្យ Container Status** | `docker compose ps` |
-| **Restart Frontend** | `docker compose restart` |
-| **បិទ Frontend Server** | `docker compose down` |
-| **Update កូដថ្មីរួច Re-build** | `git pull && ./deploy.sh` |
+| **ពិនិត្យស្ថានភាព Server** | `docker compose ps` |
+| **មើល Logs ផ្ទាល់ (Debug)** | `docker logs -f hr_attendance_frontend` |
+| **Restart Server** | `docker compose restart` |
+| **បិទ Web Server** | `docker compose down` |
+| **Update កូដថ្មីរួច Deploy ម្ដងទៀត** | `git pull && ./deploy.sh` |
 
----
-
-## 5. 🔗 អាសយដ្ឋានចូលប្រើប្រាស់
-- **Web App URL**: `http://34.232.147.247` (ដំណើរការលើ Port 80)
-- **Login Page**: `http://34.232.147.247/login`
-- **Kiosk Mode**: `http://34.232.147.247/kiosk`

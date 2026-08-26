@@ -1,7 +1,9 @@
 class UserModel {
   final String id;
   final String employeeId;
-  final String name;
+  final String name; // Display English Name
+  final String nameEn;
+  final String nameKh;
   final String email;
   final String department;
   final String position;
@@ -15,6 +17,8 @@ class UserModel {
     required this.id,
     required this.employeeId,
     required this.name,
+    this.nameEn = '',
+    this.nameKh = '',
     required this.email,
     required this.department,
     required this.position,
@@ -47,10 +51,27 @@ class UserModel {
     String parsedBranch = json['branch']?.toString() ?? 'Phnom Penh HQ';
     if (parsedBranch.trim().isEmpty) parsedBranch = 'Phnom Penh HQ';
 
+    final String nameEnStr = (json['nameEn'] ?? json['fullNameEn'] ?? json['name_en'] ?? '').toString().trim();
+    final String nameKhStr = (json['nameKh'] ?? json['fullNameKh'] ?? json['name_kh'] ?? '').toString().trim();
+    final String generalName = (json['name'] ?? json['username'] ?? '').toString().trim();
+
+    // 🎯 Prioritize English Name (nameEn)
+    String displayName = nameEnStr.isNotEmpty
+        ? nameEnStr
+        : (generalName.isNotEmpty
+            ? generalName
+            : (nameKhStr.isNotEmpty
+                ? nameKhStr
+                : (json['email'] != null && json['email'].toString().contains('@')
+                    ? json['email'].toString().split('@')[0]
+                    : 'Employee User')));
+
     return UserModel(
       id: json['id']?.toString() ?? '',
       employeeId: json['staffId']?.toString() ?? json['employeeId']?.toString() ?? 'EMP-2026',
-      name: json['name'] ?? json['username'] ?? json['email']?.split('@')[0].toUpperCase() ?? 'Employee User',
+      name: displayName,
+      nameEn: nameEnStr.isNotEmpty ? nameEnStr : displayName,
+      nameKh: nameKhStr,
       email: json['email'] ?? '',
       department: parsedDept,
       position: parsedPos,
@@ -67,6 +88,8 @@ class UserModel {
       'id': id,
       'staffId': employeeId,
       'name': name,
+      'nameEn': nameEn,
+      'nameKh': nameKh,
       'email': email,
       'department': department,
       'position': position,

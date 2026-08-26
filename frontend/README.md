@@ -15,28 +15,65 @@ The React Compiler is not enabled on this template because of its impact on dev 
 
 If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and Oxlint's TypeScript related rules in your project.
 
-📄 README មាន Section ទាំងអស់:
-Section	ខ្លឹមសារ
-Tech Stack	React, Node.js, PostgreSQL, Prisma, Leaflet
-Prerequisites	Node.js ≥ v18, PostgreSQL ≥ v14
-Project Structure	Folder tree backend + frontend
-Step-by-Step Setup	9 steps ច្បាស់លាស់ (Windows & Mac/Linux)
-Default Accounts	Admin, HR, Manager, Employee + passwords
-Main Pages	URLs ទាំងអស់ + access level
-Geofencing Guide	របៀប setup KioskSettings
-API Endpoints	List endpoints ទាំងអស់
-Dev Commands	Prisma Studio, migrate, generate
-Permissions Table	Resources ទាំង 11
-Troubleshooting	GPS, Prisma Windows, Face models
-Quick Start Summary:
-bash
-# Terminal 1 — Backend
-cd backend
+# 🏢 HR Chomnan - Frontend (React + Vite + TailwindCSS)
+
+ប្រព័ន្ធគ្រប់គ្រងវត្តមានបុគ្គលិក និងធនធានមនុស្ស (HR Attendance & Kiosk Management System)
+
+---
+
+## 🚀 ការដាក់ដំណើរការលើ AWS Ubuntu Server (Production)
+
+សម្រាប់សេចក្ដីលម្អិតពេញលេញ សូមមើលឯកសារ៖ [README_AWS_HOSTING.md](file:///d:/project/Hr_chomnan/frontend/README_AWS_HOSTING.md)
+
+### ពាក្យបញ្ជាដាក់ដំណើរការលឿន (Quick 1-Command Deploy):
+```bash
+cd Hr_chomnan/frontend
+chmod +x deploy.sh
+./deploy.sh
+```
+
+---
+
+## 💻 ការរត់នៅក្នុង Local Development
+
+### ១. ដំឡើង Dependencies
+```bash
 npm install
-npx.cmd prisma migrate dev --name init
-npx.cmd prisma db seed
-npm run dev          # → http://localhost:5050
-# Terminal 2 — Frontend
-cd frontend
-npm install
-npm run dev          # → http://localhost:5173
+```
+
+### ២. បង្កើតឯកសារ `.env` (ជម្រើសបន្ថែម)
+```bash
+cp .env.example .env
+```
+
+### ៣. បើកដំណើរការ Dev Server
+```bash
+npm run dev
+```
+> Web Frontend នឹងដំណើរការលើ `http://localhost:5173`
+
+---
+
+## 📁 រចនាសម្ព័ន្ធ Folder សំខាន់ៗ
+
+- `src/components/` : UI Components (Sidebar, Navbar, Modal, etc.)
+- `src/pages/` : ទំព័រកម្មវិធីទាំងអស់ (Dashboard, Kiosk, Employees, Reports, etc.)
+- `src/context/` : React Context (AuthContext)
+- `src/utils/` : Axios API Client & Helper Functions
+- `Dockerfile` : Multi-stage build សម្រាប់ Nginx Production
+- `docker-compose.yml` : Compose configuration សម្រាប់ Docker
+- `nginx.conf` : Nginx Reverse Proxy & Static Asset Caching
+- `deploy.sh` : Script ស្វ័យប្រវត្តសម្រាប់ Deploy លើ AWS Server
+
+---
+
+## 🛠️ Tech Stack
+
+- **Framework**: React 19 + Vite 8
+- **Styling**: TailwindCSS 4
+- **Routing**: React Router DOM 7
+- **HTTP Client**: Axios
+- **Maps / GPS**: Leaflet, React-Leaflet
+- **QR Scanner**: html5-qrcode
+- **Web Server / Proxy**: Nginx Alpine in Docker
+
