@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import api from '../utils/api';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
@@ -9,6 +9,9 @@ import {
   UserGroupIcon,
   ExclamationTriangleIcon,
   FunnelIcon,
+  ChevronDownIcon,
+  ChevronUpIcon,
+  XMarkIcon,
 } from '@heroicons/react/24/outline';
 import { formatTime12Hour } from '../utils/dateUtils';
 
@@ -61,6 +64,10 @@ const AttendanceLate = () => {
   // Filters State
   const [search, setSearch] = useState('');
   const [selectedStaffId, setSelectedStaffId] = useState('');
+  const [isEmpDropdownOpen, setIsEmpDropdownOpen] = useState(false);
+  const [empSearchQuery, setEmpSearchQuery] = useState('');
+  const empDropdownRef = useRef(null);
+
   const [startDate, setStartDate] = useState(() => {
     const now = new Date();
     return new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
@@ -87,6 +94,28 @@ const AttendanceLate = () => {
       console.error('Error fetching initial data:', err);
     }
   };
+
+  // Close dropdown on click outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (empDropdownRef.current && !empDropdownRef.current.contains(event.target)) {
+        setIsEmpDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const filteredEmployees = useMemo(() => {
+    return employees.filter(emp => {
+      if (!empSearchQuery || !empSearchQuery.trim()) return true;
+      const q = empSearchQuery.trim().toLowerCase();
+      const staffId = (emp.staffId || '').toLowerCase();
+      const nameEn = (emp.nameEn || '').toLowerCase();
+      const nameKh = (emp.nameKh || '').toLowerCase();
+      return staffId.includes(q) || nameEn.includes(q) || nameKh.includes(q);
+    });
+  }, [employees, empSearchQuery]);
 
   const fetchLogs = async () => {
     try {
@@ -494,59 +523,166 @@ const AttendanceLate = () => {
         </div>
       </div>
 
-      {/* Filter Toolbar */}
-      <div className="glass-card p-4 rounded-2xl border border-white/10 space-y-3">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-          {/* Search Box */}
-          <div className="relative">
-            <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-            <input
-              type="text"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder={t("search")}
-              className="w-full pl-9 pr-3 py-2 border border-white/10 bg-slate-950/60 text-white rounded-xl text-xs focus:border-amber-500 focus:ring-1 focus:ring-amber-500/20 outline-none font-khmer"
-            />
-          </div>
+      {/* Filter panel */}
+      <div className="glass-card p-6 rounded-2xl grid grid-cols-1 md:grid-cols-4 gap-4">
+        {/* Start Date */}
+        <div className="space-y-1">
+          <label className="block text-xs font-semibold text-slate-400 uppercase font-khmer">{t("startDate")}</label>
+          <input
+            type="date"
+            value={startDate}
+            onChange={(e) => setStartDate(e.target.value)}
+            className="w-full py-2 px-3 border border-white/10 bg-slate-950/60 text-white rounded-xl text-sm focus:border-amber-500 focus:ring-1 focus:ring-amber-500/20 outline-none transition-all font-mono font-semibold"
+          />
+        </div>
 
-          {/* Employee Selector */}
-          {user.role !== 'Employee' && (
-            <div>
-              <select
-                value={selectedStaffId}
-                onChange={(e) => setSelectedStaffId(e.target.value)}
-                className="w-full py-2 px-3 border border-white/10 bg-slate-950/60 text-white rounded-xl text-xs focus:border-amber-500 outline-none font-khmer"
+        {/* End Date */}
+        <div className="space-y-1">
+          <label className="block text-xs font-semibold text-slate-400 uppercase font-khmer">{t("endDate")}</label>
+          <input
+            type="date"
+            value={endDate}
+            onChange={(e) => setEndDate(e.target.value)}
+            className="w-full py-2 px-3 border border-white/10 bg-slate-950/60 text-white rounded-xl text-sm focus:border-amber-500 focus:ring-1 focus:ring-amber-500/20 outline-none transition-all font-mono font-semibold"
+          />
+        </div>
+
+        {/* HR/Admin query parameters */}
+        {user.role !== 'Employee' ? (
+          <>
+            {/* Employee Searchable Select Dropdown */}
+            <div className="space-y-1 relative" ref={empDropdownRef}>
+              <label className="block text-xs font-semibold text-slate-400 uppercase font-khmer">
+                {t("employees")}
+              </label>
+
+              {/* Trigger Button */}
+              <div
+                onClick={() => setIsEmpDropdownOpen(!isEmpDropdownOpen)}
+                style={{ backgroundColor: '#FFFFFF', borderColor: isEmpDropdownOpen ? '#2D60FF' : '#CBD5E1' }}
+                className={`w-full py-2 px-3 border rounded-xl text-sm flex items-center justify-between cursor-pointer transition-all shadow-sm ${
+                  isEmpDropdownOpen ? 'ring-2 ring-blue-500/20' : 'hover:border-slate-400'
+                }`}
               >
-                <option value="" className="bg-slate-900">{language === 'kh' ? 'គ្រប់បុគ្គលិកទាំងអស់' : 'All Employees'}</option>
-                {employees.map(emp => (
-                  <option key={emp.id} value={emp.staffId} className="bg-slate-900">
-                    {emp.staffId} - {emp.nameEn || emp.nameKh}
+                <span
+                  style={{ color: selectedStaffId ? '#000000' : '#475569' }}
+                  className={`truncate text-xs ${selectedStaffId ? 'font-bold' : 'font-medium'}`}
+                >
+                  {selectedStaffId ? (
+                    (() => {
+                      const emp = employees.find(e => e.staffId === selectedStaffId);
+                      return emp ? `${emp.nameEn?.toUpperCase() || emp.nameKh} | ${emp.staffId}` : selectedStaffId;
+                    })()
+                  ) : (
+                    'Select Employee'
+                  )}
+                </span>
+                <div className="flex items-center gap-1 ml-2">
+                  {selectedStaffId && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSelectedStaffId('');
+                      }}
+                      className="p-0.5 hover:bg-slate-100 rounded text-slate-500 hover:text-slate-900 cursor-pointer bg-transparent border-none outline-none"
+                      title="Clear selection"
+                    >
+                      <XMarkIcon className="h-3.5 w-3.5" />
+                    </button>
+                  )}
+                  {isEmpDropdownOpen ? (
+                    <ChevronUpIcon className="h-4 w-4 text-slate-600 stroke-[2.5]" />
+                  ) : (
+                    <ChevronDownIcon className="h-4 w-4 text-slate-600 stroke-[2.5]" />
+                  )}
+                </div>
+              </div>
+
+              {/* Dropdown Menu Panel */}
+              {isEmpDropdownOpen && (
+                <div
+                  style={{ backgroundColor: '#FFFFFF', borderColor: '#CBD5E1' }}
+                  className="absolute left-0 right-0 top-full mt-1.5 border rounded-xl shadow-2xl z-50 overflow-hidden"
+                >
+                  {/* Inline Search Input */}
+                  <div style={{ backgroundColor: '#F8FAFC', borderColor: '#E2E8F0' }} className="p-2 border-b">
+                    <input
+                      type="text"
+                      value={empSearchQuery}
+                      onChange={(e) => setEmpSearchQuery(e.target.value)}
+                      placeholder="Searching..."
+                      style={{ color: '#000000', backgroundColor: '#FFFFFF', borderColor: '#2D60FF' }}
+                      className="w-full py-1.5 px-3 border rounded-lg text-xs outline-none focus:ring-2 focus:ring-blue-500/20 placeholder:text-slate-400 font-medium font-sans"
+                      autoFocus
+                    />
+                  </div>
+
+                  {/* Options List */}
+                  <div className="max-h-56 overflow-y-auto py-1 divide-y divide-slate-100 font-sans">
+                    {filteredEmployees.length === 0 ? (
+                      <div style={{ color: '#64748B' }} className="py-3 px-3 text-center text-xs font-khmer">
+                        {t("noData")}
+                      </div>
+                    ) : (
+                      filteredEmployees.map((emp) => {
+                        const isSelected = selectedStaffId === emp.staffId;
+                        const label = `${emp.nameEn?.toUpperCase() || emp.nameKh} | ${emp.staffId}`;
+                        return (
+                          <div
+                            key={emp.id || emp.staffId}
+                            onClick={() => {
+                              setSelectedStaffId(emp.staffId);
+                              setIsEmpDropdownOpen(false);
+                              setEmpSearchQuery('');
+                            }}
+                            style={{
+                              color: isSelected ? '#FFFFFF' : '#000000',
+                              backgroundColor: isSelected ? '#2D60FF' : 'transparent',
+                            }}
+                            className={`py-2.5 px-3 text-xs cursor-pointer transition-colors flex items-center justify-between font-semibold ${
+                              isSelected ? 'font-bold' : 'hover:!bg-blue-50 hover:!text-[#2D60FF]'
+                            }`}
+                          >
+                            <span className="truncate">{label}</span>
+                            {emp.status === 'Resigned' && (
+                              <span
+                                style={{
+                                  backgroundColor: isSelected ? 'rgba(255,255,255,0.25)' : '#FEE2E2',
+                                  color: isSelected ? '#FFFFFF' : '#DC2626',
+                                }}
+                                className="text-[10px] px-1.5 py-0.5 rounded font-bold ml-2"
+                              >
+                                Resigned
+                              </span>
+                            )}
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Department Filter */}
+            <div className="space-y-1">
+              <label className="block text-xs font-semibold text-slate-400 uppercase font-khmer">{t("departments")}</label>
+              <select
+                value={filterDept}
+                onChange={(e) => setFilterDept(e.target.value)}
+                className="w-full py-2 px-3 border border-white/10 bg-slate-950/60 text-white rounded-xl text-sm focus:border-amber-500 focus:ring-1 focus:ring-amber-500/20 focus:bg-slate-900 outline-none transition-all font-khmer cursor-pointer"
+              >
+                <option value="" className="bg-slate-900">{language === 'kh' ? 'គ្រប់ផ្នែកទាំងអស់' : 'All Departments'}</option>
+                {departments.map((dept) => (
+                  <option key={dept.id} value={dept.id} className="bg-slate-900">
+                    {dept.nameKh || dept.nameEn}
                   </option>
                 ))}
               </select>
             </div>
-          )}
-
-          {/* Start Date */}
-          <div>
-            <input
-              type="date"
-              value={startDate}
-              onChange={(e) => setStartDate(e.target.value)}
-              className="w-full py-2 px-3 border border-white/10 bg-slate-950/60 text-white rounded-xl text-xs focus:border-amber-500 outline-none font-mono font-semibold"
-            />
-          </div>
-
-          {/* End Date */}
-          <div>
-            <input
-              type="date"
-              value={endDate}
-              onChange={(e) => setEndDate(e.target.value)}
-              className="w-full py-2 px-3 border border-white/10 bg-slate-950/60 text-white rounded-xl text-xs focus:border-amber-500 outline-none font-mono font-semibold"
-            />
-          </div>
-        </div>
+          </>
+        ) : null}
       </div>
 
       {/* Main Content Area - Grouped Employee Late Tables */}
