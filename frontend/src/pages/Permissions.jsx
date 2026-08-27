@@ -410,16 +410,26 @@ const Permissions = () => {
     setSuccessMsg('');
     setErrorMsg('');
 
+    // Pre-populate with base role permissions as immediate fallback
+    const roleBasePerms = permissions
+      .filter(p => p.role === emp.role && Boolean(p.canAccess))
+      .map(p => p.resource);
+    setEmpRolePerms(roleBasePerms);
+    setEmpEffectivePerms(roleBasePerms);
+    setEmpHasCustom(false);
+
     try {
       setEmpPermissionsLoading(true);
       const res = await api.get(`/permissions/employee/${emp.id}`);
-      const data = res.data;
-      setEmpEffectivePerms(data.effectivePermissions || []);
-      setEmpHasCustom(Boolean(data.hasCustom));
-      setEmpRolePerms(data.rolePermissions || []);
+      if (res && res.data) {
+        const data = res.data;
+        setEmpEffectivePerms(data.effectivePermissions || roleBasePerms);
+        setEmpHasCustom(Boolean(data.hasCustom));
+        setEmpRolePerms(data.rolePermissions || roleBasePerms);
+      }
     } catch (err) {
-      console.error('Error loading employee permissions:', err);
-      setErrorMsg(language === 'kh' ? 'មិនអាចទាញយកសិទ្ធិរបស់បុគ្គលិកនេះបានទេ' : 'Failed to load permissions for this employee.');
+      console.warn('Could not fetch custom permissions from backend, falling back to role defaults:', err);
+      // Fallback already set above smoothly
     } finally {
       setEmpPermissionsLoading(false);
     }
