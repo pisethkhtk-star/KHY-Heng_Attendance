@@ -8,7 +8,7 @@ import {
 } from '@heroicons/react/24/outline';
 
 const Permissions = () => {
-  const { t } = useLanguage();
+  const { language, t } = useLanguage();
   const [permissions, setPermissions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -23,74 +23,272 @@ const Permissions = () => {
     { key: 'Employee', label: 'Employee 👤' }
   ];
 
-  // Structured Categorization of All Permissions in the System
+  // Bilingual Structured Categorization of All Permissions
   const resourceCategories = [
     {
       key: 'org_group',
-      label: 'Organization & Employees (រចនាសម្ព័ន្ធ & គ្រប់គ្រងបុគ្គលិក)',
+      labelEn: 'Organization & Employees',
+      labelKh: 'រចនាសម្ព័ន្ធ & គ្រប់គ្រងបុគ្គលិក',
       children: [
-        { key: 'departments', label: 'Departments (គ្រប់គ្រងដេប៉ាតឺម៉ង់)', desc: 'View and manage departments' },
-        { key: 'positions', label: 'Positions (គ្រប់គ្រងតួនាទី)', desc: 'View and manage positions' },
-        { key: 'employees', label: 'View Employee Directory (មើលបញ្ជីបុគ្គលិក)', desc: 'View active and resigned employees' },
-        { key: 'add_employee', label: 'Add New Employee (បន្ថែមបុគ្គលិកថ្មី)', desc: 'Register new employee with face data' },
-        { key: 'edit_employee', label: 'Edit Employee (កែប្រែព័ត៌មានបុគ្គលិក)', desc: 'Update employee profile & settings' },
-        { key: 'delete_employee', label: 'Delete Employee (លុបបុគ្គលិក)', desc: 'Remove employee profile from system' },
-        { key: 'work_hours', label: 'Company Work Hours (កំណត់ម៉ោងការងារក្រុមហ៊ុន)', desc: 'Set daily shift schedules & working hours' }
+        {
+          key: 'departments',
+          labelEn: 'Departments Management',
+          labelKh: 'គ្រប់គ្រងដេប៉ាតឺម៉ង់',
+          descEn: 'View and manage corporate departments',
+          descKh: 'មើល និងគ្រប់គ្រងដេប៉ាតឺម៉ង់ក្រុមហ៊ុន'
+        },
+        {
+          key: 'positions',
+          labelEn: 'Positions Management',
+          labelKh: 'គ្រប់គ្រងតួនាទី',
+          descEn: 'View and manage job positions',
+          descKh: 'មើល និងគ្រប់គ្រងតួនាទីការងារ'
+        },
+        {
+          key: 'employees',
+          labelEn: 'View Employee Directory',
+          labelKh: 'មើលបញ្ជីបុគ្គលិក',
+          descEn: 'View active and resigned employees',
+          descKh: 'មើលបញ្ជីបុគ្គលិកកំពុងធ្វើការ និងឈប់'
+        },
+        {
+          key: 'add_employee',
+          labelEn: 'Add New Employee',
+          labelKh: 'បន្ថែមបុគ្គលិកថ្មី',
+          descEn: 'Register new employee with face data',
+          descKh: 'ចុះឈ្មោះបុគ្គលិកថ្មី និងទិន្នន័យស្កេនមុខ'
+        },
+        {
+          key: 'edit_employee',
+          labelEn: 'Edit Employee',
+          labelKh: 'កែប្រែព័ត៌មានបុគ្គលិក',
+          descEn: 'Update employee profile & settings',
+          descKh: 'កែប្រែព័ត៌មានផ្ទាល់ខ្លួន និងការកំណត់បុគ្គលិក'
+        },
+        {
+          key: 'delete_employee',
+          labelEn: 'Delete Employee',
+          labelKh: 'លុបបុគ្គលិក',
+          descEn: 'Remove employee profile from system',
+          descKh: 'លុបគណនីបុគ្គលិកចេញពីប្រព័ន្ធ'
+        },
+        {
+          key: 'work_hours',
+          labelEn: 'Company Work Hours',
+          labelKh: 'កំណត់ម៉ោងការងារក្រុមហ៊ុន',
+          descEn: 'Set daily shift schedules & working hours',
+          descKh: 'កំណត់វេនការងារ និងម៉ោងធ្វើការប្រចាំថ្ងៃ'
+        }
       ]
     },
     {
       key: 'attendance_group',
-      label: 'Attendance Management (គ្រប់គ្រងវត្តមាន)',
+      labelEn: 'Attendance Management',
+      labelKh: 'គ្រប់គ្រងវត្តមាន',
       children: [
-        { key: 'attendance', label: 'All Attendance Logs (កំណត់ត្រាវត្តមានទាំងអស់)', desc: 'View comprehensive check-in logs' },
-        { key: 'attendance_early_in', label: 'Early-In Logs (កំណត់ត្រាមកមុនម៉ោង)', desc: 'View early morning check-ins' },
-        { key: 'attendance_late', label: 'Late Arrival Logs (កំណត់ត្រាមកយឺត)', desc: 'View late arrival records & penalty' },
-        { key: 'attendance_early_out', label: 'Early-Out Logs (កំណត់ត្រាចេញមុនម៉ោង)', desc: 'View early checkout departures' },
-        { key: 'add_attendance', label: 'Add Manual Attendance (បន្ថែមវត្តមានដោយផ្ទាល់)', desc: 'Manually insert missed attendance log' },
-        { key: 'edit_attendance', label: 'Edit Attendance Log (កែប្រែកំណត់ត្រាវត្តមាន)', desc: 'Modify check-in / check-out timestamps' },
-        { key: 'delete_attendance', label: 'Delete Attendance Log (លុបកំណត់ត្រាវត្តមាន)', desc: 'Remove attendance record' }
+        {
+          key: 'attendance',
+          labelEn: 'All Attendance Logs',
+          labelKh: 'កំណត់ត្រាវត្តមានទាំងអស់',
+          descEn: 'View comprehensive check-in logs',
+          descKh: 'មើលកំណត់ត្រាវត្តមានទូទៅទាំងអស់'
+        },
+        {
+          key: 'attendance_early_in',
+          labelEn: 'Early-In Logs',
+          labelKh: 'កំណត់ត្រាមកមុនម៉ោង (Early In)',
+          descEn: 'View early morning check-ins',
+          descKh: 'មើលកំណត់ត្រាវត្តមានបុគ្គលិកមកមុនម៉ោង'
+        },
+        {
+          key: 'attendance_late',
+          labelEn: 'Late Arrival Logs',
+          labelKh: 'កំណត់ត្រាមកយឺត (Late)',
+          descEn: 'View late arrival records & penalty',
+          descKh: 'មើលកំណត់ត្រាវត្តមានបុគ្គលិកមកយឺត'
+        },
+        {
+          key: 'attendance_early_out',
+          labelEn: 'Early-Out Logs',
+          labelKh: 'កំណត់ត្រាចេញមុនម៉ោង (Early Out)',
+          descEn: 'View early checkout departures',
+          descKh: 'មើលកំណត់ត្រាវត្តមានបុគ្គលិកចេញមុនម៉ោង'
+        },
+        {
+          key: 'add_attendance',
+          labelEn: 'Add Manual Attendance',
+          labelKh: 'បន្ថែមវត្តមានដោយផ្ទាល់',
+          descEn: 'Manually insert missed attendance log',
+          descKh: 'បញ្ចូលវត្តមានដែលខកខានដោយផ្ទាល់'
+        },
+        {
+          key: 'edit_attendance',
+          labelEn: 'Edit Attendance Log',
+          labelKh: 'កែប្រែកំណត់ត្រាវត្តមាន',
+          descEn: 'Modify check-in / check-out timestamps',
+          descKh: 'កែប្រែម៉ោង Check-in ឬ Check-out'
+        },
+        {
+          key: 'delete_attendance',
+          labelEn: 'Delete Attendance Log',
+          labelKh: 'លុបកំណត់ត្រាវត្តមាន',
+          descEn: 'Remove attendance record',
+          descKh: 'លុបកំណត់ត្រាវត្តមានដែលខុស'
+        }
       ]
     },
     {
       key: 'overtime_group',
-      label: 'Overtime Management (គ្រប់គ្រងថែមម៉ោង OT)',
+      labelEn: 'Overtime Management',
+      labelKh: 'គ្រប់គ្រងការថែមម៉ោង (OT)',
       children: [
-        { key: 'overtime', label: 'View & Request Overtime (មើល និងស្នើសុំថែមម៉ោង)', desc: 'Submit and view overtime requests' },
-        { key: 'approve_overtime', label: 'Approve / Reject Overtime (អនុម័ត ឬបដិសេធថែមម៉ោង)', desc: 'Review team overtime requests' },
-        { key: 'delete_overtime', label: 'Delete Overtime Request (លុបសំណើថែមម៉ោង)', desc: 'Remove pending overtime requests' }
+        {
+          key: 'overtime',
+          labelEn: 'View & Request Overtime',
+          labelKh: 'មើល និងស្នើសុំថែមម៉ោង',
+          descEn: 'Submit and view overtime requests',
+          descKh: 'ស្នើសុំថែមម៉ោង និងមើលប្រវត្តិថែមម៉ោង'
+        },
+        {
+          key: 'approve_overtime',
+          labelEn: 'Approve / Reject Overtime',
+          labelKh: 'អនុម័ត ឬបដិសេធថែមម៉ោង',
+          descEn: 'Review and approve team overtime requests',
+          descKh: 'ពិនិត្យ និងអនុម័តសំណើថែមម៉ោង'
+        },
+        {
+          key: 'delete_overtime',
+          labelEn: 'Delete Overtime Request',
+          labelKh: 'លុបសំណើថែមម៉ោង',
+          descEn: 'Remove pending overtime requests',
+          descKh: 'លុបសំណើថែមម៉ោងដែលមិនត្រឹមត្រូវ'
+        }
       ]
     },
     {
       key: 'leaves_group',
-      label: 'Leaves & Approvals (គ្រប់គ្រងការសុំច្បាប់ & អនុម័ត)',
+      labelEn: 'Leaves & Approvals Management',
+      labelKh: 'គ្រប់គ្រងការសុំច្បាប់ & អនុម័ត',
       children: [
-        { key: 'leaves', label: 'View & Request Leaves (មើល និងស្នើសុំច្បាប់)', desc: 'Submit leave request and view history' },
-        { key: 'approve_leaves', label: 'Approve / Reject Leaves (អនុម័ត ឬបដិសេធច្បាប់)', desc: 'Process leave requests by line manager' },
-        { key: 'leave_types', label: 'Leave Types Configuration (កំណត់ប្រភេទច្បាប់)', desc: 'Manage annual, sick, special leave types' },
-        { key: 'leave_allowances', label: 'Leave Allowances Configuration (កំណត់ចំនួនច្បាប់បុគ្គលិក)', desc: 'Set annual leave quota per employee' },
-        { key: 'leave_approvals', label: 'Approval Workflows (គ្រប់គ្រងអ្នកអនុម័តច្បាប់)', desc: 'Assign manager approval matrix' },
-        { key: 'edit_leave_approvals', label: 'Edit Approvals (កែប្រែអ្នកអនុម័ត)', desc: 'Modify approval hierarchy' },
-        { key: 'delete_leave_approvals', label: 'Delete Approvals (លុបអ្នកអនុម័ត)', desc: 'Remove approval configuration' }
+        {
+          key: 'leaves',
+          labelEn: 'View & Request Leaves',
+          labelKh: 'មើល និងស្នើសុំច្បាប់',
+          descEn: 'Submit leave request and view history',
+          descKh: 'ស្នើសុំច្បាប់ឈប់សម្រាក និងមើលប្រវត្តិ'
+        },
+        {
+          key: 'approve_leaves',
+          labelEn: 'Approve / Reject Leaves',
+          labelKh: 'អនុម័ត ឬបដិសេធច្បាប់',
+          descEn: 'Process leave requests by line manager',
+          descKh: 'ពិនិត្យ និងអនុម័តពាក្យសុំច្បាប់ឈប់សម្រាក'
+        },
+        {
+          key: 'leave_types',
+          labelEn: 'Leave Types Configuration',
+          labelKh: 'កំណត់ប្រភេទច្បាប់',
+          descEn: 'Manage annual, sick, special leave types',
+          descKh: 'កំណត់ប្រភេទច្បាប់ប្រចាំឆ្នាំ ឈឺ ពិសេស'
+        },
+        {
+          key: 'leave_allowances',
+          labelEn: 'Leave Allowances Configuration',
+          labelKh: 'កំណត់ចំនួនច្បាប់បុគ្គលិក',
+          descEn: 'Set annual leave quota per employee',
+          descKh: 'កំណត់ចំនួនថ្ងៃច្បាប់ប្រចាំឆ្នាំសម្រាប់បុគ្គលិក'
+        },
+        {
+          key: 'leave_approvals',
+          labelEn: 'Approval Workflows',
+          labelKh: 'គ្រប់គ្រងអ្នកអនុម័តច្បាប់',
+          descEn: 'Assign manager approval matrix',
+          descKh: 'ចាត់តាំងរចនាសម្ព័ន្ធអ្នកអនុម័តច្បាប់'
+        },
+        {
+          key: 'edit_leave_approvals',
+          labelEn: 'Edit Approvals',
+          labelKh: 'កែប្រែអ្នកអនុម័ត',
+          descEn: 'Modify approval hierarchy',
+          descKh: 'កែប្រែថ្នាក់អ្នកអនុម័ត'
+        },
+        {
+          key: 'delete_leave_approvals',
+          labelEn: 'Delete Approvals',
+          labelKh: 'លុបអ្នកអនុម័ត',
+          descEn: 'Remove approval configuration',
+          descKh: 'លុបអ្នកអនុម័តចេញពីរចនាសម្ព័ន្ធ'
+        }
       ]
     },
     {
       key: 'kiosk_group',
-      label: 'Kiosk, Facescan & Geofencing (ម៉ាស៊ីនស្កេន & ទីតាំង)',
+      labelEn: 'Kiosk, Facescan & Geofencing',
+      labelKh: 'ម៉ាស៊ីនស្កេន, Facescan & ទីតាំង',
       children: [
-        { key: 'facescan', label: 'Facescan Kiosk Mode (ម៉ាស៊ីនស្កេនផ្ទៃមុខ)', desc: 'Face recognition check-in terminal' },
-        { key: 'qrscan', label: 'QRscan Kiosk Mode (ម៉ាស៊ីនស្កេន QR Code)', desc: 'QR code scanning terminal' },
-        { key: 'kiosk_settings', label: 'Branch & GPS Geofencing (កំណត់ទីតាំង និងសាខា)', desc: 'Manage company branches & GPS radius' },
-        { key: 'scan_behalf_face', label: 'Scan Face on Behalf (ស្កេនផ្ទៃមុខជំនួសអ្នកដទៃ)', desc: 'Admin scan face for other staff' },
-        { key: 'scan_behalf_qr', label: 'Scan QR on Behalf (ស្កេន QR ជំនួសអ្នកដទៃ)', desc: 'Admin scan QR for other staff' }
+        {
+          key: 'facescan',
+          labelEn: 'Facescan Kiosk Mode',
+          labelKh: 'ម៉ាស៊ីនស្កេនផ្ទៃមុខ (Face Recognition)',
+          descEn: 'Face recognition check-in terminal',
+          descKh: 'ម៉ាស៊ីនស្កេនមុខស្វ័យប្រវត្តិកំណត់វត្តមាន'
+        },
+        {
+          key: 'qrscan',
+          labelEn: 'QRscan Kiosk Mode',
+          labelKh: 'ម៉ាស៊ីនស្កេន QR Code',
+          descEn: 'QR code scanning terminal',
+          descKh: 'ម៉ាស៊ីនស្កេន QR Code សម្រាប់បុគ្គលិក'
+        },
+        {
+          key: 'kiosk_settings',
+          labelEn: 'Branch & GPS Geofencing',
+          labelKh: 'កំណត់ទីតាំង និងសាខា',
+          descEn: 'Manage company branches & GPS radius',
+          descKh: 'កំណត់ទីតាំង GPS សាខា និងកាំស្កេន'
+        },
+        {
+          key: 'scan_behalf_face',
+          labelEn: 'Scan Face on Behalf',
+          labelKh: 'ស្កេនផ្ទៃមុខជំនួសអ្នកដទៃ',
+          descEn: 'Admin scan face for other staff',
+          descKh: 'សិទ្ធិស្កេនមុខជំនួសបុគ្គលិកផ្សេងទៀត'
+        },
+        {
+          key: 'scan_behalf_qr',
+          labelEn: 'Scan QR on Behalf',
+          labelKh: 'ស្កេន QR ជំនួសអ្នកដទៃ',
+          descEn: 'Admin scan QR for other staff',
+          descKh: 'សិទ្ធិស្កេន QR ជំនួសបុគ្គលិកផ្សេងទៀត'
+        }
       ]
     },
     {
       key: 'system_group',
-      label: 'Reports & System Settings (របាយការណ៍ & កំណត់ប្រព័ន្ធ)',
+      labelEn: 'Reports & System Settings',
+      labelKh: 'របាយការណ៍ & កំណត់ប្រព័ន្ធ',
       children: [
-        { key: 'reports', label: 'View Reports & Analytics (មើលរបាយការណ៍ និងស្ថិតិ)', desc: 'Generate monthly attendance reports' },
-        { key: 'telegram_settings', label: 'Telegram Notifications (កំណត់ Telegram Group)', desc: 'Configure instant alert bot & channels' },
-        { key: 'permissions', label: 'Role Permissions Configuration (កំណត់សិទ្ធិប្រព័ន្ធ)', desc: 'Manage access rights for system roles' }
+        {
+          key: 'reports',
+          labelEn: 'View Reports & Analytics',
+          labelKh: 'មើលរបាយការណ៍ និងស្ថិតិ',
+          descEn: 'Generate monthly attendance reports',
+          descKh: 'ទាញយក និងមើលរបាយការណ៍វត្តមានប្រចាំខែ'
+        },
+        {
+          key: 'telegram_settings',
+          labelEn: 'Telegram Notifications',
+          labelKh: 'កំណត់ Telegram Group Alerts',
+          descEn: 'Configure instant alert bot & channels',
+          descKh: 'កំណត់ Telegram Bot និងក្រុមទទួលសារដំណឹង'
+        },
+        {
+          key: 'permissions',
+          labelEn: 'Role Permissions Configuration',
+          labelKh: 'កំណត់សិទ្ធិប្រព័ន្ធ (Role Permissions)',
+          descEn: 'Manage access rights for system roles',
+          descKh: 'គ្រប់គ្រងសិទ្ធិប្រើប្រាស់តាមតួនាទី'
+        }
       ]
     }
   ];
@@ -158,7 +356,7 @@ const Permissions = () => {
       setPermissions(res.data);
     } catch (error) {
       console.error('Error fetching permissions:', error);
-      setErrorMsg('Failed to load role permissions from server.');
+      setErrorMsg(language === 'kh' ? 'មិនអាចទាញយកទិន្នន័យសិទ្ធិបានទេ' : 'Failed to load role permissions from server.');
     } finally {
       setLoading(false);
     }
@@ -220,7 +418,7 @@ const Permissions = () => {
 
       await api.put('/permissions', { permissions: payload });
 
-      setSuccessMsg('Permissions updated successfully! (កែប្រែសិទ្ធិបានជោគជ័យ)');
+      setSuccessMsg(language === 'kh' ? 'កែប្រែសិទ្ធិបានជោគជ័យ!' : 'Permissions updated successfully!');
       playSound('success');
 
       setTimeout(() => {
@@ -228,7 +426,7 @@ const Permissions = () => {
       }, 3500);
     } catch (error) {
       console.error('Error saving permissions:', error);
-      setErrorMsg('Failed to save permissions configuration.');
+      setErrorMsg(language === 'kh' ? 'មិនអាចរក្សាទុកសិទ្ធិបានទេ!' : 'Failed to save permissions configuration.');
       playSound('error');
     } finally {
       setSaving(false);
@@ -242,10 +440,17 @@ const Permissions = () => {
 
     return resourceCategories
       .map(cat => {
-        const catMatches = cat.label.toLowerCase().includes(q);
-        const matchedChildren = cat.children.filter(
-          c => c.label.toLowerCase().includes(q) || c.key.toLowerCase().includes(q) || (c.desc && c.desc.toLowerCase().includes(q))
-        );
+        const catLabel = (language === 'kh' ? cat.labelKh : cat.labelEn).toLowerCase();
+        const catMatches = catLabel.includes(q) || cat.labelEn.toLowerCase().includes(q) || cat.labelKh.toLowerCase().includes(q);
+
+        const matchedChildren = cat.children.filter(c => {
+          const labelKh = (c.labelKh || '').toLowerCase();
+          const labelEn = (c.labelEn || '').toLowerCase();
+          const descKh = (c.descKh || '').toLowerCase();
+          const descEn = (c.descEn || '').toLowerCase();
+          const key = (c.key || '').toLowerCase();
+          return labelKh.includes(q) || labelEn.includes(q) || descKh.includes(q) || descEn.includes(q) || key.includes(q);
+        });
 
         if (catMatches) {
           return cat;
@@ -261,22 +466,30 @@ const Permissions = () => {
         return null;
       })
       .filter(Boolean);
-  }, [searchQuery]);
+  }, [searchQuery, language]);
 
   return (
     <div className="space-y-6 text-slate-100">
       {/* Title block */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 glass-card p-6 rounded-2xl glow-indigo">
         <div>
-          <h2 className="text-xl font-bold text-white font-khmer">{t("permissions")}</h2>
-          <p className="text-slate-400 text-xs mt-1">Configure role-based access control and system permissions</p>
+          <h2 className="text-xl font-bold text-white font-khmer">
+            {t("permissions")}
+          </h2>
+          <p className="text-slate-400 text-xs mt-1 font-khmer">
+            {language === 'kh'
+              ? 'កំណត់សិទ្ធិប្រើប្រាស់ប្រព័ន្ធសម្រាប់ Admin, HR, Manager, និង Employee'
+              : 'Configure role-based access control and system permissions'}
+          </p>
         </div>
         <div className="flex items-center gap-2">
           <button
             onClick={toggleExpandAll}
             className="py-2.5 px-4 text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl transition-all font-khmer border border-white/10 cursor-pointer"
           >
-            {isAllExpanded ? 'Collapse All' : 'Expand All'}
+            {isAllExpanded
+              ? (language === 'kh' ? 'បង្រួមទាំងអស់' : 'Collapse All')
+              : (language === 'kh' ? 'ពង្រីកទាំងអស់' : 'Expand All')}
           </button>
           <button
             onClick={handleSave}
@@ -286,10 +499,10 @@ const Permissions = () => {
             {saving ? (
               <>
                 <span className="animate-spin rounded-full h-3.5 w-3.5 border-2 border-white border-t-transparent"></span>
-                <span>Saving...</span>
+                <span>{language === 'kh' ? 'កំពុងរក្សាទុក...' : 'Saving...'}</span>
               </>
             ) : (
-              <span>Save Permissions</span>
+              <span>{language === 'kh' ? 'រក្សាទុកសិទ្ធិ' : 'Save Permissions'}</span>
             )}
           </button>
         </div>
@@ -315,16 +528,20 @@ const Permissions = () => {
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search permission or module name (e.g. attendance, employee, leaves)..."
-            className="pl-9 w-full py-2 px-3 border border-white/10 bg-slate-950/60 text-white rounded-xl text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/20 outline-none transition-all placeholder:text-slate-500 font-sans"
+            placeholder={
+              language === 'kh'
+                ? 'ស្វែងរកសិទ្ធិ ឬឈ្មោះមុខងារ (ឧ. វត្តមាន, បុគ្គលិក, ច្បាប់)...'
+                : 'Search permission or module name (e.g. attendance, employee, leaves)...'
+            }
+            className="pl-9 w-full py-2 px-3 border border-white/10 bg-slate-950/60 text-white rounded-xl text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/20 outline-none transition-all placeholder:text-slate-500 font-khmer"
           />
         </div>
         {searchQuery && (
           <button
             onClick={() => setSearchQuery('')}
-            className="py-2 px-4 text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl transition-all border border-white/10 cursor-pointer whitespace-nowrap"
+            className="py-2 px-4 text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl transition-all border border-white/10 cursor-pointer whitespace-nowrap font-khmer"
           >
-            Clear
+            {language === 'kh' ? 'ជម្រះ' : 'Clear'}
           </button>
         )}
       </div>
@@ -338,9 +555,11 @@ const Permissions = () => {
             <table className="w-full text-left text-sm text-slate-300">
               <thead className="bg-slate-950/80 text-xs text-slate-300 uppercase border-b border-white/10">
                 <tr>
-                  <th className="py-4 px-6 font-khmer">Feature / Resource</th>
+                  <th className="py-4 px-6 font-khmer font-bold">
+                    {language === 'kh' ? 'មុខងារ / សិទ្ធិប្រើប្រាស់' : 'Feature / Resource'}
+                  </th>
                   {roles.map(role => (
-                    <th key={role.key} className="py-4 px-6 text-center font-khmer whitespace-nowrap">
+                    <th key={role.key} className="py-4 px-6 text-center font-khmer whitespace-nowrap font-bold">
                       {role.label}
                     </th>
                   ))}
@@ -356,6 +575,7 @@ const Permissions = () => {
                 ) : (
                   filteredCategories.map(cat => {
                     const isExpanded = expandedGroups[cat.key];
+                    const catLabel = language === 'kh' ? cat.labelKh : cat.labelEn;
 
                     return (
                       <React.Fragment key={cat.key}>
@@ -372,7 +592,7 @@ const Permissions = () => {
                               ) : (
                                 <ChevronRightIcon className="h-4 w-4 text-indigo-400 shrink-0" />
                               )}
-                              <span>{cat.label}</span>
+                              <span>{catLabel}</span>
                             </button>
                           </td>
                           {roles.map(role => {
@@ -404,40 +624,45 @@ const Permissions = () => {
 
                         {/* Child Rows (rendered if group is expanded) */}
                         {isExpanded &&
-                          cat.children.map(child => (
-                            <tr
-                              key={child.key}
-                              className="hover:bg-white/5 transition-colors bg-slate-950/20"
-                            >
-                              <td className="py-3 px-6 pl-12 font-medium text-white text-xs">
-                                <div className="font-semibold text-white font-khmer text-[13px]">
-                                  {child.label}
-                                </div>
-                                {child.desc && (
-                                  <div className="text-[11px] text-slate-400 mt-0.5">
-                                    {child.desc} • <code className="text-[10px] text-indigo-400 font-mono">{child.key}</code>
+                          cat.children.map(child => {
+                            const childLabel = language === 'kh' ? child.labelKh : child.labelEn;
+                            const childDesc = language === 'kh' ? child.descKh : child.descEn;
+
+                            return (
+                              <tr
+                                key={child.key}
+                                className="hover:bg-white/5 transition-colors bg-slate-950/20"
+                              >
+                                <td className="py-3 px-6 pl-12 font-medium text-white text-xs">
+                                  <div className="font-semibold text-white font-khmer text-[13px]">
+                                    {childLabel}
                                   </div>
-                                )}
-                              </td>
-                              {roles.map(role => {
-                                const isChecked = getPermissionVal(role.key, child.key);
-                                const isAdmin = role.key === 'Admin';
-                                return (
-                                  <td key={`${role.key}-${child.key}`} className="py-3 px-6 text-center">
-                                    <label className="inline-flex items-center justify-center cursor-pointer">
-                                      <input
-                                        type="checkbox"
-                                        disabled={isAdmin}
-                                        checked={isChecked}
-                                        onChange={() => handleCheckboxChange(role.key, child.key)}
-                                        className="w-4 h-4 text-indigo-600 border border-white/10 rounded-md bg-slate-950 focus:ring-indigo-500 focus:ring-offset-slate-900 focus:ring-2 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
-                                      />
-                                    </label>
-                                  </td>
-                                );
-                              })}
-                            </tr>
-                          ))}
+                                  {childDesc && (
+                                    <div className="text-[11px] text-slate-400 mt-0.5 font-khmer">
+                                      {childDesc} • <code className="text-[10px] text-indigo-400 font-mono">{child.key}</code>
+                                    </div>
+                                  )}
+                                </td>
+                                {roles.map(role => {
+                                  const isChecked = getPermissionVal(role.key, child.key);
+                                  const isAdmin = role.key === 'Admin';
+                                  return (
+                                    <td key={`${role.key}-${child.key}`} className="py-3 px-6 text-center">
+                                      <label className="inline-flex items-center justify-center cursor-pointer">
+                                        <input
+                                          type="checkbox"
+                                          disabled={isAdmin}
+                                          checked={isChecked}
+                                          onChange={() => handleCheckboxChange(role.key, child.key)}
+                                          className="w-4 h-4 text-indigo-600 border border-white/10 rounded-md bg-slate-950 focus:ring-indigo-500 focus:ring-offset-slate-900 focus:ring-2 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                                        />
+                                      </label>
+                                    </td>
+                                  );
+                                })}
+                              </tr>
+                            );
+                          })}
                       </React.Fragment>
                     );
                   })
@@ -450,14 +675,23 @@ const Permissions = () => {
         {/* Footer actions */}
         <div className="p-6 bg-slate-950/40 border-t border-white/5 flex flex-col sm:flex-row justify-between items-center gap-3">
           <span className="text-xs text-slate-400 font-khmer">
-            💡 ចំណាំ៖ Admin មានសិទ្ធិពេញលេញលើគ្រប់មុខងារទាំងអស់ក្នុងប្រព័ន្ធ។
+            {language === 'kh'
+              ? '💡 ចំណាំ៖ Admin មានសិទ្ធិពេញលេញលើគ្រប់មុខងារទាំងអស់ក្នុងប្រព័ន្ធដោយស្វ័យប្រវត្តិ។'
+              : '💡 Note: Admin has full automatic permissions across all system modules.'}
           </span>
           <button
             onClick={handleSave}
             disabled={saving}
             className="flex items-center gap-2 bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white px-5 py-2.5 rounded-xl font-semibold text-xs transition-all shadow-md shadow-indigo-500/25 font-khmer cursor-pointer border-none outline-none disabled:opacity-50"
           >
-            {saving ? 'Saving...' : 'Save Permissions'}
+            {saving ? (
+              <>
+                <span className="animate-spin rounded-full h-3.5 w-3.5 border-2 border-white border-t-transparent"></span>
+                <span>{language === 'kh' ? 'កំពុងរក្សាទុក...' : 'Saving...'}</span>
+              </>
+            ) : (
+              <span>{language === 'kh' ? 'រក្សាទុកសិទ្ធិ' : 'Save Permissions'}</span>
+            )}
           </button>
         </div>
       </div>
