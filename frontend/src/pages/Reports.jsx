@@ -242,7 +242,7 @@ const Reports = () => {
             <table className="w-full text-left text-sm text-slate-300 print:text-xs">
               <thead className="bg-slate-950/80 text-xs text-slate-300 uppercase border-b border-white/10 print:bg-slate-100">
                 <tr>
-                  <th className="py-4 px-6 font-khmer">{t("leaveDate")}</th>
+                  <th className="py-4 px-6 font-khmer">{t("date")}</th>
                   <th className="py-4 px-6 font-khmer">{t("staffId")}</th>
                   <th className="py-4 px-6 font-khmer">{t("employees")}</th>
                   <th className="py-4 px-6 font-khmer">{t("checkin1")}</th>
@@ -260,22 +260,37 @@ const Reports = () => {
                     </td>
                   </tr>
                 ) : (
-                  logs.map((log) => (
-                    <tr key={log.id} className="hover:bg-white/5 transition-colors print:hover:bg-transparent">
-                      <td className="py-4 px-6 font-semibold text-white whitespace-nowrap">
-                        {log.attendanceDate ? new Date(log.attendanceDate).toLocaleDateString() : '-'}
-                      </td>
-                      <td className="py-4 px-6 font-semibold text-white whitespace-nowrap">{log.employee?.staffId || log.staffId || '-'}</td>
-                      <td className="py-4 px-6">
-                        <div>
-                          <p className="font-semibold text-white">
-                            {getLocalizedName(log.employee?.nameEn, log.employee?.nameKh) || log.staffId || '-'}
-                          </p>
-                          <p className="text-xs text-slate-400">
-                            {getLocalizedName(log.employee?.department?.nameEn, log.employee?.department?.nameKh) || '-'}
-                          </p>
-                        </div>
-                      </td>
+                  logs.map((log) => {
+                    const emp = log.employee || {};
+                    return (
+                      <tr key={log.id} className="hover:bg-white/5 transition-colors print:hover:bg-transparent">
+                        <td className="py-4 px-6 font-semibold text-white whitespace-nowrap">
+                          {log.attendanceDate ? new Date(log.attendanceDate).toLocaleDateString() : '-'}
+                        </td>
+                        <td className="py-4 px-6 font-semibold text-white whitespace-nowrap">{emp.staffId || log.staffId || '-'}</td>
+                        <td className="py-4 px-6 min-w-[220px]">
+                          <div className="flex items-center gap-3">
+                            {emp.photoUrl ? (
+                              <img
+                                src={emp.photoUrl}
+                                alt={emp.nameEn || ''}
+                                className="w-10 h-10 rounded-full object-cover border-2 border-indigo-500/30 flex-shrink-0 shadow-md print:hidden"
+                              />
+                            ) : (
+                              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center flex-shrink-0 text-white font-bold text-sm shadow-md print:hidden">
+                                {emp.nameEn?.charAt(0)?.toUpperCase() || emp.nameKh?.charAt(0) || '?'}
+                              </div>
+                            )}
+                            <div>
+                              <p className="font-semibold text-white whitespace-nowrap">
+                                {getLocalizedName(emp.nameEn, emp.nameKh) || log.staffId || '-'}
+                              </p>
+                              <p className="text-xs text-slate-400 whitespace-nowrap">
+                                {getLocalizedName(emp.department?.nameEn, emp.department?.nameKh) || '-'}
+                              </p>
+                            </div>
+                          </div>
+                        </td>
                       <td className="py-4 px-6 whitespace-nowrap">{formatTime12Hour(log.checkin1)}</td>
                       <td className="py-4 px-6 whitespace-nowrap">{formatTime12Hour(log.checkout1)}</td>
                       <td className="py-4 px-6 whitespace-nowrap">{formatTime12Hour(log.checkin2)}</td>
@@ -303,7 +318,8 @@ const Reports = () => {
                         )}
                       </td>
                     </tr>
-                  ))
+                  );
+                })
                 )}
               </tbody>
             </table>

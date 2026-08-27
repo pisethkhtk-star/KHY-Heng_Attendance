@@ -562,18 +562,18 @@ const AttendanceEarlyIn = () => {
                 <div className="border border-slate-300 rounded-xl overflow-hidden shadow-sm bg-white">
                   <div className="overflow-x-auto">
                     <table className="w-full text-left text-xs border-collapse">
-                      <thead className="bg-slate-100 text-[11px] font-black text-slate-800 uppercase border-b border-slate-300 font-sans tracking-wider">
+                      <thead className="bg-[#2D60FF] text-[11px] font-black text-white uppercase border-b border-blue-600 font-sans tracking-wider">
                         <tr>
-                          <th className="py-3 px-4 border-r border-slate-300 w-44 whitespace-nowrap">
+                          <th className="py-3 px-4 border-r border-blue-400/30 w-44 whitespace-nowrap text-white">
                             DATE
                           </th>
-                          <th className="py-3 px-4 border-r border-slate-300 w-80 whitespace-nowrap">
+                          <th className="py-3 px-4 border-r border-blue-400/30 w-80 whitespace-nowrap text-white">
                             CHECK
                           </th>
-                          <th className="py-3 px-4 border-r border-slate-300 w-28 whitespace-nowrap">
+                          <th className="py-3 px-4 border-r border-blue-400/30 w-28 whitespace-nowrap text-white">
                             EARLY IN
                           </th>
-                          <th className="py-3 px-4">
+                          <th className="py-3 px-4 text-white">
                             DESCRIPTION
                           </th>
                         </tr>
@@ -581,38 +581,38 @@ const AttendanceEarlyIn = () => {
                       <tbody className="divide-y divide-slate-200 font-sans">
                         {group.records.map((rec) => (
                           <tr key={rec.id} className="hover:bg-slate-50 transition-colors">
-                            {/* DATE: Solid Black & Bold */}
-                            <td className="py-3 px-4 border-r border-slate-200 font-black text-black text-xs whitespace-nowrap">
+                            {/* DATE: Clean readable slate */}
+                            <td className="py-3 px-4 border-r border-slate-200 font-semibold text-[#334155] text-xs whitespace-nowrap">
                               {formatDisplayDate(rec.attendanceDate, 'en')}
                             </td>
 
-                            {/* Check: Solid Black & Bold */}
-                            <td className="py-3 px-4 border-r border-slate-200 font-mono text-black font-bold text-xs whitespace-nowrap">
+                            {/* Check: Clean readable mono text */}
+                            <td className="py-3 px-4 border-r border-slate-200 font-mono text-[#334155] font-semibold text-xs whitespace-nowrap">
                               {rec.checkString}
                             </td>
 
-                            {/* EARLY IN: Emerald Bold */}
-                            <td className="py-3 px-4 border-r border-slate-200 font-black text-emerald-600 whitespace-nowrap font-mono text-xs">
+                            {/* EARLY IN: Emerald text */}
+                            <td className="py-3 px-4 border-r border-slate-200 font-semibold text-[#059669] whitespace-nowrap font-mono text-xs">
                               {rec.earlyDurationFormatted}
                             </td>
 
-                            {/* DESCRIPTION: Solid Black */}
-                            <td className="py-3 px-4 text-xs font-semibold text-black font-khmer">
+                            {/* DESCRIPTION: Clean readable text */}
+                            <td className="py-3 px-4 text-xs font-medium text-[#475569] font-khmer">
                               {rec.displayNote}
                             </td>
                           </tr>
                         ))}
                       </tbody>
 
-                      {/* Footer Summary Row matching screenshot */}
-                      <tfoot className="bg-slate-50 border-t-2 border-slate-300 text-xs font-bold">
+                      {/* Footer Summary Row */}
+                      <tfoot className="bg-slate-50 border-t-2 border-slate-300 text-xs">
                         <tr>
-                          <td colSpan={2} className="py-3 px-4 border-r border-slate-300 text-slate-600 font-sans">
+                          <td colSpan={2} className="py-3 px-4 border-r border-slate-300 text-slate-500 font-sans">
                             {/* Left spacing */}
                           </td>
-                          <td className="py-3 px-4 border-r border-slate-300 text-black font-sans whitespace-nowrap">
-                            <div className="text-xs font-black text-black">Total: <span className="font-black text-emerald-600 font-mono text-xs">{totalDuration}</span></div>
-                            <div className="text-[11px] font-black text-black mt-0.5">Count Early In: <span className="font-black text-black font-mono">{group.countEarly}</span></div>
+                          <td className="py-3 px-4 border-r border-slate-300 text-[#334155] font-sans whitespace-nowrap">
+                            <div className="text-xs font-semibold text-[#1E293B]">Total: <span className="font-bold text-[#059669] font-mono text-xs">{totalDuration}</span></div>
+                            <div className="text-[11px] font-medium text-[#475569] mt-0.5">Count Early In: <span className="font-bold text-[#1E293B] font-mono">{group.countEarly}</span></div>
                           </td>
                           <td className="py-3 px-4">
                             {/* Note footer */}

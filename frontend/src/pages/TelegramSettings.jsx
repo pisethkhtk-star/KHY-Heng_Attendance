@@ -190,11 +190,10 @@ const TelegramSettings = () => {
         <button
           type="button"
           onClick={() => setActiveTab('attendance')}
-          className={`flex-1 py-2.5 px-4 rounded-xl text-xs font-bold font-khmer transition-all flex items-center justify-center gap-2 cursor-pointer ${
-            activeTab === 'attendance'
+          className={`flex-1 py-2.5 px-4 rounded-xl text-xs font-bold font-khmer transition-all flex items-center justify-center gap-2 cursor-pointer ${activeTab === 'attendance'
               ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/30'
               : 'text-slate-400 hover:text-white hover:bg-slate-900/60'
-          }`}
+            }`}
         >
           <ClockIcon className="h-4 w-4" />
           <span>{language === 'kh' ? '១. ក្រុមវត្តមាន (Attendance Alerts)' : '1. Attendance Alerts'}</span>
@@ -206,11 +205,10 @@ const TelegramSettings = () => {
         <button
           type="button"
           onClick={() => setActiveTab('leave')}
-          className={`flex-1 py-2.5 px-4 rounded-xl text-xs font-bold font-khmer transition-all flex items-center justify-center gap-2 cursor-pointer ${
-            activeTab === 'leave'
+          className={`flex-1 py-2.5 px-4 rounded-xl text-xs font-bold font-khmer transition-all flex items-center justify-center gap-2 cursor-pointer ${activeTab === 'leave'
               ? 'bg-purple-600 text-white shadow-lg shadow-purple-600/30'
               : 'text-slate-400 hover:text-white hover:bg-slate-900/60'
-          }`}
+            }`}
         >
           <CalendarDaysIcon className="h-4 w-4" />
           <span>{language === 'kh' ? '២. ក្រុមច្បាប់ឈប់សម្រាក (Leave Requests)' : '2. Leave Requests'}</span>
@@ -229,11 +227,10 @@ const TelegramSettings = () => {
               {/* Channel Master Switch */}
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-2xl bg-slate-950/60 border border-indigo-500/20">
                 <div className="flex items-center gap-3">
-                  <div className={`p-2.5 rounded-xl border transition-all ${
-                    isEnabled
+                  <div className={`p-2.5 rounded-xl border transition-all ${isEnabled
                       ? 'bg-emerald-500/20 border-emerald-500/40 text-emerald-300'
                       : 'bg-slate-800 border-slate-700 text-slate-400'
-                  }`}>
+                    }`}>
                     <BellAlertIcon className="h-6 w-6" />
                   </div>
                   <div>
@@ -264,14 +261,12 @@ const TelegramSettings = () => {
                     role="switch"
                     aria-checked={isEnabled}
                     onClick={() => setIsEnabled(!isEnabled)}
-                    className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
-                      isEnabled ? 'bg-emerald-500 shadow-lg shadow-emerald-500/30' : 'bg-slate-700'
-                    }`}
+                    className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${isEnabled ? 'bg-emerald-500 shadow-lg shadow-emerald-500/30' : 'bg-slate-700'
+                      }`}
                   >
                     <span
-                      className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-lg ring-0 transition duration-200 ease-in-out ${
-                        isEnabled ? 'translate-x-5' : 'translate-x-0'
-                      }`}
+                      className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-lg ring-0 transition duration-200 ease-in-out ${isEnabled ? 'translate-x-5' : 'translate-x-0'
+                        }`}
                     />
                   </button>
                 </div>
@@ -380,11 +375,10 @@ const TelegramSettings = () => {
               {/* Channel Master Switch */}
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-2xl bg-slate-950/60 border border-purple-500/20">
                 <div className="flex items-center gap-3">
-                  <div className={`p-2.5 rounded-xl border transition-all ${
-                    leaveEnabled
+                  <div className={`p-2.5 rounded-xl border transition-all ${leaveEnabled
                       ? 'bg-purple-500/20 border-purple-500/40 text-purple-300'
                       : 'bg-slate-800 border-slate-700 text-slate-400'
-                  }`}>
+                    }`}>
                     <CalendarDaysIcon className="h-6 w-6" />
                   </div>
                   <div>
@@ -415,14 +409,12 @@ const TelegramSettings = () => {
                     role="switch"
                     aria-checked={leaveEnabled}
                     onClick={() => setLeaveEnabled(!leaveEnabled)}
-                    className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
-                      leaveEnabled ? 'bg-purple-600 shadow-lg shadow-purple-600/30' : 'bg-slate-700'
-                    }`}
+                    className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${leaveEnabled ? 'bg-purple-600 shadow-lg shadow-purple-600/30' : 'bg-slate-700'
+                      }`}
                   >
                     <span
-                      className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-lg ring-0 transition duration-200 ease-in-out ${
-                        leaveEnabled ? 'translate-x-5' : 'translate-x-0'
-                      }`}
+                      className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-lg ring-0 transition duration-200 ease-in-out ${leaveEnabled ? 'translate-x-5' : 'translate-x-0'
+                        }`}
                     />
                   </button>
                 </div>

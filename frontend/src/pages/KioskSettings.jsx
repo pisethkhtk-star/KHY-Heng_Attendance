@@ -4,7 +4,7 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import api from '../utils/api';
 import { useLanguage } from '../context/LanguageContext';
-import { MapPinIcon, CheckCircleIcon, ArrowPathIcon, TrashIcon, PlusIcon, XMarkIcon, QrCodeIcon } from '@heroicons/react/24/outline';
+import { MapPinIcon, CheckCircleIcon, ArrowPathIcon, TrashIcon, PlusIcon, XMarkIcon, QrCodeIcon, DocumentArrowDownIcon } from '@heroicons/react/24/outline';
 
 // Fix default Leaflet marker icon broken by bundlers
 delete L.Icon.Default.prototype._getIconUrl;
@@ -250,6 +250,123 @@ const KioskSettings = () => {
   const distanceFromGps = currentGps
     ? haversineDistance(currentGps.lat, currentGps.lng, markerPos[0], markerPos[1])
     : null;
+
+  const loadJsPdf = () => {
+    return new Promise((resolve, reject) => {
+      if (window.jspdf?.jsPDF) {
+        resolve(window.jspdf.jsPDF);
+        return;
+      }
+      const existingScript = document.querySelector('script[src*="jspdf"]');
+      if (existingScript) {
+        existingScript.addEventListener('load', () => {
+          if (window.jspdf?.jsPDF) resolve(window.jspdf.jsPDF);
+          else reject(new Error('jsPDF loaded but class not found'));
+        });
+        existingScript.addEventListener('error', () => reject(new Error('Failed to load jsPDF')));
+        return;
+      }
+      const script = document.createElement('script');
+      script.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
+      script.onload = () => {
+        if (window.jspdf?.jsPDF) resolve(window.jspdf.jsPDF);
+        else reject(new Error('jsPDF not found'));
+      };
+      script.onerror = () => reject(new Error('Failed to load jsPDF script'));
+      document.head.appendChild(script);
+    });
+  };
+
+  const handleSavePdf = async () => {
+    if (!branchQrImage || !qrBranch) return;
+
+    try {
+      const JsPdfClass = await loadJsPdf();
+      if (!JsPdfClass) {
+        throw new Error('jsPDF is not loaded yet.');
+      }
+
+      const doc = new JsPdfClass({
+        orientation: 'portrait',
+        unit: 'mm',
+        format: 'a4',
+      });
+
+      const pageWidth = doc.internal.pageSize.getWidth(); // 210
+      const pageHeight = doc.internal.pageSize.getHeight(); // 297
+
+      // Outer Decorative Border
+      doc.setDrawColor(37, 99, 235); // Blue #2563EB
+      doc.setLineWidth(1.5);
+      doc.roundedRect(16, 16, pageWidth - 32, pageHeight - 32, 6, 6, 'S');
+
+      // Inner Background Panel
+      doc.setFillColor(248, 250, 252);
+      doc.setDrawColor(226, 232, 240);
+      doc.setLineWidth(0.5);
+      doc.roundedRect(22, 22, pageWidth - 44, pageHeight - 44, 4, 4, 'FD');
+
+      // Top Tag Badge
+      doc.setFillColor(238, 242, 255);
+      doc.setDrawColor(199, 210, 254);
+      doc.setLineWidth(0.5);
+      doc.roundedRect(60, 36, pageWidth - 120, 10, 5, 5, 'FD');
+
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(10);
+      doc.setTextColor(79, 70, 229);
+      doc.text('BRANCH LOCATION QR CODE', pageWidth / 2, 42.5, { align: 'center' });
+
+      // Branch Name
+      doc.setFontSize(26);
+      doc.setTextColor(30, 27, 75);
+      doc.text(qrBranch.name || 'Branch Location', pageWidth / 2, 62, { align: 'center' });
+
+      // Subtitle
+      doc.setFontSize(13);
+      doc.setTextColor(79, 70, 229);
+      doc.text('Scan to Check-in Attendance', pageWidth / 2, 72, { align: 'center' });
+
+      // QR Code Card Container
+      const qrSize = 115;
+      const qrX = (pageWidth - qrSize) / 2;
+      const qrY = 86;
+
+      doc.setFillColor(255, 255, 255);
+      doc.setDrawColor(203, 213, 225);
+      doc.setLineWidth(0.8);
+      doc.roundedRect(qrX - 8, qrY - 8, qrSize + 16, qrSize + 16, 4, 4, 'FD');
+
+      // Add Base64 QR Image to PDF
+      doc.addImage(branchQrImage, 'PNG', qrX, qrY, qrSize, qrSize);
+
+      // Instruction Text
+      doc.setFontSize(12);
+      doc.setTextColor(30, 41, 59);
+      doc.text('Please scan this QR code with your mobile app to check in', pageWidth / 2, 224, { align: 'center' });
+
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(9.5);
+      doc.setTextColor(100, 116, 139);
+      doc.text('Employee Attendance & Kiosk Management System', pageWidth / 2, 232, { align: 'center' });
+
+      // Code String Tag
+      doc.setFillColor(241, 245, 249);
+      doc.setDrawColor(226, 232, 240);
+      doc.roundedRect(50, 241, pageWidth - 100, 9, 3, 3, 'FD');
+      doc.setFont('courier', 'bold');
+      doc.setFontSize(9);
+      doc.setTextColor(71, 85, 105);
+      doc.text(`branch_qr:${qrBranch.id}`, pageWidth / 2, 247, { align: 'center' });
+
+      // Directly download PDF file
+      const safeName = (qrBranch.name || 'Branch').replace(/[^a-zA-Z0-9_-]/g, '_');
+      doc.save(`Branch_QR_${safeName}.pdf`);
+    } catch (err) {
+      console.error('Error generating PDF:', err);
+      alert('Error generating PDF file.');
+    }
+  };
 
   if (loading) {
     return (
@@ -683,61 +800,19 @@ const KioskSettings = () => {
 
             <div className="flex gap-3">
               <button
-                onClick={() => {
-                  const printWindow = window.open('', '_blank');
-                  printWindow.document.write(`
-                    <html>
-                      <head>
-                        <title>Print QR Code - ${qrBranch.name}</title>
-                        <style>
-                          body {
-                            font-family: 'Inter', sans-serif;
-                            display: flex;
-                            flex-direction: column;
-                            align-items: center;
-                            justify-content: center;
-                            height: 90vh;
-                            margin: 0;
-                            text-align: center;
-                          }
-                          .container {
-                            border: 3px solid #6366f1;
-                            border-radius: 24px;
-                            padding: 40px;
-                            background: #fff;
-                          }
-                          h1 { margin: 0 0 10px 0; color: #1e1b4b; font-size: 28px; }
-                          h2 { margin: 0 0 20px 0; color: #4f46e5; font-size: 20px; }
-                          img { width: 300px; height: 300px; }
-                          p { margin-top: 20px; color: #64748b; font-size: 14px; }
-                        </style>
-                      </head>
-                      <body>
-                        <div class="container">
-                          <h1>${qrBranch.name}</h1>
-                          <h2>${isKhmer ? 'ស្កេនដើម្បីចុះវត្តមាន' : 'Scan to Check-in'}</h2>
-                          <img src="${branchQrImage}" />
-                          <p>${isKhmer ? 'ប្រព័ន្ធគ្រប់គ្រងវត្តមានបុគ្គលិក Kiosk Attendance' : 'Employee Attendance System'}</p>
-                        </div>
-                        <script>
-                          window.onload = function() {
-                            window.print();
-                            window.onafterprint = function() { window.close(); };
-                          }
-                        </script>
-                      </body>
-                    </html>
-                  `);
-                  printWindow.document.close();
-                }}
+                type="button"
+                onClick={handleSavePdf}
                 disabled={!branchQrImage}
-                className="flex-1 py-3 px-4 font-bold text-xs rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white transition-all cursor-pointer outline-none border-none disabled:opacity-50 flex items-center justify-center gap-2 font-khmer shadow-lg shadow-indigo-500/25"
+                className="flex-1 py-3 px-4 font-bold text-xs rounded-xl bg-blue-600 hover:bg-blue-700 text-white transition-all cursor-pointer outline-none border-none disabled:opacity-50 flex items-center justify-center gap-2 font-khmer shadow-lg shadow-blue-500/25"
+                title="Save as PDF"
               >
-                {isKhmer ? '🖨️ បោះពុម្ព QR' : '🖨️ Print QR'}
+                <DocumentArrowDownIcon className="h-4 w-4" />
+                <span>{isKhmer ? 'រក្សាទុកជា PDF' : 'Save as PDF'}</span>
               </button>
               <button
+                type="button"
                 onClick={() => setShowQrModal(false)}
-                className="py-3 px-5 font-bold text-xs rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 transition-all cursor-pointer outline-none border border-white/5 font-khmer"
+                className="py-3 px-6 font-bold text-xs rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 transition-all cursor-pointer outline-none border border-white/5 font-khmer"
               >
                 {isKhmer ? 'បិទ' : 'Close'}
               </button>

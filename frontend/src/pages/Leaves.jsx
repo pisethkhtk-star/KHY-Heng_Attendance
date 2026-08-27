@@ -179,15 +179,15 @@ const Leaves = () => {
             <table className="w-full text-left text-sm text-slate-300">
               <thead className="bg-slate-950/80 text-xs text-slate-300 uppercase border-b border-white/10">
                 <tr>
-                  {user.role !== 'Employee' && <th className="py-4 px-6 font-khmer">{t("staffId")}</th>}
-                  {user.role !== 'Employee' && <th className="py-4 px-6 font-khmer">{t("employees")}</th>}
-                  <th className="py-4 px-6 font-khmer">{t("leaveDate")}</th>
-                  <th className="py-4 px-6 font-khmer">{t("leaveType")}</th>
-                  <th className="py-4 px-6 text-center font-khmer">{t("amountDays")}</th>
+                  {user.role !== 'Employee' && <th className="py-4 px-6 font-khmer whitespace-nowrap">{t("staffId")}</th>}
+                  {user.role !== 'Employee' && <th className="py-4 px-6 font-khmer whitespace-nowrap">{t("employees")}</th>}
+                  <th className="py-4 px-6 font-khmer whitespace-nowrap">{t("leaveDate")}</th>
+                  <th className="py-4 px-6 font-khmer whitespace-nowrap">{t("leaveType")}</th>
+                  <th className="py-4 px-6 text-center font-khmer whitespace-nowrap">{t("amountDays")}</th>
                   <th className="py-4 px-6 font-khmer">{t("reason")}</th>
-                  <th className="py-4 px-6 font-khmer">{t("status")}</th>
-                  <th className="py-4 px-6 font-khmer">{t("managerName")}</th>
-                  {canApprove && <th className="py-4 px-6 text-right font-khmer">{t("actions")}</th>}
+                  <th className="py-4 px-6 font-khmer whitespace-nowrap">{t("status")}</th>
+                  <th className="py-4 px-6 font-khmer whitespace-nowrap">{t("managerName")}</th>
+                  {canApprove && <th className="py-4 px-6 text-right font-khmer whitespace-nowrap min-w-[110px]">{t("actions")}</th>}
                 </tr>
               </thead>
               <tbody className="divide-y divide-white/5">
@@ -200,9 +200,9 @@ const Leaves = () => {
                 ) : (
                   leaves.map((leave) => (
                     <tr key={leave.id} className="hover:bg-white/5 transition-colors">
-                      {user.role !== 'Employee' && <td className="py-4 px-6 font-semibold text-white">{leave.staffId}</td>}
+                      {user.role !== 'Employee' && <td className="py-4 px-6 font-semibold text-white whitespace-nowrap">{leave.staffId}</td>}
                       {user.role !== 'Employee' && (
-                        <td className="py-4 px-6">
+                        <td className="py-4 px-6 whitespace-nowrap">
                           <p className="font-semibold text-white">
                             {getLocalizedName(leave.employee.nameEn, leave.employee.nameKh)}
                           </p>
@@ -211,17 +211,17 @@ const Leaves = () => {
                           </p>
                         </td>
                       )}
-                      <td className="py-4 px-6 font-semibold text-white">
+                      <td className="py-4 px-6 font-semibold text-white whitespace-nowrap">
                         {new Date(leave.leaveDate).toLocaleDateString()}
                       </td>
-                      <td className="py-4 px-6 font-khmer">
+                      <td className="py-4 px-6 font-khmer whitespace-nowrap">
                         {getLeaveTypeLabel(leave.leaveType)}
                       </td>
-                      <td className="py-4 px-6 text-center font-semibold text-white">
+                      <td className="py-4 px-6 text-center font-semibold text-white whitespace-nowrap">
                         {parseFloat(leave.amountDays).toFixed(1)}
                       </td>
                       <td className="py-4 px-6 max-w-xs truncate text-slate-300">{leave.reason || '-'}</td>
-                      <td className="py-4 px-6">
+                      <td className="py-4 px-6 whitespace-nowrap">
                         <span
                           className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium font-khmer ring-1 ${leave.status === 'Approved'
                             ? 'bg-emerald-500/10 text-emerald-300 ring-emerald-500/20'
@@ -233,28 +233,30 @@ const Leaves = () => {
                           {leave.status === 'Approved' ? t("approved") : leave.status === 'Rejected' ? t("rejected") : t("pending")}
                         </span>
                       </td>
-                      <td className="py-4 px-6 font-khmer text-slate-300">{leave.managerName || '-'}</td>
+                      <td className="py-4 px-6 font-khmer text-slate-300 whitespace-nowrap">{leave.managerName || '-'}</td>
                       {canApprove && (
-                        <td className="py-4 px-6 text-right space-x-2">
+                        <td className="py-4 px-6 text-right whitespace-nowrap">
                           {leave.status === 'Pending' ? (
-                            <>
+                            <div className="inline-flex items-center justify-end gap-2">
                               <button
+                                type="button"
                                 onClick={() => handleDecision(leave.id, 'Approved')}
-                                className="inline-flex p-1.5 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/25 rounded-lg transition-colors border border-emerald-500/20 cursor-pointer"
+                                className="inline-flex items-center justify-center p-2 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/25 rounded-xl transition-colors border border-emerald-500/20 cursor-pointer shadow-sm"
                                 title={t("approve")}
                               >
                                 <CheckIcon className="h-4 w-4" />
                               </button>
                               <button
+                                type="button"
                                 onClick={() => handleDecision(leave.id, 'Rejected')}
-                                className="inline-flex p-1.5 bg-rose-500/10 text-rose-400 hover:bg-rose-500/25 rounded-lg transition-colors border border-rose-500/20 cursor-pointer"
+                                className="inline-flex items-center justify-center p-2 bg-rose-500/10 text-rose-400 hover:bg-rose-500/25 rounded-xl transition-colors border border-rose-500/20 cursor-pointer shadow-sm"
                                 title={t("reject")}
                               >
                                 <XMarkIcon className="h-4 w-4" />
                               </button>
-                            </>
+                            </div>
                           ) : (
-                            <span className="text-xs text-slate-500 italic">No Action</span>
+                            <span className="text-xs text-slate-500 italic font-khmer">-</span>
                           )}
                         </td>
                       )}

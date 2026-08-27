@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import api from '../utils/api';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
-import { MagnifyingGlassIcon, PencilIcon, PlusIcon, TrashIcon, ArrowDownTrayIcon } from '@heroicons/react/24/outline';
+import { MagnifyingGlassIcon, PencilIcon, PlusIcon, TrashIcon, ArrowDownTrayIcon, ChevronDownIcon, ChevronUpIcon, XMarkIcon } from '@heroicons/react/24/outline';
 
 import { formatTime12Hour } from '../utils/dateUtils';
 
@@ -133,6 +133,12 @@ const Attendance = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 10;
   const [search, setSearch] = useState('');
+  const [selectedStaffId, setSelectedStaffId] = useState('');
+  const [showResign, setShowResign] = useState(false);
+  const [isEmpDropdownOpen, setIsEmpDropdownOpen] = useState(false);
+  const [empSearchQuery, setEmpSearchQuery] = useState('');
+  const empDropdownRef = useRef(null);
+
   const [startDate, setStartDate] = useState(() => {
     // Default to start of current month
     const now = new Date();
@@ -151,7 +157,11 @@ const Attendance = () => {
       if (user.role === 'Employee') {
         query += `&staffId=${user.staffId}`;
       } else {
-        if (search && search.trim()) query += `&search=${encodeURIComponent(search.trim())}`;
+        if (selectedStaffId) {
+          query += `&staffId=${selectedStaffId}`;
+        } else if (search && search.trim()) {
+          query += `&search=${encodeURIComponent(search.trim())}`;
+        }
         if (filterDept) query += `&departmentId=${filterDept}`;
         if (filterBranch) query += `&branch=${filterBranch}`;
       }
@@ -364,11 +374,15 @@ const Attendance = () => {
   const fetchMetadata = async () => {
     try {
       if (user.role !== 'Employee') {
-        const response = await api.get('/departments');
-        setDepartments(response.data);
+        const [deptRes, empRes] = await Promise.all([
+          api.get('/departments'),
+          api.get('/employees')
+        ]);
+        setDepartments(deptRes.data);
+        setEmployeesList(empRes.data);
       }
     } catch (error) {
-      console.error('Error fetching departments:', error);
+      console.error('Error fetching metadata:', error);
     }
   };
 
@@ -376,10 +390,38 @@ const Attendance = () => {
     fetchMetadata();
   }, []);
 
+  // Close employee dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (empDropdownRef.current && !empDropdownRef.current.contains(event.target)) {
+        setIsEmpDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  // Filtered employees for dropdown
+  const filteredEmployees = useMemo(() => {
+    return employeesList.filter(emp => {
+      // 1. Resign filter
+      if (!showResign && (emp.status === 'Resigned' || emp.status === 'Terminated')) {
+        return false;
+      }
+      // 2. Search query filter
+      if (!empSearchQuery || !empSearchQuery.trim()) return true;
+      const q = empSearchQuery.trim().toLowerCase();
+      const stId = (emp.staffId || '').toLowerCase();
+      const nameEn = (emp.nameEn || '').toLowerCase();
+      const nameKh = (emp.nameKh || '').toLowerCase();
+      return stId.includes(q) || nameEn.includes(q) || nameKh.includes(q);
+    });
+  }, [employeesList, showResign, empSearchQuery]);
+
   useEffect(() => {
     setCurrentPage(1);
     fetchLogs();
-  }, [startDate, endDate, search, filterDept, filterBranch]);
+  }, [startDate, endDate, search, selectedStaffId, filterDept, filterBranch]);
 
   const displayLogs = logs.filter(log => {
     // Hide record if all checkin/checkout times are null or empty
@@ -390,6 +432,12 @@ const Attendance = () => {
       (log.checkout2 && log.checkout2 !== '-' && log.checkout2 !== '--:--')
     );
     if (!hasAnyTime) return false;
+
+    // Filter by selected employee from dropdown
+    if (selectedStaffId) {
+      const empId = log.employee?.staffId || log.staffId;
+      if (empId !== selectedStaffId) return false;
+    }
 
     if (!search || !search.trim()) return true;
     const q = search.trim().toLowerCase();
@@ -493,18 +541,119 @@ const Attendance = () => {
         {/* HR/Admin query parameters */}
         {user.role !== 'Employee' ? (
           <>
-            <div className="space-y-1">
-              <label className="block text-xs font-semibold text-slate-400 uppercase font-khmer">Search Staff ID / Employee</label>
-              <div className="relative">
-                <MagnifyingGlassIcon className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
-                <input
-                  type="text"
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  placeholder="e.g. EMP-001 or Name..."
-                  className="pl-9 w-full py-2 px-3 border border-white/10 bg-slate-950/60 text-white rounded-xl text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/20 outline-none transition-all"
-                />
+            {/* Employee Searchable Select Dropdown */}
+            <div className="space-y-1 relative" ref={empDropdownRef}>
+              <label className="block text-xs font-semibold text-slate-400 uppercase font-khmer">
+                {t("employees")}
+              </label>
+
+              {/* Trigger Button */}
+              <div
+                onClick={() => setIsEmpDropdownOpen(!isEmpDropdownOpen)}
+                style={{ backgroundColor: '#FFFFFF', borderColor: isEmpDropdownOpen ? '#2D60FF' : '#CBD5E1' }}
+                className={`w-full py-2 px-3 border rounded-xl text-sm flex items-center justify-between cursor-pointer transition-all shadow-sm ${
+                  isEmpDropdownOpen ? 'ring-2 ring-blue-500/20' : 'hover:border-slate-400'
+                }`}
+              >
+                <span
+                  style={{ color: selectedStaffId ? '#000000' : '#475569' }}
+                  className={`truncate text-xs ${selectedStaffId ? 'font-bold' : 'font-medium'}`}
+                >
+                  {selectedStaffId ? (
+                    (() => {
+                      const emp = employeesList.find(e => e.staffId === selectedStaffId);
+                      return emp ? `${emp.nameEn?.toUpperCase() || emp.nameKh} | ${emp.staffId}` : selectedStaffId;
+                    })()
+                  ) : (
+                    'Select Employee'
+                  )}
+                </span>
+                <div className="flex items-center gap-1 ml-2">
+                  {selectedStaffId && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSelectedStaffId('');
+                      }}
+                      className="p-0.5 hover:bg-slate-100 rounded text-slate-500 hover:text-slate-900 cursor-pointer bg-transparent border-none outline-none"
+                      title="Clear selection"
+                    >
+                      <XMarkIcon className="h-3.5 w-3.5" />
+                    </button>
+                  )}
+                  {isEmpDropdownOpen ? (
+                    <ChevronUpIcon className="h-4 w-4 text-slate-600 stroke-[2.5]" />
+                  ) : (
+                    <ChevronDownIcon className="h-4 w-4 text-slate-600 stroke-[2.5]" />
+                  )}
+                </div>
               </div>
+
+              {/* Dropdown Menu Panel */}
+              {isEmpDropdownOpen && (
+                <div
+                  style={{ backgroundColor: '#FFFFFF', borderColor: '#CBD5E1' }}
+                  className="absolute left-0 right-0 top-full mt-1.5 border rounded-xl shadow-2xl z-50 overflow-hidden"
+                >
+                  {/* Inline Search Input */}
+                  <div style={{ backgroundColor: '#F8FAFC', borderColor: '#E2E8F0' }} className="p-2 border-b">
+                    <input
+                      type="text"
+                      value={empSearchQuery}
+                      onChange={(e) => setEmpSearchQuery(e.target.value)}
+                      placeholder="Searching..."
+                      style={{ color: '#000000', backgroundColor: '#FFFFFF', borderColor: '#2D60FF' }}
+                      className="w-full py-1.5 px-3 border rounded-lg text-xs outline-none focus:ring-2 focus:ring-blue-500/20 placeholder:text-slate-400 font-medium font-sans"
+                      autoFocus
+                    />
+                  </div>
+
+                  {/* Options List */}
+                  <div className="max-h-56 overflow-y-auto py-1 divide-y divide-slate-100 font-sans">
+                    {filteredEmployees.length === 0 ? (
+                      <div style={{ color: '#64748B' }} className="py-3 px-3 text-center text-xs font-khmer">
+                        {t("noData")}
+                      </div>
+                    ) : (
+                      filteredEmployees.map((emp) => {
+                        const isSelected = selectedStaffId === emp.staffId;
+                        const label = `${emp.nameEn?.toUpperCase() || emp.nameKh} | ${emp.staffId}`;
+                        return (
+                          <div
+                            key={emp.id || emp.staffId}
+                            onClick={() => {
+                              setSelectedStaffId(emp.staffId);
+                              setIsEmpDropdownOpen(false);
+                              setEmpSearchQuery('');
+                            }}
+                            style={{
+                              color: isSelected ? '#FFFFFF' : '#000000',
+                              backgroundColor: isSelected ? '#2D60FF' : 'transparent',
+                            }}
+                            className={`py-2.5 px-3 text-xs cursor-pointer transition-colors flex items-center justify-between font-semibold ${
+                              isSelected ? 'font-bold' : 'hover:!bg-blue-50 hover:!text-[#2D60FF]'
+                            }`}
+                          >
+                            <span className="truncate">{label}</span>
+                            {emp.status === 'Resigned' && (
+                              <span
+                                style={{
+                                  backgroundColor: isSelected ? 'rgba(255,255,255,0.25)' : '#FEE2E2',
+                                  color: isSelected ? '#FFFFFF' : '#DC2626',
+                                }}
+                                className="text-[10px] px-1.5 py-0.5 rounded font-bold ml-2"
+                              >
+                                Resigned
+                              </span>
+                            )}
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
             <div className="space-y-1">
               <label className="block text-xs font-semibold text-slate-400 uppercase font-khmer">{t("departments")}</label>
@@ -533,88 +682,90 @@ const Attendance = () => {
           <div className="py-12 text-center text-slate-400 font-khmer">{t("loading")}</div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm text-slate-300 border-collapse border border-slate-200 dark:border-white/10">
-              <thead className="bg-slate-950/80 text-xs text-slate-300 uppercase">
+            <table className="w-full text-left text-sm text-slate-300">
+              <thead className="bg-slate-950/80 text-xs text-slate-300 uppercase border-b border-white/10">
                 <tr>
-                  <th className="py-3 px-3 font-khmer whitespace-nowrap text-center border border-slate-200 dark:border-white/10">#</th>
-                  <th className="py-3 px-4 font-khmer whitespace-nowrap border border-slate-200 dark:border-white/10">{t("leaveDate")}</th>
-                  {user.role !== 'Employee' && <th className="py-3 px-4 font-khmer whitespace-nowrap border border-slate-200 dark:border-white/10">{t("staffId")}</th>}
-                  {user.role !== 'Employee' && <th className="py-3 px-4 font-khmer whitespace-nowrap border border-slate-200 dark:border-white/10">{t("employees")}</th>}
-                  <th className="py-3 px-4 font-khmer whitespace-nowrap border border-slate-200 dark:border-white/10">{t("checkin1")}</th>
-                  <th className="py-3 px-4 font-khmer whitespace-nowrap border border-slate-200 dark:border-white/10">{t("checkout1")}</th>
-                  <th className="py-3 px-4 font-khmer whitespace-nowrap border border-slate-200 dark:border-white/10">{t("checkin2")}</th>
-                  <th className="py-3 px-4 font-khmer whitespace-nowrap border border-slate-200 dark:border-white/10">{t("checkout2")}</th>
-                  <th className="py-3 px-4 font-khmer whitespace-nowrap border border-slate-200 dark:border-white/10">{t("status")}</th>
-                  <th className="py-3 px-4 font-khmer whitespace-nowrap border border-slate-200 dark:border-white/10">{t("description")}</th>
+                  <th className="py-4 px-4 font-khmer whitespace-nowrap text-center">#</th>
+                  <th className="py-4 px-6 font-khmer whitespace-nowrap">{t("date")}</th>
+                  {user.role !== 'Employee' && <th className="py-4 px-6 font-khmer whitespace-nowrap">{t("staffId")}</th>}
+                  {user.role !== 'Employee' && <th className="py-4 px-6 font-khmer">{t("employees")}</th>}
+                  <th className="py-4 px-6 font-khmer whitespace-nowrap">{t("checkin1")}</th>
+                  <th className="py-4 px-6 font-khmer whitespace-nowrap">{t("checkout1")}</th>
+                  <th className="py-4 px-6 font-khmer whitespace-nowrap">{t("checkin2")}</th>
+                  <th className="py-4 px-6 font-khmer whitespace-nowrap">{t("checkout2")}</th>
+                  <th className="py-4 px-6 font-khmer whitespace-nowrap">{t("status")}</th>
+                  <th className="py-4 px-6 font-khmer min-w-[260px]">{t("description")}</th>
                   {(hasPermission('edit_attendance') || hasPermission('delete_attendance')) && (
-                    <th className="py-3 px-4 font-khmer text-right whitespace-nowrap border border-slate-200 dark:border-white/10">Actions</th>
+                    <th className="py-4 px-6 font-khmer text-right whitespace-nowrap">{t("actions")}</th>
                   )}
                 </tr>
               </thead>
-              <tbody>
+              <tbody className="divide-y divide-white/5">
                 {paginatedLogs.length === 0 ? (
                   <tr>
-                    <td colSpan={user.role === 'Employee' ? 8 : ((hasPermission('edit_attendance') || hasPermission('delete_attendance')) ? 11 : 10)} className="py-6 text-center text-slate-500 font-khmer border border-slate-200 dark:border-white/10">
+                    <td colSpan={user.role === 'Employee' ? 8 : ((hasPermission('edit_attendance') || hasPermission('delete_attendance')) ? 11 : 10)} className="py-6 text-center text-slate-500 font-khmer">
                       {t("noData")}
                     </td>
                   </tr>
                 ) : (
                   paginatedLogs.map((log, index) => {
                     const rowNumber = (currentPage - 1) * pageSize + index + 1;
+                    const emp = log.employee || {};
                     return (
-                      <tr key={log.id} className="hover:bg-slate-50/60 dark:hover:bg-white/5 transition-colors">
-                        <td className="py-3.5 px-3 font-mono text-center text-slate-400 font-bold whitespace-nowrap border border-slate-200 dark:border-white/10">
+                      <tr key={log.id} className="hover:bg-white/5 transition-colors">
+                        <td className="py-4 px-4 font-mono text-center text-slate-400 font-bold whitespace-nowrap">
                           {rowNumber}
                         </td>
-                        <td className="py-3.5 px-4 font-semibold text-white whitespace-nowrap border border-slate-200 dark:border-white/10">
+                        <td className="py-4 px-6 font-semibold text-white whitespace-nowrap">
                           {log.attendanceDate ? new Date(log.attendanceDate).toLocaleDateString() : '-'}
                         </td>
                         {user.role !== 'Employee' && (
-                          <td className="py-3.5 px-4 font-semibold text-white whitespace-nowrap border border-slate-200 dark:border-white/10">
-                            {log.employee?.staffId || log.staffId || '-'}
+                          <td className="py-4 px-6 font-semibold text-white whitespace-nowrap">
+                            {emp.staffId || log.staffId || '-'}
                           </td>
                         )}
                         {user.role !== 'Employee' && (
-                          <td className="py-3.5 px-4 whitespace-nowrap min-w-[180px] border border-slate-200 dark:border-white/10">
+                          <td className="py-4 px-6 whitespace-nowrap min-w-[180px]">
                             <div>
                               <p className="font-semibold text-white whitespace-nowrap">
-                                {getLocalizedName(log.employee?.nameEn, log.employee?.nameKh) || log.staffId || '-'}
+                                {getLocalizedName(emp.nameEn, emp.nameKh) || log.staffId || '-'}
                               </p>
                               <p className="text-xs text-slate-400 whitespace-nowrap">
-                                {getLocalizedName(log.employee?.department?.nameEn, log.employee?.department?.nameKh) || '-'}
+                                {getLocalizedName(emp.department?.nameEn, emp.department?.nameKh) || '-'}
                               </p>
                             </div>
                           </td>
                         )}
-                        <td className="py-3.5 px-4 whitespace-nowrap border border-slate-200 dark:border-white/10">{formatTime12Hour(log.checkin1)}</td>
-                        <td className="py-3.5 px-4 whitespace-nowrap border border-slate-200 dark:border-white/10">{formatTime12Hour(log.checkout1)}</td>
-                        <td className="py-3.5 px-4 whitespace-nowrap border border-slate-200 dark:border-white/10">{formatTime12Hour(log.checkin2)}</td>
-                        <td className="py-3.5 px-4 whitespace-nowrap border border-slate-200 dark:border-white/10">{formatTime12Hour(log.checkout2)}</td>
-                        <td className="py-3.5 px-4 space-y-1 whitespace-nowrap border border-slate-200 dark:border-white/10">
+                        <td className="py-4 px-6 whitespace-nowrap font-medium">{formatTime12Hour(log.checkin1)}</td>
+                        <td className="py-4 px-6 whitespace-nowrap font-medium">{formatTime12Hour(log.checkout1)}</td>
+                        <td className="py-4 px-6 whitespace-nowrap font-medium">{formatTime12Hour(log.checkin2)}</td>
+                        <td className="py-4 px-6 whitespace-nowrap font-medium">{formatTime12Hour(log.checkout2)}</td>
+                        <td className="py-4 px-6 space-y-1 whitespace-nowrap">
                           {log.isLate && (
-                            <span className="inline-flex items-center rounded-full bg-amber-500/10 px-2 py-0.5 text-xs font-medium text-amber-300 ring-1 ring-inset ring-amber-500/20 font-khmer">
+                            <span className="inline-flex items-center rounded-full bg-amber-500/10 px-2.5 py-0.5 text-xs font-medium text-amber-300 ring-1 ring-inset ring-amber-500/20 font-khmer">
                               {t("late")}
                             </span>
                           )}
                           {log.isEarlyLeave && (
-                            <span className="inline-flex items-center rounded-full bg-rose-500/10 px-2 py-0.5 text-xs font-medium text-rose-300 ring-1 ring-inset ring-rose-500/20 font-khmer ml-1">
+                            <span className="inline-flex items-center rounded-full bg-rose-500/10 px-2.5 py-0.5 text-xs font-medium text-rose-300 ring-1 ring-inset ring-rose-500/20 font-khmer ml-1">
                               {t("earlyLeave")}
                             </span>
                           )}
                           {!log.isLate && !log.isEarlyLeave && (log.checkin1 || log.checkin2 || log.checkout1 || log.checkout2) && (
-                            <span className="inline-flex items-center rounded-full bg-emerald-500/10 px-2 py-0.5 text-xs font-medium text-emerald-300 ring-1 ring-inset ring-emerald-500/20 font-khmer">
+                            <span className="inline-flex items-center rounded-full bg-emerald-500/10 px-2.5 py-0.5 text-xs font-medium text-emerald-300 ring-1 ring-inset ring-emerald-500/20 font-khmer">
                               {t("normal")}
                             </span>
                           )}
                         </td>
-                        <td className="py-3.5 px-4 text-xs italic text-slate-400 border border-slate-200 dark:border-white/10">{log.note || '-'}</td>
+                        <td className="py-4 px-6 text-xs text-slate-400 min-w-[260px] max-w-[400px] whitespace-normal break-words leading-relaxed">{log.note || '-'}</td>
                         {(hasPermission('edit_attendance') || hasPermission('delete_attendance')) && (
-                          <td className="py-3.5 px-4 text-right whitespace-nowrap border border-slate-200 dark:border-white/10">
+                          <td className="py-4 px-6 text-right whitespace-nowrap">
                             <div className="flex items-center justify-end gap-1.5">
                               {hasPermission('edit_attendance') && (
                                 <button
                                   onClick={() => handleOpenEditModal(log)}
-                                  className="inline-flex p-2 bg-indigo-500/10 hover:bg-indigo-500/25 border border-indigo-500/20 rounded-xl text-indigo-400 transition-colors cursor-pointer"
+                                  className="inline-flex p-2 bg-indigo-500/10 text-indigo-400 hover:bg-indigo-500/25 border border-indigo-500/20 rounded-lg transition-colors cursor-pointer"
+                                  title={t("edit")}
                                 >
                                   <PencilIcon className="h-4 w-4" />
                                 </button>
@@ -622,7 +773,8 @@ const Attendance = () => {
                               {hasPermission('delete_attendance') && (
                                 <button
                                   onClick={() => handleDelete(log.id)}
-                                  className="inline-flex p-2 bg-rose-500/10 hover:bg-rose-500/25 border border-rose-500/20 rounded-xl text-rose-400 transition-colors cursor-pointer"
+                                  className="inline-flex p-2 bg-rose-500/10 text-rose-400 hover:bg-rose-500/25 border border-rose-500/20 rounded-lg transition-colors cursor-pointer"
+                                  title={t("delete")}
                                 >
                                   <TrashIcon className="h-4 w-4" />
                                 </button>

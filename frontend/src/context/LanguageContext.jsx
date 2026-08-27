@@ -53,6 +53,7 @@ const translations = {
     logAttendanceSuccess: "Attendance logged successfully!",
 
     // General Actions
+    date: "Date",
     add: "Add New",
     edit: "Edit",
     delete: "Delete",
@@ -240,6 +241,7 @@ const translations = {
     logAttendanceSuccess: "បានកត់ត្រាវត្តមានជោគជ័យ!",
 
     // General Actions
+    date: "កាលបរិច្ឆេទ",
     add: "បន្ថែមថ្មី",
     edit: "កែប្រែ",
     delete: "លុប",

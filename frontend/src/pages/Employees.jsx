@@ -1265,14 +1265,12 @@ const Employees = () => {
                     role="switch"
                     aria-checked={isFlexible}
                     onClick={() => setIsFlexible(!isFlexible)}
-                    className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
-                      isFlexible ? 'bg-purple-600 shadow-md shadow-purple-600/40' : 'bg-slate-700'
-                    }`}
+                    className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${isFlexible ? 'bg-purple-600 shadow-md shadow-purple-600/40' : 'bg-slate-700'
+                      }`}
                   >
                     <span
-                      className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-lg ring-0 transition duration-200 ease-in-out ${
-                        isFlexible ? 'translate-x-5' : 'translate-x-0'
-                      }`}
+                      className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-lg ring-0 transition duration-200 ease-in-out ${isFlexible ? 'translate-x-5' : 'translate-x-0'
+                        }`}
                     />
                   </button>
                 </div>
@@ -1301,22 +1299,19 @@ const Employees = () => {
                           role="switch"
                           aria-checked={enableShift2}
                           onClick={() => setEnableShift2(!enableShift2)}
-                          className={`relative inline-flex h-5 w-10 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
-                            enableShift2 ? 'bg-indigo-600' : 'bg-slate-700'
-                          }`}
+                          className={`relative inline-flex h-5 w-10 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${enableShift2 ? 'bg-indigo-600' : 'bg-slate-700'
+                            }`}
                         >
                           <span
-                            className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow-lg ring-0 transition duration-200 ease-in-out ${
-                              enableShift2 ? 'translate-x-5' : 'translate-x-0'
-                            }`}
+                            className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow-lg ring-0 transition duration-200 ease-in-out ${enableShift2 ? 'translate-x-5' : 'translate-x-0'
+                              }`}
                           />
                         </button>
                       </div>
                     </div>
 
-                    <div className={`grid gap-4 bg-slate-950/40 p-4 rounded-xl border border-white/5 transition-all duration-300 ${
-                      enableShift2 ? 'grid-cols-1 md:grid-cols-2' : 'grid-cols-1'
-                    }`}>
+                    <div className={`grid gap-4 bg-slate-950/40 p-4 rounded-xl border border-white/5 transition-all duration-300 ${enableShift2 ? 'grid-cols-1 md:grid-cols-2' : 'grid-cols-1'
+                      }`}>
                       {/* Shift 1 */}
                       <div className="space-y-2">
                         <div className="flex items-center justify-between">
@@ -1765,9 +1760,8 @@ const Employees = () => {
               {/* Work Shifts */}
               <div className="border-t border-white/10 pt-4">
                 <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider font-khmer mb-3">{t("shiftConfig")}</h4>
-                <div className={`grid gap-4 bg-slate-950/40 p-4 rounded-xl border border-white/5 text-xs ${
-                  profileEmp.shift2Start && profileEmp.shift2End ? 'grid-cols-2' : 'grid-cols-1'
-                }`}>
+                <div className={`grid gap-4 bg-slate-950/40 p-4 rounded-xl border border-white/5 text-xs ${profileEmp.shift2Start && profileEmp.shift2End ? 'grid-cols-2' : 'grid-cols-1'
+                  }`}>
                   <div>
                     <span className="font-semibold text-indigo-400 block font-khmer mb-1">{t("shift1")}</span>
                     <span className="text-slate-300 font-mono">{profileEmp.shift1Start || 'N/A'} - {profileEmp.shift1End || 'N/A'}</span>

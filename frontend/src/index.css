@@ -9,6 +9,7 @@
   --color-slate-500: var(--slate-500);
   --color-slate-400: var(--slate-400);
   --color-slate-300: var(--slate-300);
+  --color-slate-200: var(--slate-200);
   --color-slate-100: var(--slate-100);
 }
 
@@ -30,6 +31,7 @@
   --slate-500: #6B7280;
   --slate-400: #9CA3AF;
   --slate-300: #D1D5DB;
+  --slate-200: #222B3C;
   --slate-100: #F3F4F6;
   
   --brand-blue: #1814F3;
@@ -42,26 +44,27 @@ html.light {
   /* BankDash Light Mode Variables */
   --bg-app: #F5F7FA;
   --bg-card: #FFFFFF;
-  --border-card: #E6EFF5;
+  --border-card: #E2E8F0;
   --shadow-glow: 0 10px 25px -5px rgba(113, 142, 191, 0.1), 0 8px 10px -6px rgba(113, 142, 191, 0.1);
   --bg-panel: #FFFFFF;
-  --border-panel: #E6EFF5;
-  --bg-table-header: #F5F7FA;
+  --border-panel: #E2E8F0;
+  --bg-table-header: #F8FAFC;
 
   --slate-950: #FFFFFF;
   --slate-900: #FFFFFF;
-  --slate-800: #F5F7FA;
-  --slate-700: #E6EFF5;
-  --slate-600: #718EBF;
-  --slate-500: #718EBF;
-  --slate-400: #B1B1B1;
-  --slate-300: #343C6A;
-  --slate-100: #343C6A;
+  --slate-800: #F1F5F9;
+  --slate-700: #334155;
+  --slate-600: #475569;
+  --slate-500: #64748B;
+  --slate-400: #94A3B8;
+  --slate-300: #CBD5E1;
+  --slate-200: #E2E8F0;
+  --slate-100: #F8FAFC;
 
   --brand-blue: #1814F3;
   --accent-blue: #2D60FF;
-  --text-primary: #343C6A;
-  --text-secondary: #718EBF;
+  --text-primary: #1E293B;
+  --text-secondary: #64748B;
 }
 
 /* Global transitions for clean theme switching */
@@ -216,6 +219,16 @@ html.light .bg-slate-950\/80 {
 html.light .bg-slate-950 {
   background-color: var(--bg-card) !important;
 }
+html.light .border-slate-200 {
+  border-color: #E2E8F0 !important;
+}
+html.light .border-slate-300 {
+  border-color: #CBD5E1 !important;
+}
+html.light .divide-slate-200 > * + * {
+  border-color: #E2E8F0 !important;
+}
+
 html.light .text-slate-400 {
   color: var(--text-secondary) !important;
 }
