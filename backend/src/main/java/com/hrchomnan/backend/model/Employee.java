@@ -99,6 +99,10 @@ public class Employee {
     @Column(name = "custom_permissions", columnDefinition = "TEXT")
     private String customPermissions;
 
+    @Column(name = "can_login_web")
+    @Builder.Default
+    private Boolean canLoginWeb = false;
+
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;

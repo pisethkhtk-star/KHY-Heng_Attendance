@@ -121,6 +121,7 @@ public class PermissionController {
         response.put("customPermissions", hasCustom ? effectiveResources : null);
         response.put("rolePermissions", roleAllowedResources);
         response.put("effectivePermissions", effectiveResources);
+        response.put("canLoginWeb", emp.getRole() == Role.Admin || Boolean.TRUE.equals(emp.getCanLoginWeb()));
 
         return ResponseEntity.ok(response);
     }
@@ -129,6 +130,7 @@ public class PermissionController {
     public static class UpdateEmployeePermissionsRequest {
         private List<String> customPermissions;
         private Boolean resetToRole;
+        private Boolean canLoginWeb;
     }
 
     /**
@@ -157,11 +159,47 @@ public class PermissionController {
             }
         }
 
+        if (request.getCanLoginWeb() != null && emp.getRole() != Role.Admin) {
+            emp.setCanLoginWeb(request.getCanLoginWeb());
+        }
+
         employeeRepository.save(emp);
 
         return ResponseEntity.ok(Map.of(
                 "message", "Employee permissions updated successfully",
-                "hasCustom", emp.getCustomPermissions() != null
+                "hasCustom", emp.getCustomPermissions() != null,
+                "canLoginWeb", emp.getRole() == Role.Admin || Boolean.TRUE.equals(emp.getCanLoginWeb())
+        ));
+    }
+
+    /**
+     * Quick toggle for Web Login permission
+     */
+    @PutMapping("/employee/{id}/toggle-web-login")
+    public ResponseEntity<?> toggleWebLogin(
+            @PathVariable UUID id,
+            @RequestBody Map<String, Boolean> body
+    ) {
+        Optional<Employee> empOpt = employeeRepository.findById(id);
+        if (empOpt.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("message", "Employee not found"));
+        }
+
+        Employee emp = empOpt.get();
+        if (emp.getRole() == Role.Admin) {
+            return ResponseEntity.ok(Map.of(
+                    "message", "Admin always has web login access",
+                    "canLoginWeb", true
+            ));
+        }
+
+        Boolean canLogin = body.get("canLoginWeb");
+        emp.setCanLoginWeb(Boolean.TRUE.equals(canLogin));
+        employeeRepository.save(emp);
+
+        return ResponseEntity.ok(Map.of(
+                "message", "Web login permission updated",
+                "canLoginWeb", Boolean.TRUE.equals(emp.getCanLoginWeb())
         ));
     }
 }

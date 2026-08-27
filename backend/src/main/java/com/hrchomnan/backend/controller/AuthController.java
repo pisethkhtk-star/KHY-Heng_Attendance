@@ -1,5 +1,6 @@
 package com.hrchomnan.backend.controller;
 
+import com.hrchomnan.backend.enums.Role;
 import com.hrchomnan.backend.enums.Status;
 import com.hrchomnan.backend.model.Department;
 import com.hrchomnan.backend.model.Employee;
@@ -42,6 +43,7 @@ public class AuthController {
     public static class LoginRequest {
         private String email;
         private String password;
+        private String client; // "web" or "mobile"
     }
 
     @PostMapping("/login")
@@ -59,6 +61,17 @@ public class AuthController {
 
         if (employee.getStatus() != Status.Active) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("message", "Your account is inactive. Please contact HR."));
+        }
+
+        // Web login restriction: Only accounts with canLoginWeb = true or Admin role can log into web
+        boolean isWebRequest = "web".equalsIgnoreCase(request.getClient());
+        if (isWebRequest && employee.getRole() != Role.Admin) {
+            if (!Boolean.TRUE.equals(employee.getCanLoginWeb())) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of(
+                        "message", "គណនីនេះមិនត្រូវបានអនុញ្ញាតឱ្យ Login ចូលក្នុង Website ទេ (Web login is disabled). សូមទាក់ទង Admin!",
+                        "code", "WEB_LOGIN_DISABLED"
+                ));
+            }
         }
 
         boolean isMatch = passwordEncoder.matches(request.getPassword(), employee.getPassword())

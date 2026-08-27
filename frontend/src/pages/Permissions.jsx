@@ -12,7 +12,8 @@ import {
   ArrowPathIcon,
   CheckIcon,
   XMarkIcon,
-  SparklesIcon
+  SparklesIcon,
+  GlobeAltIcon
 } from '@heroicons/react/24/outline';
 
 const Permissions = () => {
@@ -36,6 +37,7 @@ const Permissions = () => {
   const [empEffectivePerms, setEmpEffectivePerms] = useState([]);
   const [empHasCustom, setEmpHasCustom] = useState(false);
   const [empRolePerms, setEmpRolePerms] = useState([]);
+  const [canLoginWeb, setCanLoginWeb] = useState(false);
   const [empDropdownOpen, setEmpDropdownOpen] = useState(false);
   const [empFilterQuery, setEmpFilterQuery] = useState('');
   const empDropdownRef = useRef(null);
@@ -417,6 +419,7 @@ const Permissions = () => {
     setEmpRolePerms(roleBasePerms);
     setEmpEffectivePerms(roleBasePerms);
     setEmpHasCustom(false);
+    setCanLoginWeb(emp.role === 'Admin' || Boolean(emp.canLoginWeb));
 
     try {
       setEmpPermissionsLoading(true);
@@ -426,12 +429,43 @@ const Permissions = () => {
         setEmpEffectivePerms(data.effectivePermissions || roleBasePerms);
         setEmpHasCustom(Boolean(data.hasCustom));
         setEmpRolePerms(data.rolePermissions || roleBasePerms);
+        if (data.canLoginWeb !== undefined) {
+          setCanLoginWeb(Boolean(data.canLoginWeb));
+        }
       }
     } catch (err) {
       console.warn('Could not fetch custom permissions from backend, falling back to role defaults:', err);
       // Fallback already set above smoothly
     } finally {
       setEmpPermissionsLoading(false);
+    }
+  };
+
+  const handleToggleWebLogin = async () => {
+    if (!selectedEmployee) return;
+    const nextVal = !canLoginWeb;
+    setCanLoginWeb(nextVal);
+
+    try {
+      await api.put(`/permissions/employee/${selectedEmployee.id}/toggle-web-login`, {
+        canLoginWeb: nextVal
+      });
+      setSuccessMsg(
+        nextVal
+          ? (language === 'kh'
+              ? `បានបើកសិទ្ធិ Login ចូល Website សម្រាប់ ${selectedEmployee.nameEn || selectedEmployee.nameKh}!`
+              : `Web login access ENABLED for ${selectedEmployee.nameEn || selectedEmployee.nameKh}!`)
+          : (language === 'kh'
+              ? `បានបិទសិទ្ធិ Login ចូល Website សម្រាប់ ${selectedEmployee.nameEn || selectedEmployee.nameKh} (Mobile App អាច Login ធម្មតា)!`
+              : `Web login access DISABLED for ${selectedEmployee.nameEn || selectedEmployee.nameKh} (Mobile app unaffected)!`)
+      );
+      playSound('success');
+      setTimeout(() => setSuccessMsg(''), 4000);
+    } catch (err) {
+      console.error('Error toggling web login:', err);
+      setCanLoginWeb(!nextVal); // Revert on failure
+      setErrorMsg(language === 'kh' ? 'មិនអាចផ្លាស់ប្តូរសិទ្ធិ Login Website បានទេ' : 'Failed to update web login permission.');
+      playSound('error');
     }
   };
 
@@ -1148,6 +1182,46 @@ const Permissions = () => {
                         )}
                       </div>
                     </div>
+                  </div>
+
+                  {/* Center: Web Login Toggle Switch */}
+                  <div className="flex items-center gap-3 px-4 py-2.5 rounded-2xl bg-slate-950/70 border border-white/10 shadow-inner">
+                    <div className="text-left">
+                      <div className="text-xs font-bold text-white font-khmer flex items-center gap-1.5">
+                        <GlobeAltIcon className="h-4 w-4 text-indigo-400 shrink-0" />
+                        <span>{language === 'kh' ? 'សិទ្ធិ Login Website' : 'Web Login Access'}</span>
+                      </div>
+                      <div className="text-[10px] font-khmer mt-0.5 font-medium">
+                        {canLoginWeb ? (
+                          <span className="text-emerald-400 flex items-center gap-1">
+                            <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                            {language === 'kh' ? 'បើកដំណើរការ (Enabled)' : 'Enabled for Web'}
+                          </span>
+                        ) : (
+                          <span className="text-rose-400 flex items-center gap-1">
+                            <span className="h-1.5 w-1.5 rounded-full bg-rose-400"></span>
+                            {language === 'kh' ? 'បានបិទ (App Mobile ប្រើធម្មតា)' : 'Disabled (Mobile only)'}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Toggle Button */}
+                    <button
+                      type="button"
+                      disabled={saving || selectedEmployee?.role === 'Admin'}
+                      onClick={handleToggleWebLogin}
+                      className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed ${
+                        canLoginWeb ? 'bg-emerald-500' : 'bg-slate-700'
+                      }`}
+                      title={canLoginWeb ? 'Disable web login' : 'Enable web login'}
+                    >
+                      <span
+                        className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-lg ring-0 transition duration-200 ease-in-out ${
+                          canLoginWeb ? 'translate-x-5' : 'translate-x-0'
+                        }`}
+                      />
+                    </button>
                   </div>
 
                   {/* Right: Actions */}
