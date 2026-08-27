@@ -554,9 +554,8 @@ const AttendanceEarlyOut = () => {
               <div
                 onClick={() => setIsEmpDropdownOpen(!isEmpDropdownOpen)}
                 style={{ backgroundColor: '#FFFFFF', borderColor: isEmpDropdownOpen ? '#2D60FF' : '#CBD5E1' }}
-                className={`w-full py-2 px-3 border rounded-xl text-sm flex items-center justify-between cursor-pointer transition-all shadow-sm ${
-                  isEmpDropdownOpen ? 'ring-2 ring-blue-500/20' : 'hover:border-slate-400'
-                }`}
+                className={`w-full py-2 px-3 border rounded-xl text-sm flex items-center justify-between cursor-pointer transition-all shadow-sm ${isEmpDropdownOpen ? 'ring-2 ring-blue-500/20' : 'hover:border-slate-400'
+                  }`}
               >
                 <span
                   style={{ color: selectedStaffId ? '#000000' : '#475569' }}
@@ -634,9 +633,8 @@ const AttendanceEarlyOut = () => {
                               color: isSelected ? '#FFFFFF' : '#000000',
                               backgroundColor: isSelected ? '#2D60FF' : 'transparent',
                             }}
-                            className={`py-2.5 px-3 text-xs cursor-pointer transition-colors flex items-center justify-between font-semibold ${
-                              isSelected ? 'font-bold' : 'hover:!bg-blue-50 hover:!text-[#2D60FF]'
-                            }`}
+                            className={`py-2.5 px-3 text-xs cursor-pointer transition-colors flex items-center justify-between font-semibold ${isSelected ? 'font-bold' : 'hover:!bg-blue-50 hover:!text-[#2D60FF]'
+                              }`}
                           >
                             <span className="truncate">{label}</span>
                             {emp.status === 'Resigned' && (
