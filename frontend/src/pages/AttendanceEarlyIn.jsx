@@ -69,13 +69,19 @@ const AttendanceEarlyIn = () => {
   const [empSearchQuery, setEmpSearchQuery] = useState('');
   const empDropdownRef = useRef(null);
 
-  // Default: Start of current month to today
+  // Default: Start of current month (1st day) to today in local timezone
   const [startDate, setStartDate] = useState(() => {
     const now = new Date();
-    return new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    return `${year}-${month}-01`;
   });
   const [endDate, setEndDate] = useState(() => {
-    return new Date().toISOString().split('T')[0];
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
   });
   const [filterDept, setFilterDept] = useState('');
   const [companyWorkHour, setCompanyWorkHour] = useState(null);
