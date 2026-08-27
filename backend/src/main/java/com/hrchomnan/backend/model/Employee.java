@@ -96,6 +96,9 @@ public class Employee {
     @Builder.Default
     private Role role = Role.Employee;
 
+    @Column(name = "custom_permissions", columnDefinition = "TEXT")
+    private String customPermissions;
+
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;

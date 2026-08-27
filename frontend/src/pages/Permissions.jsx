@@ -1,20 +1,44 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import api from '../utils/api';
 import { useLanguage } from '../context/LanguageContext';
 import {
   ChevronDownIcon,
   ChevronRightIcon,
-  MagnifyingGlassIcon
+  ChevronUpIcon,
+  MagnifyingGlassIcon,
+  UserIcon,
+  ShieldCheckIcon,
+  UserGroupIcon,
+  ArrowPathIcon,
+  CheckIcon,
+  XMarkIcon,
+  SparklesIcon
 } from '@heroicons/react/24/outline';
 
 const Permissions = () => {
   const { language, t } = useLanguage();
+  
+  // Tab State: 'roles' | 'employees'
+  const [activeTab, setActiveTab] = useState('roles');
+
+  // Role Permissions State
   const [permissions, setPermissions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
+
+  // Employee Permissions State
+  const [employees, setEmployees] = useState([]);
+  const [selectedEmployee, setSelectedEmployee] = useState(null);
+  const [empPermissionsLoading, setEmpPermissionsLoading] = useState(false);
+  const [empEffectivePerms, setEmpEffectivePerms] = useState([]);
+  const [empHasCustom, setEmpHasCustom] = useState(false);
+  const [empRolePerms, setEmpRolePerms] = useState([]);
+  const [empDropdownOpen, setEmpDropdownOpen] = useState(false);
+  const [empFilterQuery, setEmpFilterQuery] = useState('');
+  const empDropdownRef = useRef(null);
 
   const roles = [
     { key: 'Admin', label: 'Admin 👑' },
@@ -345,20 +369,59 @@ const Permissions = () => {
     }
   };
 
+  // Initial Fetch: Role Permissions & Employees
   useEffect(() => {
-    fetchPermissions();
+    fetchInitialData();
   }, []);
 
-  const fetchPermissions = async () => {
+  const fetchInitialData = async () => {
     try {
       setLoading(true);
-      const res = await api.get('/permissions');
-      setPermissions(res.data);
+      const [permRes, empRes] = await Promise.all([
+        api.get('/permissions'),
+        api.get('/employees').catch(() => ({ data: [] }))
+      ]);
+      setPermissions(permRes.data || []);
+      setEmployees(empRes.data || []);
     } catch (error) {
-      console.error('Error fetching permissions:', error);
+      console.error('Error fetching initial permissions data:', error);
       setErrorMsg(language === 'kh' ? 'មិនអាចទាញយកទិន្នន័យសិទ្ធិបានទេ' : 'Failed to load role permissions from server.');
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Close employee dropdown on click outside
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (empDropdownRef.current && !empDropdownRef.current.contains(e.target)) {
+        setEmpDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  // Fetch individual employee permissions when employee is chosen
+  const selectEmployee = async (emp) => {
+    setSelectedEmployee(emp);
+    setEmpDropdownOpen(false);
+    setEmpFilterQuery('');
+    setSuccessMsg('');
+    setErrorMsg('');
+
+    try {
+      setEmpPermissionsLoading(true);
+      const res = await api.get(`/permissions/employee/${emp.id}`);
+      const data = res.data;
+      setEmpEffectivePerms(data.effectivePermissions || []);
+      setEmpHasCustom(Boolean(data.hasCustom));
+      setEmpRolePerms(data.rolePermissions || []);
+    } catch (err) {
+      console.error('Error loading employee permissions:', err);
+      setErrorMsg(language === 'kh' ? 'មិនអាចទាញយកសិទ្ធិរបស់បុគ្គលិកនេះបានទេ' : 'Failed to load permissions for this employee.');
+    } finally {
+      setEmpPermissionsLoading(false);
     }
   };
 
@@ -408,7 +471,8 @@ const Permissions = () => {
     });
   };
 
-  const handleSave = async () => {
+  // Save Role Permissions
+  const handleSaveRolePermissions = async () => {
     try {
       setSaving(true);
       setSuccessMsg('');
@@ -418,7 +482,7 @@ const Permissions = () => {
 
       await api.put('/permissions', { permissions: payload });
 
-      setSuccessMsg(language === 'kh' ? 'កែប្រែសិទ្ធិបានជោគជ័យ!' : 'Permissions updated successfully!');
+      setSuccessMsg(language === 'kh' ? 'កែប្រែសិទ្ធិតាមតួនាទី (Role) បានជោគជ័យ!' : 'Role permissions updated successfully!');
       playSound('success');
 
       setTimeout(() => {
@@ -427,6 +491,118 @@ const Permissions = () => {
     } catch (error) {
       console.error('Error saving permissions:', error);
       setErrorMsg(language === 'kh' ? 'មិនអាចរក្សាទុកសិទ្ធិបានទេ!' : 'Failed to save permissions configuration.');
+      playSound('error');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // Employee-Specific Permission Handlers
+  const handleToggleEmpPermission = (resourceKey) => {
+    if (!selectedEmployee) return;
+    setEmpHasCustom(true);
+    setEmpEffectivePerms(prev => {
+      if (prev.includes(resourceKey)) {
+        return prev.filter(k => k !== resourceKey);
+      } else {
+        return [...prev, resourceKey];
+      }
+    });
+  };
+
+  const handleToggleEmpGroup = (group, shouldCheck) => {
+    if (!selectedEmployee) return;
+    setEmpHasCustom(true);
+    const groupKeys = group.children.map(c => c.key);
+    setEmpEffectivePerms(prev => {
+      if (shouldCheck) {
+        return Array.from(new Set([...prev, ...groupKeys]));
+      } else {
+        return prev.filter(k => !groupKeys.includes(k));
+      }
+    });
+  };
+
+  const handleSelectAllEmpPerms = () => {
+    if (!selectedEmployee) return;
+    setEmpHasCustom(true);
+    const allKeys = [];
+    resourceCategories.forEach(g => {
+      g.children.forEach(c => allKeys.push(c.key));
+    });
+    setEmpEffectivePerms(allKeys);
+  };
+
+  const handleDeselectAllEmpPerms = () => {
+    if (!selectedEmployee) return;
+    setEmpHasCustom(true);
+    setEmpEffectivePerms([]);
+  };
+
+  const handleResetToRoleDefault = async () => {
+    if (!selectedEmployee) return;
+    if (!window.confirm(
+      language === 'kh'
+        ? `តើអ្នកប្រាកដថាចង់កំណត់សិទ្ធិរបស់ "${selectedEmployee.nameEn || selectedEmployee.nameKh}" តាមតួនាទី (${selectedEmployee.role}) ដើមវិញមែនទេ?`
+        : `Reset permissions for "${selectedEmployee.nameEn || selectedEmployee.nameKh}" to their default Role (${selectedEmployee.role})?`
+    )) {
+      return;
+    }
+
+    try {
+      setSaving(true);
+      setSuccessMsg('');
+      setErrorMsg('');
+
+      await api.put(`/permissions/employee/${selectedEmployee.id}`, {
+        resetToRole: true,
+        customPermissions: null
+      });
+
+      setEmpHasCustom(false);
+      setEmpEffectivePerms(empRolePerms);
+      setSuccessMsg(
+        language === 'kh'
+          ? `បានកំណត់សិទ្ធិរបស់ ${selectedEmployee.nameEn || selectedEmployee.nameKh} តាមតួនាទី (${selectedEmployee.role}) ដើមវិញដោយជោគជ័យ!`
+          : `Permissions reset to default ${selectedEmployee.role} role!`
+      );
+      playSound('success');
+
+      setTimeout(() => setSuccessMsg(''), 3500);
+    } catch (err) {
+      console.error('Error resetting employee permissions:', err);
+      setErrorMsg(language === 'kh' ? 'មិនអាចកំណត់សិទ្ធិឡើងវិញបានទេ' : 'Failed to reset employee permissions.');
+      playSound('error');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleSaveEmpPermissions = async () => {
+    if (!selectedEmployee) return;
+
+    try {
+      setSaving(true);
+      setSuccessMsg('');
+      setErrorMsg('');
+
+      await api.put(`/permissions/employee/${selectedEmployee.id}`, {
+        resetToRole: false,
+        customPermissions: empEffectivePerms
+      });
+
+      setEmpHasCustom(true);
+      setSuccessMsg(
+        language === 'kh'
+          ? `បានរក្សាទុកសិទ្ធិផ្ទាល់ខ្លួនរបស់ ${selectedEmployee.nameEn || selectedEmployee.nameKh} ដោយជោគជ័យ!`
+          : `Custom permissions saved for ${selectedEmployee.nameEn || selectedEmployee.nameKh}!`
+      );
+      playSound('success');
+
+      setTimeout(() => setSuccessMsg(''), 3500);
+    } catch (err) {
+      console.error('Error saving employee permissions:', err);
+      setErrorMsg(language === 'kh' ? 'មិនអាចរក្សាទុកសិទ្ធិបុគ្គលិកបានទេ' : 'Failed to save employee permissions.');
       playSound('error');
     } finally {
       setSaving(false);
@@ -468,6 +644,19 @@ const Permissions = () => {
       .filter(Boolean);
   }, [searchQuery, language]);
 
+  // Filter employees for employee select dropdown
+  const filteredEmployees = useMemo(() => {
+    if (!empFilterQuery || !empFilterQuery.trim()) return employees;
+    const q = empFilterQuery.trim().toLowerCase();
+    return employees.filter(emp => {
+      const staffId = (emp.staffId || '').toLowerCase();
+      const nameEn = (emp.nameEn || '').toLowerCase();
+      const nameKh = (emp.nameKh || '').toLowerCase();
+      const role = (emp.role || '').toLowerCase();
+      return staffId.includes(q) || nameEn.includes(q) || nameKh.includes(q) || role.includes(q);
+    });
+  }, [employees, empFilterQuery]);
+
   return (
     <div className="space-y-6 text-slate-100">
       {/* Title block */}
@@ -478,223 +667,644 @@ const Permissions = () => {
           </h2>
           <p className="text-slate-400 text-xs mt-1 font-khmer">
             {language === 'kh'
-              ? 'កំណត់សិទ្ធិប្រើប្រាស់ប្រព័ន្ធសម្រាប់ Admin, HR, Manager, និង Employee'
-              : 'Configure role-based access control and system permissions'}
+              ? 'កំណត់សិទ្ធិប្រើប្រាស់ប្រព័ន្ធតាមតួនាទី (Role) ឬកំណត់សិទ្ធិពិសេសសម្រាប់បុគ្គលិកម្នាក់ៗ (Employee-specific)'
+              : 'Configure role-based access control (RBAC) or manage custom permissions per individual employee'}
           </p>
         </div>
-        <div className="flex items-center gap-2">
+
+        {/* Tab Switcher */}
+        <div className="flex items-center gap-1.5 p-1 bg-slate-950/70 border border-white/10 rounded-xl">
           <button
-            onClick={toggleExpandAll}
-            className="py-2.5 px-4 text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl transition-all font-khmer border border-white/10 cursor-pointer"
+            type="button"
+            onClick={() => { setActiveTab('roles'); setSuccessMsg(''); setErrorMsg(''); }}
+            className={`flex items-center gap-2 py-2 px-4 rounded-lg text-xs font-bold transition-all cursor-pointer font-khmer ${
+              activeTab === 'roles'
+                ? 'bg-gradient-to-r from-indigo-500 to-purple-600 text-white shadow-md shadow-indigo-500/25'
+                : 'text-slate-400 hover:text-white hover:bg-white/5'
+            }`}
           >
-            {isAllExpanded
-              ? (language === 'kh' ? 'បង្រួមទាំងអស់' : 'Collapse All')
-              : (language === 'kh' ? 'ពង្រីកទាំងអស់' : 'Expand All')}
+            <ShieldCheckIcon className="h-4 w-4" />
+            <span>{language === 'kh' ? 'សិទ្ធិតាមតួនាទី (Role)' : 'Role Permissions'}</span>
           </button>
           <button
-            onClick={handleSave}
-            disabled={saving}
-            className="flex items-center gap-2 bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white px-5 py-2.5 rounded-xl font-semibold text-xs transition-all shadow-md shadow-indigo-500/25 font-khmer cursor-pointer border-none outline-none disabled:opacity-50"
+            type="button"
+            onClick={() => { setActiveTab('employees'); setSuccessMsg(''); setErrorMsg(''); }}
+            className={`flex items-center gap-2 py-2 px-4 rounded-lg text-xs font-bold transition-all cursor-pointer font-khmer ${
+              activeTab === 'employees'
+                ? 'bg-gradient-to-r from-indigo-500 to-purple-600 text-white shadow-md shadow-indigo-500/25'
+                : 'text-slate-400 hover:text-white hover:bg-white/5'
+            }`}
           >
-            {saving ? (
-              <>
-                <span className="animate-spin rounded-full h-3.5 w-3.5 border-2 border-white border-t-transparent"></span>
-                <span>{language === 'kh' ? 'កំពុងរក្សាទុក...' : 'Saving...'}</span>
-              </>
-            ) : (
-              <span>{language === 'kh' ? 'រក្សាទុកសិទ្ធិ' : 'Save Permissions'}</span>
-            )}
+            <UserIcon className="h-4 w-4" />
+            <span>{language === 'kh' ? 'សិទ្ធិតាមបុគ្គលិកម្នាក់ៗ (Individual)' : 'Employee Specific'}</span>
           </button>
         </div>
       </div>
 
       {/* Message Notifications */}
       {successMsg && (
-        <div className="rounded-xl bg-emerald-500/10 border border-emerald-500/20 p-4 text-sm text-emerald-300 font-khmer animate-fade-in">
-          {successMsg}
+        <div className="rounded-xl bg-emerald-500/10 border border-emerald-500/20 p-4 text-sm text-emerald-300 font-khmer animate-fade-in flex items-center gap-2">
+          <CheckIcon className="h-5 w-5 shrink-0" />
+          <span>{successMsg}</span>
         </div>
       )}
       {errorMsg && (
-        <div className="rounded-xl bg-rose-500/10 border border-rose-500/20 p-4 text-sm text-rose-300 font-khmer animate-fade-in">
-          {errorMsg}
+        <div className="rounded-xl bg-rose-500/10 border border-rose-500/20 p-4 text-sm text-rose-300 font-khmer animate-fade-in flex items-center gap-2">
+          <XMarkIcon className="h-5 w-5 shrink-0" />
+          <span>{errorMsg}</span>
         </div>
       )}
 
-      {/* Search Filter Panel */}
-      <div className="glass-card p-6 rounded-2xl flex items-center gap-3">
-        <div className="relative w-full">
-          <MagnifyingGlassIcon className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder={
-              language === 'kh'
-                ? 'ស្វែងរកសិទ្ធិ ឬឈ្មោះមុខងារ (ឧ. វត្តមាន, បុគ្គលិក, ច្បាប់)...'
-                : 'Search permission or module name (e.g. attendance, employee, leaves)...'
-            }
-            className="pl-9 w-full py-2 px-3 border border-white/10 bg-slate-950/60 text-white rounded-xl text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/20 outline-none transition-all placeholder:text-slate-500 font-khmer"
-          />
-        </div>
-        {searchQuery && (
-          <button
-            onClick={() => setSearchQuery('')}
-            className="py-2 px-4 text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl transition-all border border-white/10 cursor-pointer whitespace-nowrap font-khmer"
-          >
-            {language === 'kh' ? 'ជម្រះ' : 'Clear'}
-          </button>
-        )}
-      </div>
+      {/* ========================================================================= */}
+      {/* TAB 1: ROLE PERMISSIONS (សិទ្ធិតាមតួនាទី)                                   */}
+      {/* ========================================================================= */}
+      {activeTab === 'roles' && (
+        <div className="space-y-6 animate-fade-in">
+          {/* Controls toolbar */}
+          <div className="glass-card p-4 rounded-2xl flex flex-col md:flex-row items-center justify-between gap-4">
+            <div className="relative w-full md:w-96">
+              <MagnifyingGlassIcon className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder={
+                  language === 'kh'
+                    ? 'ស្វែងរកសិទ្ធិ ឬឈ្មោះមុខងារ...'
+                    : 'Search permission or module name...'
+                }
+                className="pl-9 w-full py-2 px-3 border border-white/10 bg-slate-950/60 text-white rounded-xl text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/20 outline-none transition-all placeholder:text-slate-500 font-khmer"
+              />
+            </div>
 
-      {/* Main List Table */}
-      <div className="glass-card rounded-2xl overflow-hidden">
-        {loading ? (
-          <div className="py-12 text-center text-slate-400 font-khmer">{t("loading")}</div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm text-slate-300">
-              <thead className="bg-slate-950/80 text-xs text-slate-300 uppercase border-b border-white/10">
-                <tr>
-                  <th className="py-4 px-6 font-khmer font-bold">
-                    {language === 'kh' ? 'មុខងារ / សិទ្ធិប្រើប្រាស់' : 'Feature / Resource'}
-                  </th>
-                  {roles.map(role => (
-                    <th key={role.key} className="py-4 px-6 text-center font-khmer whitespace-nowrap font-bold">
-                      {role.label}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-white/5">
-                {filteredCategories.length === 0 ? (
-                  <tr>
-                    <td colSpan={5} className="py-8 text-center text-slate-500 font-khmer">
-                      {t("noData")}
-                    </td>
-                  </tr>
+            <div className="flex items-center gap-2 w-full md:w-auto justify-end">
+              <button
+                onClick={toggleExpandAll}
+                className="py-2.5 px-4 text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl transition-all font-khmer border border-white/10 cursor-pointer"
+              >
+                {isAllExpanded
+                  ? (language === 'kh' ? 'បង្រួមទាំងអស់' : 'Collapse All')
+                  : (language === 'kh' ? 'ពង្រីកទាំងអស់' : 'Expand All')}
+              </button>
+              <button
+                onClick={handleSaveRolePermissions}
+                disabled={saving}
+                className="flex items-center gap-2 bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white px-5 py-2.5 rounded-xl font-semibold text-xs transition-all shadow-md shadow-indigo-500/25 font-khmer cursor-pointer border-none outline-none disabled:opacity-50"
+              >
+                {saving ? (
+                  <>
+                    <span className="animate-spin rounded-full h-3.5 w-3.5 border-2 border-white border-t-transparent"></span>
+                    <span>{language === 'kh' ? 'កំពុងរក្សាទុក...' : 'Saving...'}</span>
+                  </>
                 ) : (
-                  filteredCategories.map(cat => {
-                    const isExpanded = expandedGroups[cat.key];
-                    const catLabel = language === 'kh' ? cat.labelKh : cat.labelEn;
+                  <span>{language === 'kh' ? 'រក្សាទុកសិទ្ធិតាម Role' : 'Save Role Permissions'}</span>
+                )}
+              </button>
+            </div>
+          </div>
 
-                    return (
-                      <React.Fragment key={cat.key}>
-                        {/* Parent Category Header Row */}
-                        <tr className="bg-slate-900/50 hover:bg-slate-900/80 transition-colors border-y border-white/10">
-                          <td className="py-4 px-6 font-bold text-white font-khmer text-sm">
-                            <button
-                              type="button"
-                              onClick={() => toggleGroup(cat.key)}
-                              className="flex items-center gap-2 text-indigo-400 hover:text-indigo-300 font-bold transition-colors cursor-pointer bg-transparent border-none outline-none text-sm font-khmer"
-                            >
-                              {isExpanded ? (
-                                <ChevronDownIcon className="h-4 w-4 text-indigo-400 shrink-0" />
-                              ) : (
-                                <ChevronRightIcon className="h-4 w-4 text-indigo-400 shrink-0" />
-                              )}
-                              <span>{catLabel}</span>
-                            </button>
-                          </td>
-                          {roles.map(role => {
-                            const isAdmin = role.key === 'Admin';
-                            const checkedCount = cat.children.filter(c => getPermissionVal(role.key, c.key)).length;
-                            const allChecked = checkedCount === cat.children.length;
-                            const someChecked = checkedCount > 0 && checkedCount < cat.children.length;
+          {/* Main Role Matrix Table */}
+          <div className="glass-card rounded-2xl overflow-hidden">
+            {loading ? (
+              <div className="py-12 text-center text-slate-400 font-khmer">{t("loading")}</div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-sm text-slate-300">
+                  <thead className="bg-slate-950/80 text-xs text-slate-300 uppercase border-b border-white/10">
+                    <tr>
+                      <th className="py-4 px-6 font-khmer font-bold">
+                        {language === 'kh' ? 'មុខងារ / សិទ្ធិប្រើប្រាស់' : 'Feature / Resource'}
+                      </th>
+                      {roles.map(role => (
+                        <th key={role.key} className="py-4 px-6 text-center font-khmer whitespace-nowrap font-bold">
+                          {role.label}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-white/5">
+                    {filteredCategories.length === 0 ? (
+                      <tr>
+                        <td colSpan={5} className="py-8 text-center text-slate-500 font-khmer">
+                          {t("noData")}
+                        </td>
+                      </tr>
+                    ) : (
+                      filteredCategories.map(cat => {
+                        const isExpanded = expandedGroups[cat.key];
+                        const catLabel = language === 'kh' ? cat.labelKh : cat.labelEn;
 
-                            return (
-                              <td key={`${role.key}-${cat.key}`} className="py-4 px-6 text-center">
-                                <label className="inline-flex items-center justify-center cursor-pointer">
-                                  <input
-                                    type="checkbox"
-                                    disabled={isAdmin}
-                                    checked={allChecked}
-                                    ref={el => {
-                                      if (el) el.indeterminate = someChecked;
-                                    }}
-                                    onChange={() => {
-                                      handleGroupCheckboxChange(role.key, cat, !allChecked);
-                                    }}
-                                    className="w-4 h-4 text-indigo-600 border border-white/10 rounded-md bg-slate-950 focus:ring-indigo-500 focus:ring-offset-slate-900 focus:ring-2 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
-                                  />
-                                </label>
+                        return (
+                          <React.Fragment key={cat.key}>
+                            {/* Parent Category Header Row */}
+                            <tr className="bg-slate-900/50 hover:bg-slate-900/80 transition-colors border-y border-white/10">
+                              <td className="py-4 px-6 font-bold text-white font-khmer text-sm">
+                                <button
+                                  type="button"
+                                  onClick={() => toggleGroup(cat.key)}
+                                  className="flex items-center gap-2 text-indigo-400 hover:text-indigo-300 font-bold transition-colors cursor-pointer bg-transparent border-none outline-none text-sm font-khmer"
+                                >
+                                  {isExpanded ? (
+                                    <ChevronDownIcon className="h-4 w-4 text-indigo-400 shrink-0" />
+                                  ) : (
+                                    <ChevronRightIcon className="h-4 w-4 text-indigo-400 shrink-0" />
+                                  )}
+                                  <span>{catLabel}</span>
+                                </button>
                               </td>
-                            );
-                          })}
-                        </tr>
+                              {roles.map(role => {
+                                const isAdmin = role.key === 'Admin';
+                                const checkedCount = cat.children.filter(c => getPermissionVal(role.key, c.key)).length;
+                                const allChecked = checkedCount === cat.children.length;
+                                const someChecked = checkedCount > 0 && checkedCount < cat.children.length;
 
-                        {/* Child Rows (rendered if group is expanded) */}
-                        {isExpanded &&
-                          cat.children.map(child => {
+                                return (
+                                  <td key={`${role.key}-${cat.key}`} className="py-4 px-6 text-center">
+                                    <label className="inline-flex items-center justify-center cursor-pointer">
+                                      <input
+                                        type="checkbox"
+                                        disabled={isAdmin}
+                                        checked={allChecked}
+                                        ref={el => {
+                                          if (el) el.indeterminate = someChecked;
+                                        }}
+                                        onChange={() => {
+                                          handleGroupCheckboxChange(role.key, cat, !allChecked);
+                                        }}
+                                        className="w-4 h-4 text-indigo-600 border border-white/10 rounded-md bg-slate-950 focus:ring-indigo-500 focus:ring-offset-slate-900 focus:ring-2 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                                      />
+                                    </label>
+                                  </td>
+                                );
+                              })}
+                            </tr>
+
+                            {/* Child Rows */}
+                            {isExpanded &&
+                              cat.children.map(child => {
+                                const childLabel = language === 'kh' ? child.labelKh : child.labelEn;
+                                const childDesc = language === 'kh' ? child.descKh : child.descEn;
+
+                                return (
+                                  <tr
+                                    key={child.key}
+                                    className="hover:bg-white/5 transition-colors bg-slate-950/20"
+                                  >
+                                    <td className="py-3 px-6 pl-12 font-medium text-white text-xs">
+                                      <div className="font-semibold text-white font-khmer text-[13px]">
+                                        {childLabel}
+                                      </div>
+                                      {childDesc && (
+                                        <div className="text-[11px] text-slate-400 mt-0.5 font-khmer">
+                                          {childDesc} • <code className="text-[10px] text-indigo-400 font-mono">{child.key}</code>
+                                        </div>
+                                      )}
+                                    </td>
+                                    {roles.map(role => {
+                                      const isChecked = getPermissionVal(role.key, child.key);
+                                      const isAdmin = role.key === 'Admin';
+                                      return (
+                                        <td key={`${role.key}-${child.key}`} className="py-3 px-6 text-center">
+                                          <label className="inline-flex items-center justify-center cursor-pointer">
+                                            <input
+                                              type="checkbox"
+                                              disabled={isAdmin}
+                                              checked={isChecked}
+                                              onChange={() => handleCheckboxChange(role.key, child.key)}
+                                              className="w-4 h-4 text-indigo-600 border border-white/10 rounded-md bg-slate-950 focus:ring-indigo-500 focus:ring-offset-slate-900 focus:ring-2 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                                            />
+                                          </label>
+                                        </td>
+                                      );
+                                    })}
+                                  </tr>
+                                );
+                              })}
+                          </React.Fragment>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            {/* Footer */}
+            <div className="p-6 bg-slate-950/40 border-t border-white/5 flex flex-col sm:flex-row justify-between items-center gap-3">
+              <span className="text-xs text-slate-400 font-khmer">
+                {language === 'kh'
+                  ? '💡 ចំណាំ៖ Admin មានសិទ្ធិពេញលេញលើគ្រប់មុខងារទាំងអស់ក្នុងប្រព័ន្ធដោយស្វ័យប្រវត្តិ។'
+                  : '💡 Note: Admin has full automatic permissions across all system modules.'}
+              </span>
+              <button
+                onClick={handleSaveRolePermissions}
+                disabled={saving}
+                className="flex items-center gap-2 bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white px-5 py-2.5 rounded-xl font-semibold text-xs transition-all shadow-md shadow-indigo-500/25 font-khmer cursor-pointer border-none outline-none disabled:opacity-50"
+              >
+                {saving ? (
+                  <>
+                    <span className="animate-spin rounded-full h-3.5 w-3.5 border-2 border-white border-t-transparent"></span>
+                    <span>{language === 'kh' ? 'កំពុងរក្សាទុក...' : 'Saving...'}</span>
+                  </>
+                ) : (
+                  <span>{language === 'kh' ? 'រក្សាទុកសិទ្ធិតាម Role' : 'Save Role Permissions'}</span>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* TAB 2: INDIVIDUAL EMPLOYEE PERMISSIONS (សិទ្ធិតាមបុគ្គលិកម្នាក់ៗ)              */}
+      {/* ========================================================================= */}
+      {activeTab === 'employees' && (
+        <div className="space-y-6 animate-fade-in">
+          {/* Employee Selector Bar */}
+          <div className="glass-card p-6 rounded-2xl grid grid-cols-1 md:grid-cols-3 gap-4 items-center">
+            {/* Searchable Select Employee Trigger */}
+            <div className="md:col-span-2 space-y-1 relative" ref={empDropdownRef}>
+              <label className="block text-xs font-semibold text-slate-400 uppercase font-khmer">
+                {language === 'kh' ? 'ជ្រើសរើសបុគ្គលិកដើម្បីកំណត់សិទ្ធិ' : 'Select Employee to Manage Permissions'}
+              </label>
+
+              <div
+                onClick={() => setEmpDropdownOpen(!empDropdownOpen)}
+                style={{ backgroundColor: '#FFFFFF', borderColor: empDropdownOpen ? '#2D60FF' : '#CBD5E1' }}
+                className={`w-full py-2.5 px-4 border rounded-xl text-sm flex items-center justify-between cursor-pointer transition-all shadow-sm ${
+                  empDropdownOpen ? 'ring-2 ring-blue-500/20' : 'hover:border-slate-400'
+                }`}
+              >
+                <div className="flex items-center gap-3 overflow-hidden">
+                  {selectedEmployee ? (
+                    <>
+                      {selectedEmployee.photoUrl ? (
+                        <img
+                          src={selectedEmployee.photoUrl}
+                          alt="avatar"
+                          className="h-7 w-7 rounded-full object-cover border border-slate-200 shrink-0"
+                        />
+                      ) : (
+                        <div className="h-7 w-7 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold text-xs shrink-0">
+                          {selectedEmployee.nameEn?.[0] || 'U'}
+                        </div>
+                      )}
+                      <span style={{ color: '#000000' }} className="truncate font-bold text-xs">
+                        {selectedEmployee.nameEn?.toUpperCase() || selectedEmployee.nameKh} | {selectedEmployee.staffId} ({selectedEmployee.role})
+                      </span>
+                    </>
+                  ) : (
+                    <span style={{ color: '#64748B' }} className="text-xs font-medium font-khmer">
+                      {language === 'kh' ? 'ចុចទីនេះដើម្បីជ្រើសរើសបុគ្គលិក...' : 'Click to select an employee...'}
+                    </span>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-1 ml-2">
+                  {selectedEmployee && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSelectedEmployee(null);
+                        setEmpEffectivePerms([]);
+                      }}
+                      className="p-0.5 hover:bg-slate-100 rounded text-slate-500 hover:text-slate-900 cursor-pointer bg-transparent border-none outline-none"
+                      title="Clear selection"
+                    >
+                      <XMarkIcon className="h-4 w-4" />
+                    </button>
+                  )}
+                  {empDropdownOpen ? (
+                    <ChevronUpIcon className="h-4 w-4 text-slate-600 stroke-[2.5]" />
+                  ) : (
+                    <ChevronDownIcon className="h-4 w-4 text-slate-600 stroke-[2.5]" />
+                  )}
+                </div>
+              </div>
+
+              {/* Dropdown Menu Popup */}
+              {empDropdownOpen && (
+                <div
+                  style={{ backgroundColor: '#FFFFFF', borderColor: '#CBD5E1' }}
+                  className="absolute left-0 right-0 top-full mt-1.5 border rounded-xl shadow-2xl z-50 overflow-hidden"
+                >
+                  <div style={{ backgroundColor: '#F8FAFC', borderColor: '#E2E8F0' }} className="p-2 border-b">
+                    <input
+                      type="text"
+                      value={empFilterQuery}
+                      onChange={(e) => setEmpFilterQuery(e.target.value)}
+                      placeholder={language === 'kh' ? 'វាយស្វែងរកឈ្មោះ ឬ Staff ID...' : 'Type name or staff ID...'}
+                      style={{ color: '#000000', backgroundColor: '#FFFFFF', borderColor: '#2D60FF' }}
+                      className="w-full py-1.5 px-3 border rounded-lg text-xs outline-none focus:ring-2 focus:ring-blue-500/20 placeholder:text-slate-400 font-medium font-sans"
+                      autoFocus
+                    />
+                  </div>
+
+                  <div className="max-h-60 overflow-y-auto py-1 divide-y divide-slate-100 font-sans">
+                    {filteredEmployees.length === 0 ? (
+                      <div style={{ color: '#64748B' }} className="py-3 px-3 text-center text-xs font-khmer">
+                        {t("noData")}
+                      </div>
+                    ) : (
+                      filteredEmployees.map((emp) => {
+                        const isSelected = selectedEmployee?.id === emp.id;
+                        return (
+                          <div
+                            key={emp.id || emp.staffId}
+                            onClick={() => selectEmployee(emp)}
+                            style={{
+                              color: isSelected ? '#FFFFFF' : '#000000',
+                              backgroundColor: isSelected ? '#2D60FF' : 'transparent',
+                            }}
+                            className={`py-2.5 px-3 text-xs cursor-pointer transition-colors flex items-center justify-between font-semibold ${
+                              isSelected ? 'font-bold' : 'hover:!bg-blue-50 hover:!text-[#2D60FF]'
+                            }`}
+                          >
+                            <div className="flex items-center gap-2.5 truncate">
+                              {emp.photoUrl ? (
+                                <img src={emp.photoUrl} alt="avatar" className="h-6 w-6 rounded-full object-cover shrink-0" />
+                              ) : (
+                                <div className="h-6 w-6 rounded-full bg-slate-200 text-slate-800 flex items-center justify-center font-bold text-[10px] shrink-0">
+                                  {emp.nameEn?.[0] || 'U'}
+                                </div>
+                              )}
+                              <span className="truncate">
+                                {emp.nameEn?.toUpperCase() || emp.nameKh} | {emp.staffId}
+                              </span>
+                            </div>
+
+                            <span
+                              style={{
+                                backgroundColor: isSelected ? 'rgba(255,255,255,0.25)' : '#F1F5F9',
+                                color: isSelected ? '#FFFFFF' : '#475569',
+                              }}
+                              className="text-[10px] px-2 py-0.5 rounded-full font-bold ml-2 shrink-0"
+                            >
+                              {emp.role}
+                            </span>
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Quick Helper / Info */}
+            <div className="text-xs text-slate-400 font-khmer md:border-l md:border-white/10 md:pl-4">
+              {selectedEmployee ? (
+                <div>
+                  <div className="text-white font-bold">
+                    {selectedEmployee.nameEn || selectedEmployee.nameKh}
+                  </div>
+                  <div className="text-slate-400 text-[11px] mt-0.5">
+                    {language === 'kh' ? 'តួនាទីដើម៖ ' : 'Base Role: '}
+                    <span className="text-indigo-400 font-semibold">{selectedEmployee.role}</span>
+                  </div>
+                </div>
+              ) : (
+                <span>
+                  {language === 'kh'
+                    ? '👈 សូមជ្រើសរើសបុគ្គលិកដើម្បីមើល និងកែប្រែសិទ្ធិផ្ទាល់ខ្លួន'
+                    : '👈 Select an employee above to inspect and assign custom permissions'}
+                </span>
+              )}
+            </div>
+          </div>
+
+          {/* If No Employee Selected */}
+          {!selectedEmployee ? (
+            <div className="glass-card p-12 rounded-2xl text-center space-y-3">
+              <UserGroupIcon className="h-12 w-12 text-indigo-400 mx-auto opacity-70" />
+              <h3 className="text-base font-bold text-white font-khmer">
+                {language === 'kh' ? 'មិនទាន់បានជ្រើសរើសបុគ្គលិកនៅឡើយទេ' : 'No Employee Selected'}
+              </h3>
+              <p className="text-xs text-slate-400 max-w-md mx-auto font-khmer">
+                {language === 'kh'
+                  ? 'សូមជ្រើសរើសបុគ្គលិកពីប្រអប់ខាងលើ ដើម្បីមើលសិទ្ធិបច្ចុប្បន្ន និងកំណត់សិទ្ធិពិសេសផ្ទាល់ខ្លួនសម្រាប់បុគ្គលិកនោះ។'
+                  : 'Please select an employee using the dropdown above to manage customized permissions for that individual.'}
+              </p>
+            </div>
+          ) : empPermissionsLoading ? (
+            <div className="glass-card p-12 rounded-2xl text-center text-slate-400 font-khmer">
+              <span className="animate-spin rounded-full h-7 w-7 border-2 border-indigo-500 border-t-transparent inline-block mb-3"></span>
+              <div>{t("loading")}</div>
+            </div>
+          ) : (
+            <>
+              {/* Employee Status Banner & Action Toolbar */}
+              <div className="glass-card p-6 rounded-2xl glow-indigo space-y-4">
+                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                  {/* Left: Employee Info & Status Badge */}
+                  <div className="flex items-center gap-4">
+                    {selectedEmployee.photoUrl ? (
+                      <img
+                        src={selectedEmployee.photoUrl}
+                        alt="emp"
+                        className="h-14 w-14 rounded-2xl object-cover border-2 border-indigo-500 shadow-md"
+                      />
+                    ) : (
+                      <div className="h-14 w-14 rounded-2xl bg-gradient-to-tr from-indigo-600 to-purple-600 text-white flex items-center justify-center font-black text-xl shadow-md">
+                        {selectedEmployee.nameEn?.[0] || 'U'}
+                      </div>
+                    )}
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h3 className="text-base font-bold text-white">
+                          {selectedEmployee.nameEn || selectedEmployee.nameKh}
+                        </h3>
+                        <span className="px-2 py-0.5 text-[11px] font-mono font-bold rounded-lg bg-white/10 text-indigo-300">
+                          {selectedEmployee.staffId}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2 mt-1">
+                        <span className="text-xs text-slate-400 font-khmer">
+                          {language === 'kh' ? 'តួនាទី Role៖ ' : 'Role: '}
+                          <strong className="text-slate-200">{selectedEmployee.role}</strong>
+                        </span>
+                        <span>•</span>
+                        {empHasCustom ? (
+                          <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-amber-500/20 border border-amber-500/30 text-amber-300 font-khmer flex items-center gap-1">
+                            <SparklesIcon className="h-3 w-3" />
+                            {language === 'kh' ? 'សិទ្ធិកំណត់ផ្ទាល់ខ្លួន (Customized)' : 'Customized Permissions'}
+                          </span>
+                        ) : (
+                          <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 border border-emerald-500/30 text-emerald-300 font-khmer">
+                            {language === 'kh' ? 'អនុវត្តតាមតួនាទីដើម (Inherited)' : 'Inherited from Role'}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Right: Actions */}
+                  <div className="flex flex-wrap items-center gap-2">
+                    {empHasCustom && (
+                      <button
+                        type="button"
+                        onClick={handleResetToRoleDefault}
+                        disabled={saving}
+                        className="py-2.5 px-3.5 text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-amber-400 rounded-xl transition-all border border-amber-500/30 cursor-pointer font-khmer flex items-center gap-1.5"
+                        title="Reset to default role permissions"
+                      >
+                        <ArrowPathIcon className="h-3.5 w-3.5" />
+                        <span>{language === 'kh' ? 'កំណត់តាម Role ដើមវិញ' : 'Reset to Role'}</span>
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={handleSelectAllEmpPerms}
+                      className="py-2.5 px-3 text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl transition-all border border-white/10 cursor-pointer font-khmer"
+                    >
+                      {language === 'kh' ? 'ជ្រើសទាំងអស់' : 'Select All'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleDeselectAllEmpPerms}
+                      className="py-2.5 px-3 text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl transition-all border border-white/10 cursor-pointer font-khmer"
+                    >
+                      {language === 'kh' ? 'ដកចេញទាំងអស់' : 'Deselect All'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleSaveEmpPermissions}
+                      disabled={saving}
+                      className="flex items-center gap-2 bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white px-5 py-2.5 rounded-xl font-semibold text-xs transition-all shadow-md shadow-indigo-500/25 font-khmer cursor-pointer border-none outline-none disabled:opacity-50"
+                    >
+                      {saving ? (
+                        <>
+                          <span className="animate-spin rounded-full h-3.5 w-3.5 border-2 border-white border-t-transparent"></span>
+                          <span>{language === 'kh' ? 'កំពុងរក្សាទុក...' : 'Saving...'}</span>
+                        </>
+                      ) : (
+                        <span>{language === 'kh' ? 'រក្សាទុកសិទ្ធិបុគ្គលិកនេះ' : 'Save Employee Permissions'}</span>
+                      )}
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Employee Permissions Checkboxes List */}
+              <div className="glass-card rounded-2xl overflow-hidden divide-y divide-white/5">
+                {resourceCategories.map((group) => {
+                  const isExpanded = expandedGroups[group.key];
+                  const groupLabel = language === 'kh' ? group.labelKh : group.labelEn;
+                  const groupKeys = group.children.map(c => c.key);
+                  const checkedCount = group.children.filter(c => empEffectivePerms.includes(c.key)).length;
+                  const allChecked = checkedCount === group.children.length;
+                  const someChecked = checkedCount > 0 && checkedCount < group.children.length;
+
+                  return (
+                    <div key={group.key} className="p-4 sm:p-6 space-y-4">
+                      {/* Group Header */}
+                      <div className="flex items-center justify-between">
+                        <button
+                          type="button"
+                          onClick={() => toggleGroup(group.key)}
+                          className="flex items-center gap-2 text-indigo-400 hover:text-indigo-300 font-bold transition-colors cursor-pointer bg-transparent border-none outline-none text-sm sm:text-base font-khmer text-left"
+                        >
+                          {isExpanded ? (
+                            <ChevronDownIcon className="h-4 w-4 text-indigo-400 shrink-0" />
+                          ) : (
+                            <ChevronRightIcon className="h-4 w-4 text-indigo-400 shrink-0" />
+                          )}
+                          <span>{groupLabel}</span>
+                          <span className="text-xs px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 font-mono font-normal">
+                            {checkedCount}/{group.children.length}
+                          </span>
+                        </button>
+
+                        <div className="flex items-center gap-2">
+                          <label className="text-xs text-slate-400 font-khmer cursor-pointer flex items-center gap-1.5">
+                            <span>{allChecked ? (language === 'kh' ? 'ដកចេញក្រុមនេះ' : 'Deselect Group') : (language === 'kh' ? 'ជ្រើសរើសក្រុមនេះ' : 'Select Group')}</span>
+                            <input
+                              type="checkbox"
+                              checked={allChecked}
+                              ref={el => {
+                                if (el) el.indeterminate = someChecked;
+                              }}
+                              onChange={() => handleToggleEmpGroup(group, !allChecked)}
+                              className="w-4 h-4 text-indigo-600 border border-white/10 rounded-md bg-slate-950 focus:ring-indigo-500 focus:ring-offset-slate-900 focus:ring-2 cursor-pointer"
+                            />
+                          </label>
+                        </div>
+                      </div>
+
+                      {/* Group Items Grid */}
+                      {isExpanded && (
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 pl-2 sm:pl-6 pt-2">
+                          {group.children.map((child) => {
+                            const isChecked = empEffectivePerms.includes(child.key);
                             const childLabel = language === 'kh' ? child.labelKh : child.labelEn;
                             const childDesc = language === 'kh' ? child.descKh : child.descEn;
 
                             return (
-                              <tr
+                              <div
                                 key={child.key}
-                                className="hover:bg-white/5 transition-colors bg-slate-950/20"
+                                onClick={() => handleToggleEmpPermission(child.key)}
+                                className={`p-3.5 rounded-xl border transition-all cursor-pointer flex items-start justify-between gap-3 ${
+                                  isChecked
+                                    ? 'bg-indigo-600/15 border-indigo-500/40 shadow-sm shadow-indigo-500/10'
+                                    : 'bg-slate-950/40 border-white/5 hover:border-white/20'
+                                }`}
                               >
-                                <td className="py-3 px-6 pl-12 font-medium text-white text-xs">
-                                  <div className="font-semibold text-white font-khmer text-[13px]">
+                                <div className="space-y-1">
+                                  <div className={`text-xs font-bold font-khmer ${isChecked ? 'text-white' : 'text-slate-300'}`}>
                                     {childLabel}
                                   </div>
-                                  {childDesc && (
-                                    <div className="text-[11px] text-slate-400 mt-0.5 font-khmer">
-                                      {childDesc} • <code className="text-[10px] text-indigo-400 font-mono">{child.key}</code>
-                                    </div>
-                                  )}
-                                </td>
-                                {roles.map(role => {
-                                  const isChecked = getPermissionVal(role.key, child.key);
-                                  const isAdmin = role.key === 'Admin';
-                                  return (
-                                    <td key={`${role.key}-${child.key}`} className="py-3 px-6 text-center">
-                                      <label className="inline-flex items-center justify-center cursor-pointer">
-                                        <input
-                                          type="checkbox"
-                                          disabled={isAdmin}
-                                          checked={isChecked}
-                                          onChange={() => handleCheckboxChange(role.key, child.key)}
-                                          className="w-4 h-4 text-indigo-600 border border-white/10 rounded-md bg-slate-950 focus:ring-indigo-500 focus:ring-offset-slate-900 focus:ring-2 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
-                                        />
-                                      </label>
-                                    </td>
-                                  );
-                                })}
-                              </tr>
+                                  <p className="text-[11px] text-slate-400 font-khmer leading-tight">
+                                    {childDesc}
+                                  </p>
+                                  <code className="text-[10px] text-indigo-400/80 font-mono block">
+                                    {child.key}
+                                  </code>
+                                </div>
+
+                                <input
+                                  type="checkbox"
+                                  checked={isChecked}
+                                  onChange={() => {}} // Handled by container click
+                                  className="w-4 h-4 text-indigo-600 border border-white/10 rounded-md bg-slate-950 focus:ring-indigo-500 focus:ring-offset-slate-900 focus:ring-2 mt-0.5 shrink-0 cursor-pointer"
+                                />
+                              </div>
                             );
                           })}
-                      </React.Fragment>
-                    );
-                  })
-                )}
-              </tbody>
-            </table>
-          </div>
-        )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
 
-        {/* Footer actions */}
-        <div className="p-6 bg-slate-950/40 border-t border-white/5 flex flex-col sm:flex-row justify-between items-center gap-3">
-          <span className="text-xs text-slate-400 font-khmer">
-            {language === 'kh'
-              ? '💡 ចំណាំ៖ Admin មានសិទ្ធិពេញលេញលើគ្រប់មុខងារទាំងអស់ក្នុងប្រព័ន្ធដោយស្វ័យប្រវត្តិ។'
-              : '💡 Note: Admin has full automatic permissions across all system modules.'}
-          </span>
-          <button
-            onClick={handleSave}
-            disabled={saving}
-            className="flex items-center gap-2 bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white px-5 py-2.5 rounded-xl font-semibold text-xs transition-all shadow-md shadow-indigo-500/25 font-khmer cursor-pointer border-none outline-none disabled:opacity-50"
-          >
-            {saving ? (
-              <>
-                <span className="animate-spin rounded-full h-3.5 w-3.5 border-2 border-white border-t-transparent"></span>
-                <span>{language === 'kh' ? 'កំពុងរក្សាទុក...' : 'Saving...'}</span>
-              </>
-            ) : (
-              <span>{language === 'kh' ? 'រក្សាទុកសិទ្ធិ' : 'Save Permissions'}</span>
-            )}
-          </button>
+              {/* Footer Save Button */}
+              <div className="glass-card p-6 rounded-2xl flex flex-col sm:flex-row justify-between items-center gap-3">
+                <span className="text-xs text-slate-400 font-khmer">
+                  {language === 'kh'
+                    ? '💡 នៅពេលរក្សាទុក បុគ្គលិកនេះនឹងទទួលបានសិទ្ធិពិសេសភ្លាមៗដោយមិនបាច់រង់ចាំ Log in ឡើងវិញឡើយ។'
+                    : '💡 Once saved, custom permissions for this employee take effect immediately.'}
+                </span>
+                <button
+                  type="button"
+                  onClick={handleSaveEmpPermissions}
+                  disabled={saving}
+                  className="flex items-center gap-2 bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white px-6 py-2.5 rounded-xl font-semibold text-xs transition-all shadow-md shadow-indigo-500/25 font-khmer cursor-pointer border-none outline-none disabled:opacity-50"
+                >
+                  {saving ? (
+                    <>
+                      <span className="animate-spin rounded-full h-3.5 w-3.5 border-2 border-white border-t-transparent"></span>
+                      <span>{language === 'kh' ? 'កំពុងរក្សាទុក...' : 'Saving...'}</span>
+                    </>
+                  ) : (
+                    <span>{language === 'kh' ? 'រក្សាទុកសិទ្ធិបុគ្គលិក' : 'Save Employee Permissions'}</span>
+                  )}
+                </button>
+              </div>
+            </>
+          )}
         </div>
-      </div>
+      )}
     </div>
   );
 };

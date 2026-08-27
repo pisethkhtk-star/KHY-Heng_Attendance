@@ -228,13 +228,27 @@ public class AuthController {
             map.put("position", null);
         }
 
-        List<RolePermission> permissions = rolePermissionRepository.findByRole(employee.getRole());
-        List<String> allowedResources = permissions.stream()
-                .filter(p -> Boolean.TRUE.equals(p.getCanAccess()))
-                .map(RolePermission::getResource)
-                .collect(Collectors.toList());
+        List<String> allowedResources;
+        if (employee.getCustomPermissions() != null && !employee.getCustomPermissions().isBlank()) {
+            try {
+                com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+                allowedResources = mapper.readValue(employee.getCustomPermissions(), new com.fasterxml.jackson.core.type.TypeReference<List<String>>() {});
+            } catch (Exception e) {
+                allowedResources = Arrays.stream(employee.getCustomPermissions().split(","))
+                        .map(String::trim)
+                        .filter(s -> !s.isEmpty())
+                        .collect(Collectors.toList());
+            }
+        } else {
+            List<RolePermission> permissions = rolePermissionRepository.findByRole(employee.getRole());
+            allowedResources = permissions.stream()
+                    .filter(p -> Boolean.TRUE.equals(p.getCanAccess()))
+                    .map(RolePermission::getResource)
+                    .collect(Collectors.toList());
+        }
 
         map.put("permissions", allowedResources);
+        map.put("hasCustomPermissions", employee.getCustomPermissions() != null && !employee.getCustomPermissions().isBlank());
         return map;
     }
 }

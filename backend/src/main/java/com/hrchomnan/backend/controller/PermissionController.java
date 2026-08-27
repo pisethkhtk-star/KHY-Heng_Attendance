@@ -1,16 +1,20 @@
 package com.hrchomnan.backend.controller;
 
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.hrchomnan.backend.enums.Role;
+import com.hrchomnan.backend.model.Employee;
 import com.hrchomnan.backend.model.RolePermission;
+import com.hrchomnan.backend.repository.EmployeeRepository;
 import com.hrchomnan.backend.repository.RolePermissionRepository;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
+import java.util.*;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/permissions")
@@ -18,6 +22,8 @@ import java.util.Optional;
 public class PermissionController {
 
     private final RolePermissionRepository rolePermissionRepository;
+    private final EmployeeRepository employeeRepository;
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     @GetMapping
     public ResponseEntity<List<RolePermission>> getAllPermissions(@RequestParam(required = false) String role) {
@@ -70,5 +76,92 @@ public class PermissionController {
         }
 
         return ResponseEntity.ok(Map.of("message", "Permissions updated successfully"));
+    }
+
+    /**
+     * Get individual employee permission details
+     */
+    @GetMapping("/employee/{id}")
+    public ResponseEntity<?> getEmployeePermissions(@PathVariable UUID id) {
+        Optional<Employee> empOpt = employeeRepository.findById(id);
+        if (empOpt.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("message", "Employee not found"));
+        }
+
+        Employee emp = empOpt.get();
+        List<RolePermission> rolePerms = rolePermissionRepository.findByRole(emp.getRole());
+        List<String> roleAllowedResources = rolePerms.stream()
+                .filter(p -> Boolean.TRUE.equals(p.getCanAccess()))
+                .map(RolePermission::getResource)
+                .collect(Collectors.toList());
+
+        boolean hasCustom = emp.getCustomPermissions() != null && !emp.getCustomPermissions().isBlank();
+        List<String> effectiveResources;
+
+        if (hasCustom) {
+            try {
+                effectiveResources = objectMapper.readValue(emp.getCustomPermissions(), new TypeReference<List<String>>() {});
+            } catch (Exception e) {
+                effectiveResources = Arrays.stream(emp.getCustomPermissions().split(","))
+                        .map(String::trim)
+                        .filter(s -> !s.isEmpty())
+                        .collect(Collectors.toList());
+            }
+        } else {
+            effectiveResources = roleAllowedResources;
+        }
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("employeeId", emp.getId());
+        response.put("staffId", emp.getStaffId());
+        response.put("nameEn", emp.getNameEn());
+        response.put("nameKh", emp.getNameKh());
+        response.put("role", emp.getRole());
+        response.put("hasCustom", hasCustom);
+        response.put("customPermissions", hasCustom ? effectiveResources : null);
+        response.put("rolePermissions", roleAllowedResources);
+        response.put("effectivePermissions", effectiveResources);
+
+        return ResponseEntity.ok(response);
+    }
+
+    @Data
+    public static class UpdateEmployeePermissionsRequest {
+        private List<String> customPermissions;
+        private Boolean resetToRole;
+    }
+
+    /**
+     * Update or reset individual employee permissions
+     */
+    @PutMapping("/employee/{id}")
+    public ResponseEntity<?> updateEmployeePermissions(
+            @PathVariable UUID id,
+            @RequestBody UpdateEmployeePermissionsRequest request
+    ) {
+        Optional<Employee> empOpt = employeeRepository.findById(id);
+        if (empOpt.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("message", "Employee not found"));
+        }
+
+        Employee emp = empOpt.get();
+
+        if (Boolean.TRUE.equals(request.getResetToRole())) {
+            emp.setCustomPermissions(null);
+        } else if (request.getCustomPermissions() != null) {
+            try {
+                String json = objectMapper.writeValueAsString(request.getCustomPermissions());
+                emp.setCustomPermissions(json);
+            } catch (Exception e) {
+                emp.setCustomPermissions(String.join(",", request.getCustomPermissions()));
+            }
+        }
+
+        employeeRepository.save(emp);
+
+        return ResponseEntity.ok(Map.of(
+                "message", "Employee permissions updated successfully",
+                "hasCustom", emp.getCustomPermissions() != null
+        ));
     }
 }
