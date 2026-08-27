@@ -19,7 +19,7 @@ import appIcon from '../assets/app_icon.png';
 const Sidebar = ({ isOpen, toggleSidebar }) => {
   const { user, hasPermission } = useAuth();
   const { t } = useLanguage();
-  const [openMenus, setOpenMenus] = useState({ Leave: true, Setup: true });
+  const [openMenus, setOpenMenus] = useState({ Attendance: true, Leave: true, Setup: true });
 
   const menuItems = [
     {
@@ -52,12 +52,35 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
           name: t("workHours"),
           resource: "work_hours",
         },
+        {
+          path: "/telegram-settings",
+          name: t("telegramGroup"),
+          resource: "work_hours",
+        },
       ]
     },
     {
-      path: "/attendance",
+      key: "Attendance",
       name: t("attendance"),
       icon: ClockIcon,
+      subItems: [
+        {
+          path: "/attendance",
+          name: t("allAttendanceLogs"),
+        },
+        {
+          path: "/attendance-early-in",
+          name: t("earlyArrivals"),
+        },
+        {
+          path: "/attendance-late",
+          name: t("lateArrivals"),
+        },
+        {
+          path: "/attendance-early-out",
+          name: t("earlyDepartures"),
+        },
+      ]
     },
     {
       path: "/overtime",

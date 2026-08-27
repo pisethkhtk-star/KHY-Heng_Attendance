@@ -14,6 +14,8 @@ abstract class IAttendanceRepository {
 
   Future<List<AttendanceRecord>> fetchHistoryRecords({String? staffId, bool forceRefresh = false});
 
+  Future<Map<String, dynamic>?> fetchCompanyWorkHours();
+
   Future<Map<String, dynamic>> scanQRCode(
     String qrCodeData, {
     double? lat,
@@ -123,6 +125,17 @@ class AttendanceRepository implements IAttendanceRepository {
       } catch (_) {}
     }
     return [];
+  }
+
+  @override
+  Future<Map<String, dynamic>?> fetchCompanyWorkHours() async {
+    try {
+      final response = await _apiClient.get('/company-work-hours');
+      if (response != null && response.statusCode == 200) {
+        return jsonDecode(response.body) as Map<String, dynamic>;
+      }
+    } catch (_) {}
+    return null;
   }
 
   @override

@@ -146,6 +146,8 @@ public class EmployeeController {
         private String facePhoto;
         private String faceDescriptor;
         private String profilePhoto;
+        private Boolean isFlexible;
+        private String flexibleSchedule;
     }
 
     @PostMapping
@@ -193,6 +195,8 @@ public class EmployeeController {
                 .shift1End(dto.getShift1End() != null ? dto.getShift1End() : "12:00")
                 .shift2Start(dto.getShift2Start() != null ? dto.getShift2Start() : "13:00")
                 .shift2End(dto.getShift2End() != null ? dto.getShift2End() : "17:00")
+                .isFlexible(dto.getIsFlexible() != null ? dto.getIsFlexible() : false)
+                .flexibleSchedule(dto.getFlexibleSchedule() != null ? dto.getFlexibleSchedule() : "{}")
                 .address(dto.getAddress() != null ? dto.getAddress() : "")
                 .idCardPassport(dto.getIdCardPassport() != null ? dto.getIdCardPassport() : "")
                 .email(dto.getEmail())
@@ -259,6 +263,8 @@ public class EmployeeController {
         if (dto.getShift1End() != null) emp.setShift1End(dto.getShift1End());
         if (dto.getShift2Start() != null) emp.setShift2Start(dto.getShift2Start());
         if (dto.getShift2End() != null) emp.setShift2End(dto.getShift2End());
+        if (dto.getIsFlexible() != null) emp.setIsFlexible(dto.getIsFlexible());
+        if (dto.getFlexibleSchedule() != null) emp.setFlexibleSchedule(dto.getFlexibleSchedule());
 
         if (dto.getJoinDate() != null) {
             emp.setJoinDate(LocalDate.parse(dto.getJoinDate()));
@@ -332,6 +338,8 @@ public class EmployeeController {
         map.put("shift1End", e.getShift1End());
         map.put("shift2Start", e.getShift2Start());
         map.put("shift2End", e.getShift2End());
+        map.put("isFlexible", e.getIsFlexible() != null ? e.getIsFlexible() : false);
+        map.put("flexibleSchedule", e.getFlexibleSchedule() != null ? e.getFlexibleSchedule() : "{}");
         map.put("address", e.getAddress());
         map.put("idCardPassport", e.getIdCardPassport());
         map.put("photoUrl", e.getPhotoUrl());

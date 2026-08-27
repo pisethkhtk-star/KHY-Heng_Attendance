@@ -55,6 +55,9 @@ public class WorkHourController {
                     .shift1End(request.getShift1End())
                     .shift2Start(request.getShift2Start())
                     .shift2End(request.getShift2End())
+                    .isFlexible(request.getIsFlexible() != null ? request.getIsFlexible() : false)
+                    .lateGraceMinutes(request.getLateGraceMinutes() != null ? request.getLateGraceMinutes() : 0)
+                    .flexibleSchedule(request.getFlexibleSchedule() != null ? request.getFlexibleSchedule() : "{}")
                     .build();
         } else {
             workHour = list.get(0);
@@ -62,6 +65,15 @@ public class WorkHourController {
             workHour.setShift1End(request.getShift1End());
             workHour.setShift2Start(request.getShift2Start());
             workHour.setShift2End(request.getShift2End());
+            if (request.getIsFlexible() != null) {
+                workHour.setIsFlexible(request.getIsFlexible());
+            }
+            if (request.getLateGraceMinutes() != null) {
+                workHour.setLateGraceMinutes(request.getLateGraceMinutes());
+            }
+            if (request.getFlexibleSchedule() != null) {
+                workHour.setFlexibleSchedule(request.getFlexibleSchedule());
+            }
         }
 
         CompanyWorkHour saved = workHourRepository.save(workHour);

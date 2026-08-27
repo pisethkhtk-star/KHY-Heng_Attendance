@@ -15,6 +15,9 @@ import Departments from './pages/Departments';
 import Positions from './pages/Positions';
 import Employees from './pages/Employees';
 import Attendance from './pages/Attendance';
+import AttendanceEarlyIn from './pages/AttendanceEarlyIn';
+import AttendanceLate from './pages/AttendanceLate';
+import AttendanceEarlyOut from './pages/AttendanceEarlyOut';
 import Leaves from './pages/Leaves';
 import Overtime from './pages/Overtime';
 import Reports from './pages/Reports';
@@ -25,6 +28,7 @@ import LeaveTypes from './pages/LeaveTypes'; // verified
 import LeaveAllowances from './pages/LeaveAllowances'; // verified
 import WorkHours from './pages/WorkHours'; // verified
 import ApprovalManage from './pages/ApprovalManage';
+import TelegramSettings from './pages/TelegramSettings';
 
 const AppLayout = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -113,8 +117,11 @@ function App() {
                 }
               />
 
-              {/* Attendance Log (All authenticated users) */}
+              {/* Attendance Log & Sub-pages */}
               <Route path="attendance" element={<Attendance />} />
+              <Route path="attendance-early-in" element={<AttendanceEarlyIn />} />
+              <Route path="attendance-late" element={<AttendanceLate />} />
+              <Route path="attendance-early-out" element={<AttendanceEarlyOut />} />
 
               {/* Overtime Request & Approvals (All authenticated users) */}
               <Route path="overtime" element={<Overtime />} />
@@ -188,6 +195,16 @@ function App() {
                 element={
                   <ProtectedRoute resource="work_hours">
                     <WorkHours />
+                  </ProtectedRoute>
+                }
+              />
+
+              {/* Telegram Group Notifications Settings */}
+              <Route
+                path="telegram-settings"
+                element={
+                  <ProtectedRoute roles={['Admin', 'HR']}>
+                    <TelegramSettings />
                   </ProtectedRoute>
                 }
               />

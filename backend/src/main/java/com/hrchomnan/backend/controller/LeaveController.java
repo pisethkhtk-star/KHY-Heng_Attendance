@@ -32,6 +32,7 @@ public class LeaveController {
     private final LeaveTypeRepository leaveTypeRepository;
     private final EmployeeLeaveLimitRepository leaveLimitRepository;
     private final LeaveApprovalRuleRepository leaveApprovalRuleRepository;
+    private final com.hrchomnan.backend.service.TelegramNotificationService telegramNotificationService;
 
     @GetMapping
     public ResponseEntity<List<Map<String, Object>>> getAllLeaves(
@@ -258,6 +259,24 @@ public class LeaveController {
         Map<UUID, Department> deptMap = departmentRepository.findAll().stream().collect(Collectors.toMap(Department::getId, d -> d, (a, b) -> a));
         Map<UUID, Position> posMap = positionRepository.findAll().stream().collect(Collectors.toMap(Position::getId, p -> p, (a, b) -> a));
 
+        // Dispatch instant alert to Leave Telegram Group
+        try {
+            String dateRange = (resolvedStartDate.equals(resolvedEndDate))
+                    ? resolvedStartDate
+                    : resolvedStartDate + " to " + resolvedEndDate;
+            Double totalDays = request.getAmountDays() != null ? request.getAmountDays() : (double) dates.size();
+            telegramNotificationService.sendLeaveRequestNotification(
+                    empOpt.get(),
+                    request.getLeaveType(),
+                    dateRange,
+                    durType,
+                    totalDays,
+                    request.getReason()
+            );
+        } catch (Exception e) {
+            log.error("Error sending Telegram leave notification:", e);
+        }
+
         return ResponseEntity.status(HttpStatus.CREATED).body(enrichLeave(createdLeaves.get(0), empMap, deptMap, posMap));
     }
 
@@ -358,6 +377,20 @@ public class LeaveController {
         Map<String, Employee> empMap = Map.of(employee.getStaffId(), employee);
         Map<UUID, Department> deptMap = departmentRepository.findAll().stream().collect(Collectors.toMap(Department::getId, d -> d, (a, b) -> a));
         Map<UUID, Position> posMap = positionRepository.findAll().stream().collect(Collectors.toMap(Position::getId, p -> p, (a, b) -> a));
+
+        // Dispatch status update alert to Leave Telegram Group
+        try {
+            telegramNotificationService.sendLeaveApprovalNotification(
+                    employee,
+                    leave.getLeaveType(),
+                    leave.getLeaveDate() != null ? leave.getLeaveDate().toString() : "-",
+                    newStatus.name(),
+                    leave.getManagerName(),
+                    leave.getReason()
+            );
+        } catch (Exception e) {
+            log.error("Error sending Telegram leave status notification:", e);
+        }
 
         return ResponseEntity.ok(enrichLeave(updated, empMap, deptMap, posMap));
     }

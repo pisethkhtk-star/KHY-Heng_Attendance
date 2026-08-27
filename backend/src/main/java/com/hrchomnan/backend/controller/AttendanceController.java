@@ -6,7 +6,9 @@ import com.hrchomnan.backend.model.Attendance;
 import com.hrchomnan.backend.model.Department;
 import com.hrchomnan.backend.model.Employee;
 import com.hrchomnan.backend.model.Position;
+import com.hrchomnan.backend.model.CompanyWorkHour;
 import com.hrchomnan.backend.repository.AttendanceRepository;
+import com.hrchomnan.backend.repository.CompanyWorkHourRepository;
 import com.hrchomnan.backend.repository.DepartmentRepository;
 import com.hrchomnan.backend.repository.EmployeeRepository;
 import com.hrchomnan.backend.repository.LeaveRepository;
@@ -32,6 +34,7 @@ public class AttendanceController {
     private final DepartmentRepository departmentRepository;
     private final PositionRepository positionRepository;
     private final LeaveRepository leaveRepository;
+    private final CompanyWorkHourRepository companyWorkHourRepository;
     private final AttendanceHelper attendanceHelper;
 
     @Data
@@ -288,16 +291,27 @@ public class AttendanceController {
         String s2Start = (emp.getShift2Start() != null && !emp.getShift2Start().isBlank()) ? emp.getShift2Start() : "13:00";
         String s2End = (emp.getShift2End() != null && !emp.getShift2End().isBlank()) ? emp.getShift2End() : "17:00";
 
-        if (att.getCheckin1() != null && !att.getCheckin1().isBlank() && att.getCheckin1().compareTo(s1Start) > 0) {
+        int graceMinutes = 0;
+        List<CompanyWorkHour> cwhList = companyWorkHourRepository.findAll();
+        if (!cwhList.isEmpty() && cwhList.get(0).getLateGraceMinutes() != null) {
+            graceMinutes = cwhList.get(0).getLateGraceMinutes();
+        }
+
+        int s1StartMin = attendanceHelper.timeToMinutes(s1Start) + graceMinutes;
+        int s1EndMin = attendanceHelper.timeToMinutes(s1End);
+        int s2StartMin = attendanceHelper.timeToMinutes(s2Start) + graceMinutes;
+        int s2EndMin = attendanceHelper.timeToMinutes(s2End);
+
+        if (att.getCheckin1() != null && !att.getCheckin1().isBlank() && attendanceHelper.timeToMinutes(att.getCheckin1()) > s1StartMin) {
             isLate = true;
         }
-        if (att.getCheckin2() != null && !att.getCheckin2().isBlank() && att.getCheckin2().compareTo(s2Start) > 0) {
+        if (att.getCheckin2() != null && !att.getCheckin2().isBlank() && attendanceHelper.timeToMinutes(att.getCheckin2()) > s2StartMin) {
             isLate = true;
         }
-        if (att.getCheckout1() != null && !att.getCheckout1().isBlank() && att.getCheckout1().compareTo(s1End) < 0) {
+        if (att.getCheckout1() != null && !att.getCheckout1().isBlank() && attendanceHelper.timeToMinutes(att.getCheckout1()) < s1EndMin) {
             isEarlyLeave = true;
         }
-        if (att.getCheckout2() != null && !att.getCheckout2().isBlank() && att.getCheckout2().compareTo(s2End) < 0) {
+        if (att.getCheckout2() != null && !att.getCheckout2().isBlank() && attendanceHelper.timeToMinutes(att.getCheckout2()) < s2EndMin) {
             isEarlyLeave = true;
         }
 

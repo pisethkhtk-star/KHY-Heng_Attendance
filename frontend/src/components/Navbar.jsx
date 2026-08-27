@@ -7,8 +7,6 @@ import {
   ArrowLeftOnRectangleIcon,
   SunIcon,
   MoonIcon,
-  BellIcon,
-  Cog6ToothIcon,
   MagnifyingGlassIcon,
 } from '@heroicons/react/24/outline';
 
@@ -18,7 +16,7 @@ const Navbar = ({ toggleSidebar }) => {
   const location = useLocation();
 
   const [theme, setTheme] = useState(() => {
-    return localStorage.getItem('theme') || 'dark';
+    return localStorage.getItem('theme') || 'light';
   });
 
   const handleThemeToggle = () => {
@@ -109,16 +107,6 @@ const Navbar = ({ toggleSidebar }) => {
           >
             <span className="text-base">{locale === 'kh' ? '🇰🇭' : '🇺🇸'}</span>
             <span className="font-mono text-[10px] tracking-wider">{locale === 'kh' ? 'KH' : 'EN'}</span>
-          </button>
-
-          {/* Settings Button */}
-          <button className="hidden sm:flex h-10 w-10 items-center justify-center rounded-full bg-[var(--bg-app)] hover:bg-[var(--border-card)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] cursor-pointer transition-all outline-none border-none">
-            <Cog6ToothIcon className="h-5 w-5" />
-          </button>
-
-          {/* Notifications Button */}
-          <button className="hidden sm:flex h-10 w-10 items-center justify-center rounded-full bg-[var(--bg-app)] hover:bg-[var(--border-card)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] cursor-pointer transition-all outline-none border-none">
-            <BellIcon className="h-5 w-5" />
           </button>
         </div>
 

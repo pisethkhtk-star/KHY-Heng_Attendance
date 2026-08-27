@@ -572,13 +572,39 @@ class _ScannerModalSheetState extends State<ScannerModalSheet> with WidgetsBindi
       // Time in minutes from midnight for current actual Scan_Time
       final currentMinutes = now.hour * 60 + now.minute;
 
-      // ⚙️ Shift definitions (in minutes)
-      // Shift_In_1: 08:00 (480 mins) / Shift_Out_1: 12:00 (720 mins)
-      // Shift_In_2: 13:00 (780 mins) / Shift_Out_2: 17:00 (1020 mins)
-      final s1StartMinutes = 8 * 60;       // Shift_In_1 (08:00)
-      final s1EndMinutes = 12 * 60;       // Shift_Out_1 (12:00)
-      final s2StartMinutes = 13 * 60;     // Shift_In_2 (13:00)
-      final s2EndMinutes = 17 * 60;       // Shift_Out_2 (17:00)
+      // ⚙️ Shift definitions (in minutes) & Late Grace Period
+      int s1StartMinutes = 8 * 60;       // Shift_In_1 (08:00 default)
+      int s1EndMinutes = 12 * 60;       // Shift_Out_1 (12:00 default)
+      int s2StartMinutes = 13 * 60;     // Shift_In_2 (13:00 default)
+      int s2EndMinutes = 17 * 60;       // Shift_Out_2 (17:00 default)
+      int lateGraceMinutes = 0;
+
+      try {
+        final cwh = await _attendanceRepository.fetchCompanyWorkHours();
+        if (cwh != null) {
+          if (cwh['shift1Start'] != null && (cwh['shift1Start'] as String).contains(':')) {
+            final parts = (cwh['shift1Start'] as String).split(':');
+            s1StartMinutes = int.parse(parts[0]) * 60 + int.parse(parts[1]);
+          }
+          if (cwh['shift1End'] != null && (cwh['shift1End'] as String).contains(':')) {
+            final parts = (cwh['shift1End'] as String).split(':');
+            s1EndMinutes = int.parse(parts[0]) * 60 + int.parse(parts[1]);
+          }
+          if (cwh['shift2Start'] != null && (cwh['shift2Start'] as String).contains(':')) {
+            final parts = (cwh['shift2Start'] as String).split(':');
+            s2StartMinutes = int.parse(parts[0]) * 60 + int.parse(parts[1]);
+          }
+          if (cwh['shift2End'] != null && (cwh['shift2End'] as String).contains(':')) {
+            final parts = (cwh['shift2End'] as String).split(':');
+            s2EndMinutes = int.parse(parts[0]) * 60 + int.parse(parts[1]);
+          }
+          if (cwh['lateGraceMinutes'] != null) {
+            lateGraceMinutes = (cwh['lateGraceMinutes'] is num)
+                ? (cwh['lateGraceMinutes'] as num).toInt()
+                : (int.tryParse(cwh['lateGraceMinutes'].toString()) ?? 0);
+          }
+        }
+      } catch (_) {}
 
       final checkin1 = todayRecord?.checkIn1;
       final checkout1 = todayRecord?.checkOut1;
@@ -662,8 +688,8 @@ class _ScannerModalSheetState extends State<ScannerModalSheet> with WidgetsBindi
 
       if (determinedAction == 'checkin_1') {
         // ១. សម្រាប់ Check In 1 (ចូលធ្វើការវេនព្រឹក)
-        // IF Scan_Time > Shift_In_1 (មកយឺត)
-        if (currentMinutes > s1StartMinutes) {
+        // IF Scan_Time > Shift_In_1 + lateGraceMinutes (មកយឺត)
+        if (currentMinutes > (s1StartMinutes + lateGraceMinutes)) {
           requiresReason = true;
           reasonType = 'late';
         }
@@ -676,8 +702,8 @@ class _ScannerModalSheetState extends State<ScannerModalSheet> with WidgetsBindi
         }
       } else if (determinedAction == 'checkin_2') {
         // ៣. សម្រាប់ Check In 2 (ចូលធ្វើការវេនរសៀល)
-        // IF Scan_Time > Shift_In_2 (មកយឺត)
-        if (currentMinutes > s2StartMinutes) {
+        // IF Scan_Time > Shift_In_2 + lateGraceMinutes (មកយឺត)
+        if (currentMinutes > (s2StartMinutes + lateGraceMinutes)) {
           requiresReason = true;
           reasonType = 'late';
         }

@@ -1,9 +1,12 @@
 package com.hrchomnan.backend.util;
 
 import com.hrchomnan.backend.model.Attendance;
+import com.hrchomnan.backend.model.CompanyWorkHour;
 import com.hrchomnan.backend.model.Employee;
 import com.hrchomnan.backend.repository.AttendanceRepository;
+import com.hrchomnan.backend.repository.CompanyWorkHourRepository;
 import com.hrchomnan.backend.repository.EmployeeRepository;
+import com.hrchomnan.backend.service.TelegramNotificationService;
 import lombok.Builder;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
@@ -14,6 +17,7 @@ import java.time.LocalTime;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.List;
 import java.util.Optional;
 
 @Component
@@ -23,6 +27,8 @@ public class AttendanceHelper {
     private static final ZoneId CAMBODIA_ZONE = ZoneId.of("Asia/Phnom_Penh");
     private final AttendanceRepository attendanceRepository;
     private final EmployeeRepository employeeRepository;
+    private final CompanyWorkHourRepository companyWorkHourRepository;
+    private final TelegramNotificationService telegramNotificationService;
 
     @Data
     @Builder
@@ -166,18 +172,39 @@ public class AttendanceHelper {
         String s2Start = (employee.getShift2Start() != null && !employee.getShift2Start().isBlank()) ? employee.getShift2Start() : "13:00";
         String s2End = (employee.getShift2End() != null && !employee.getShift2End().isBlank()) ? employee.getShift2End() : "17:00";
 
+        int graceMinutes = 0;
+        List<CompanyWorkHour> cwhList = companyWorkHourRepository.findAll();
+        if (!cwhList.isEmpty() && cwhList.get(0).getLateGraceMinutes() != null) {
+            graceMinutes = cwhList.get(0).getLateGraceMinutes();
+        }
+
+        int s1StartMin = timeToMinutes(s1Start) + graceMinutes;
+        int s1EndMin = timeToMinutes(s1End);
+        int s2StartMin = timeToMinutes(s2Start) + graceMinutes;
+        int s2EndMin = timeToMinutes(s2End);
+
         boolean isLate = false;
         boolean isEarlyLeave = false;
 
-        if (c1 != null && !c1.isBlank() && c1.compareTo(s1Start) > 0) isLate = true;
-        if (c2 != null && !c2.isBlank() && c2.compareTo(s2Start) > 0) isLate = true;
-        if (o1 != null && !o1.isBlank() && o1.compareTo(s1End) < 0) isEarlyLeave = true;
-        if (o2 != null && !o2.isBlank() && o2.compareTo(s2End) < 0) isEarlyLeave = true;
+        if (c1 != null && !c1.isBlank() && timeToMinutes(c1) > s1StartMin) isLate = true;
+        if (c2 != null && !c2.isBlank() && timeToMinutes(c2) > s2StartMin) isLate = true;
+        if (o1 != null && !o1.isBlank() && timeToMinutes(o1) < s1EndMin) isEarlyLeave = true;
+        if (o2 != null && !o2.isBlank() && timeToMinutes(o2) < s2EndMin) isEarlyLeave = true;
 
         attendance.setIsLate(isLate);
         attendance.setIsEarlyLeave(isEarlyLeave);
 
         Attendance savedAttendance = attendanceRepository.save(attendance);
+
+        // Send instant notification to Telegram Group
+        telegramNotificationService.sendAttendanceNotification(
+                employee,
+                savedAttendance,
+                action,
+                timeString,
+                null,
+                note
+        );
 
         return ScanResult.builder()
                 .attendance(savedAttendance)

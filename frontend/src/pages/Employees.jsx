@@ -2,7 +2,9 @@ import React, { useState, useEffect, useRef } from 'react';
 import api from '../utils/api';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
-import { PlusIcon, PencilIcon, TrashIcon, MagnifyingGlassIcon, QrCodeIcon, CameraIcon } from '@heroicons/react/24/outline';
+import { PlusIcon, PencilIcon, TrashIcon, MagnifyingGlassIcon, QrCodeIcon, CameraIcon, CalendarDaysIcon, ClockIcon, ArrowDownTrayIcon } from '@heroicons/react/24/outline';
+import FlexibleSchedulePicker from '../components/FlexibleSchedulePicker';
+import { WEEKDAYS } from '../utils/constants';
 
 const Employees = () => {
   const { user } = useAuth();
@@ -50,6 +52,10 @@ const Employees = () => {
   const [shift1End, setShift1End] = useState('12:00');
   const [shift2Start, setShift2Start] = useState('13:00');
   const [shift2End, setShift2End] = useState('17:00');
+  const [enableShift2, setEnableShift2] = useState(true);
+  const [isFlexible, setIsFlexible] = useState(false);
+  const [workingDays, setWorkingDays] = useState([1, 2, 3, 4, 5]);
+  const [flexibleSchedule, setFlexibleSchedule] = useState({});
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [role, setRole] = useState('Employee');
@@ -61,6 +67,7 @@ const Employees = () => {
 
   const [profilePhoto, setProfilePhoto] = useState(''); // profile photo (simple upload, no face detect)
   const [profilePhotoLoading, setProfilePhotoLoading] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [branches, setBranches] = useState([]);
   const [defaultWorkHours, setDefaultWorkHours] = useState({
@@ -68,6 +75,8 @@ const Employees = () => {
     shift1End: '12:00',
     shift2Start: '13:00',
     shift2End: '17:00',
+    isFlexible: false,
+    flexibleSchedule: '{}',
   });
 
   const fetchEmployees = async () => {
@@ -124,17 +133,15 @@ const Employees = () => {
   }, [search, filterDept, filterBranch, filterStatus]);
 
   // Filter positions matching selected department in Form Modal
-  const availablePositions = positions.filter(pos => pos.departmentId === departmentId);
+  const availablePositions = positions.filter(pos => !pos.departmentId || String(pos.departmentId) === String(departmentId));
+  const displayPositions = availablePositions.length > 0 ? availablePositions : positions;
 
   // Sync position selection when department changes in form
   useEffect(() => {
-    if (availablePositions.length > 0) {
-      // If current position isn't in new list, pick first available
-      if (!availablePositions.find(p => p.id === positionId)) {
-        setPositionId(availablePositions[0].id);
+    if (displayPositions.length > 0) {
+      if (!displayPositions.find(p => String(p.id) === String(positionId))) {
+        setPositionId(displayPositions[0].id);
       }
-    } else {
-      setPositionId('');
     }
   }, [departmentId, positions]);
 
@@ -416,13 +423,35 @@ const Employees = () => {
     setGender('Male');
     const firstDept = departments[0]?.id || '';
     setDepartmentId(firstDept);
+    const validPos = positions.filter(p => !p.departmentId || String(p.departmentId) === String(firstDept));
+    const firstPos = validPos[0]?.id || positions[0]?.id || '';
+    setPositionId(firstPos);
     setBranch(branches[0]?.name || 'Phnom Penh HQ');
     setJoinDate(new Date().toISOString().split('T')[0]);
     setStatus('Active');
-    setShift1Start(defaultWorkHours.shift1Start);
-    setShift1End(defaultWorkHours.shift1End);
-    setShift2Start(defaultWorkHours.shift2Start);
-    setShift2End(defaultWorkHours.shift2End);
+    const dHours = defaultWorkHours || {};
+    const has2 = Boolean(dHours.shift2Start && String(dHours.shift2Start).trim() !== '' && dHours.shift2End && String(dHours.shift2End).trim() !== '');
+    setEnableShift2(has2);
+    setShift1Start(dHours.shift1Start || '08:00');
+    setShift1End(dHours.shift1End || '12:00');
+    setShift2Start(dHours.shift2Start || '13:00');
+    setShift2End(dHours.shift2End || '17:00');
+    setIsFlexible(Boolean(dHours.isFlexible));
+    if (dHours.flexibleSchedule) {
+      try {
+        const parsed = typeof dHours.flexibleSchedule === 'string'
+          ? JSON.parse(dHours.flexibleSchedule)
+          : dHours.flexibleSchedule;
+        setFlexibleSchedule(parsed || {});
+        setWorkingDays(Array.isArray(parsed?.workingDays) ? parsed.workingDays : [1, 2, 3, 4, 5]);
+      } catch (e) {
+        setFlexibleSchedule({});
+        setWorkingDays([1, 2, 3, 4, 5]);
+      }
+    } else {
+      setFlexibleSchedule({});
+      setWorkingDays([1, 2, 3, 4, 5]);
+    }
     setEmail('');
     setPassword('');
     setRole('Employee');
@@ -437,21 +466,40 @@ const Employees = () => {
   };
 
   const handleOpenEditModal = (emp) => {
+    if (!emp) return;
     setEditId(emp.id);
-    setStaffId(emp.staffId);
-    setNameEn(emp.nameEn);
-    setNameKh(emp.nameKh);
-    setGender(emp.gender);
-    setDepartmentId(emp.departmentId);
-    setPositionId(emp.positionId);
-    setBranch(emp.branch);
+    setStaffId(emp.staffId || '');
+    setNameEn(emp.nameEn || '');
+    setNameKh(emp.nameKh || '');
+    setGender(emp.gender || 'Male');
+    setDepartmentId(emp.departmentId || departments[0]?.id || '');
+    setPositionId(emp.positionId || '');
+    setBranch(emp.branch || '');
     setJoinDate(emp.joinDate ? emp.joinDate.split('T')[0] : '');
-    setStatus(emp.status);
-    setShift1Start(emp.shift1Start);
-    setShift1End(emp.shift1End);
-    setShift2Start(emp.shift2Start);
-    setShift2End(emp.shift2End);
-    setEmail(emp.email);
+    setStatus(emp.status || 'Active');
+    const has2 = Boolean(emp.shift2Start && String(emp.shift2Start).trim() !== '' && emp.shift2End && String(emp.shift2End).trim() !== '');
+    setEnableShift2(has2);
+    setShift1Start(emp.shift1Start || '08:00');
+    setShift1End(emp.shift1End || '12:00');
+    setShift2Start(emp.shift2Start || '13:00');
+    setShift2End(emp.shift2End || '17:00');
+    setIsFlexible(Boolean(emp.isFlexible));
+    if (emp.flexibleSchedule) {
+      try {
+        const parsed = typeof emp.flexibleSchedule === 'string'
+          ? JSON.parse(emp.flexibleSchedule)
+          : emp.flexibleSchedule;
+        setFlexibleSchedule(parsed || {});
+        setWorkingDays(Array.isArray(parsed?.workingDays) ? parsed.workingDays : [1, 2, 3, 4, 5]);
+      } catch (e) {
+        setFlexibleSchedule({});
+        setWorkingDays([1, 2, 3, 4, 5]);
+      }
+    } else {
+      setFlexibleSchedule({});
+      setWorkingDays([1, 2, 3, 4, 5]);
+    }
+    setEmail(emp.email || '');
     setPassword(''); // leave blank
     setRole(emp.role);
     setAddress(emp.address || '');
@@ -466,27 +514,50 @@ const Employees = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!staffId || !nameEn || !nameKh || !email || !departmentId || !positionId || (!editId && !password)) {
-      setErrorMsg('Required fields are missing');
+    setErrorMsg('');
+
+    if (!staffId.trim() || !nameEn.trim() || !nameKh.trim() || !email.trim()) {
+      setErrorMsg(locale === 'kh' ? 'សូមបំពេញព័ត៌មានដែលចាំបាច់ទាំងអស់ (Staff ID, ឈ្មោះ, Email)!' : 'Please fill in all required fields (Staff ID, Name, Email)!');
       return;
     }
 
+    if (!departmentId) {
+      setErrorMsg(locale === 'kh' ? 'សូមជ្រើសរើសនាយកដ្ឋាន (Department)!' : 'Please select a department!');
+      return;
+    }
+
+    if (!positionId) {
+      setErrorMsg(locale === 'kh' ? 'សូមជ្រើសរើសតួនាទី (Position)!' : 'Please select a position!');
+      return;
+    }
+
+    if (!editId && !password.trim()) {
+      setErrorMsg(locale === 'kh' ? 'សូមវាយបញ្ចូលពាក្យសម្ងាត់ (Password) សម្រាប់បុគ្គលិកថ្មី!' : 'Please enter a password for the new employee!');
+      return;
+    }
+
+    setSubmitting(true);
     try {
       const payload = {
-        staffId,
-        nameEn,
-        nameKh,
+        staffId: staffId.trim(),
+        nameEn: nameEn.trim(),
+        nameKh: nameKh.trim(),
         gender,
         positionId,
         departmentId,
         branch: branch || '',
         joinDate: joinDate || new Date().toISOString().split('T')[0],
         status,
-        shift1Start,
-        shift1End,
-        shift2Start,
-        shift2End,
-        email,
+        shift1Start: shift1Start || '08:00',
+        shift1End: shift1End || '12:00',
+        shift2Start: enableShift2 ? (shift2Start || '13:00') : '',
+        shift2End: enableShift2 ? (shift2End || '17:00') : '',
+        isFlexible: Boolean(isFlexible),
+        flexibleSchedule: JSON.stringify({
+          ...(typeof flexibleSchedule === 'object' ? flexibleSchedule : {}),
+          workingDays,
+        }),
+        email: email.trim(),
         role,
         address: address || '',
         idCardPassport: idCardPassport || '',
@@ -495,8 +566,9 @@ const Employees = () => {
         profilePhoto: profilePhoto || undefined,
       };
 
-
-      if (password) payload.password = password;
+      if (password && password.trim()) {
+        payload.password = password.trim();
+      }
 
       if (editId) {
         await api.put(`/employees/${editId}`, payload);
@@ -507,7 +579,9 @@ const Employees = () => {
       fetchEmployees();
     } catch (error) {
       console.error('Error saving employee:', error);
-      setErrorMsg(error.response?.data?.message || 'Error saving employee');
+      setErrorMsg(error.response?.data?.message || (locale === 'kh' ? 'មានបញ្ហាក្នុងការរក្សាទុកទិន្នន័យបុគ្គលិក' : 'Error saving employee'));
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -523,6 +597,121 @@ const Employees = () => {
     }
   };
 
+  const handleExportExcel = () => {
+    if (employees.length === 0) return;
+
+    const todayStr = new Date().toLocaleDateString('en-US', {
+      day: '2-digit',
+      month: 'long',
+      year: 'numeric',
+    });
+    const title = `Employee Personnel Records (${todayStr})`;
+
+    let excelHTML = `
+      <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
+      <head>
+        <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+        <!--[if gte mso 9]>
+        <xml>
+          <x:ExcelWorkbook>
+            <x:ExcelWorksheets>
+              <x:ExcelWorksheet>
+                <x:Name>Employees</x:Name>
+                <x:WorksheetOptions>
+                  <x:DisplayGridlines/>
+                </x:WorksheetOptions>
+              </x:ExcelWorksheet>
+            </x:ExcelWorksheets>
+          </x:ExcelWorkbook>
+        </xml>
+        <![endif]-->
+        <style>
+          body { font-family: Calibri, 'Segoe UI', Tahoma, sans-serif; }
+          .title-row { font-size: 14pt; font-weight: bold; text-align: center; height: 35px; }
+          table.report-table { border-collapse: collapse; width: 100%; border: 1px solid #000000; }
+          table.report-table th { border: 1px solid #000000; background-color: #f3f4f6; font-weight: bold; text-align: left; padding: 6px 10px; font-size: 10pt; }
+          table.report-table td { border: 1px solid #000000; padding: 6px 10px; font-size: 10pt; }
+        </style>
+      </head>
+      <body>
+        <table style="width:100%; border-collapse:collapse; margin-bottom:15px;">
+          <tr>
+            <td colspan="12" class="title-row" style="font-size:14pt; font-weight:bold; text-align:center; height:35px;">
+              ${title}
+            </td>
+          </tr>
+        </table>
+
+        <table class="report-table" border="1" style="border-collapse:collapse; width:100%; border:1px solid #000000;">
+          <thead>
+            <tr style="background-color:#f3f4f6;">
+              <th style="border:1px solid #000000; padding:6px 10px; font-weight:bold; width:45px; text-align:center;">No</th>
+              <th style="border:1px solid #000000; padding:6px 10px; font-weight:bold; width:100px;">Staff ID</th>
+              <th style="border:1px solid #000000; padding:6px 10px; font-weight:bold; width:160px;">Name (EN)</th>
+              <th style="border:1px solid #000000; padding:6px 10px; font-weight:bold; width:160px;">Name (KH)</th>
+              <th style="border:1px solid #000000; padding:6px 10px; font-weight:bold; width:80px;">Gender</th>
+              <th style="border:1px solid #000000; padding:6px 10px; font-weight:bold; width:160px;">Department</th>
+              <th style="border:1px solid #000000; padding:6px 10px; font-weight:bold; width:160px;">Position</th>
+              <th style="border:1px solid #000000; padding:6px 10px; font-weight:bold; width:120px;">Branch</th>
+              <th style="border:1px solid #000000; padding:6px 10px; font-weight:bold; width:180px;">Email</th>
+              <th style="border:1px solid #000000; padding:6px 10px; font-weight:bold; width:90px;">Role</th>
+              <th style="border:1px solid #000000; padding:6px 10px; font-weight:bold; width:110px;">Join Date</th>
+              <th style="border:1px solid #000000; padding:6px 10px; font-weight:bold; width:90px;">Status</th>
+            </tr>
+          </thead>
+          <tbody>
+    `;
+
+    employees.forEach((emp, idx) => {
+      const rowNo = idx + 1;
+      const staffId = emp.staffId || '';
+      const nameEn = emp.nameEn || '';
+      const nameKh = emp.nameKh || '';
+      const gender = emp.gender || '';
+      const dept = emp.department?.nameEn || emp.department?.nameKh || '';
+      const pos = emp.position?.titleEn || emp.position?.titleKh || '';
+      const branch = emp.branch || '';
+      const email = emp.email || '';
+      const role = emp.role || '';
+      const joinDate = emp.joinDate ? new Date(emp.joinDate).toLocaleDateString('en-US') : '-';
+      const status = emp.status || '';
+
+      excelHTML += `
+        <tr>
+          <td style="border:1px solid #000000; text-align:center; padding:5px 8px;">${rowNo}</td>
+          <td style="border:1px solid #000000; padding:5px 10px; font-weight:bold;">${staffId}</td>
+          <td style="border:1px solid #000000; padding:5px 10px;">${nameEn}</td>
+          <td style="border:1px solid #000000; padding:5px 10px;">${nameKh}</td>
+          <td style="border:1px solid #000000; padding:5px 10px;">${gender}</td>
+          <td style="border:1px solid #000000; padding:5px 10px;">${dept}</td>
+          <td style="border:1px solid #000000; padding:5px 10px;">${pos}</td>
+          <td style="border:1px solid #000000; padding:5px 10px;">${branch}</td>
+          <td style="border:1px solid #000000; padding:5px 10px;">${email}</td>
+          <td style="border:1px solid #000000; padding:5px 10px;">${role}</td>
+          <td style="border:1px solid #000000; padding:5px 10px;">${joinDate}</td>
+          <td style="border:1px solid #000000; padding:5px 10px; font-weight:bold;">${status}</td>
+        </tr>
+      `;
+    });
+
+    excelHTML += `
+          </tbody>
+        </table>
+      </body>
+      </html>
+    `;
+
+    const blob = new Blob(['\uFEFF' + excelHTML], { type: 'application/vnd.ms-excel;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    const todayFileStr = new Date().toISOString().split('T')[0];
+    link.setAttribute('download', `Employees_List_${todayFileStr}.xls`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   return (
     <div className="space-y-6 text-slate-100">
       {/* Title block */}
@@ -531,15 +720,26 @@ const Employees = () => {
           <h2 className="text-xl font-bold text-white font-khmer">{t("employees")}</h2>
           <p className="text-slate-400 text-xs mt-1">Manage corporate personnel records</p>
         </div>
-        {!isReadOnly && (
+        <div className="flex items-center gap-3">
           <button
-            onClick={handleOpenAddModal}
-            className="flex items-center gap-2 bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white px-4 py-2.5 rounded-xl font-semibold text-sm transition-all shadow-md shadow-indigo-500/25 font-khmer cursor-pointer border-none outline-none"
+            type="button"
+            onClick={handleExportExcel}
+            disabled={employees.length === 0}
+            className="flex items-center gap-2 px-4 py-2 bg-[#d1fae5] hover:bg-[#a7f3d0] border border-[#6ee7b7] text-[#059669] rounded-2xl font-bold text-sm transition-all shadow-sm hover:shadow cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            <PlusIcon className="h-5 w-5" />
-            {t("add")}
+            <ArrowDownTrayIcon className="h-4 w-4 stroke-[2.5]" />
+            <span>Export Excel</span>
           </button>
-        )}
+          {!isReadOnly && (
+            <button
+              onClick={handleOpenAddModal}
+              className="flex items-center gap-2 bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white px-4 py-2.5 rounded-xl font-semibold text-sm transition-all shadow-md shadow-indigo-500/25 font-khmer cursor-pointer border-none outline-none"
+            >
+              <PlusIcon className="h-5 w-5" />
+              {t("add")}
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Search & Filters */}
@@ -724,15 +924,23 @@ const Employees = () => {
 
       {/* Form Dialog Modal */}
       {showModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-md px-4 overflow-y-auto py-10">
-          <div className="w-full max-w-2xl bg-slate-900/40 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl overflow-hidden glow-indigo my-auto">
-            <div className="px-6 py-4 bg-slate-950/60 border-b border-white/10">
-              <h3 className="font-bold text-white font-khmer">
-                {editId ? t("edit") : t("add")} {t("employees")}
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-md px-4 overflow-y-auto py-8">
+          <div className="w-full max-w-5xl bg-slate-900/90 backdrop-blur-2xl border border-white/10 rounded-2xl shadow-2xl overflow-hidden glow-indigo my-auto">
+            <div className="px-6 py-4 bg-slate-950/80 border-b border-white/10 flex items-center justify-between">
+              <h3 className="text-base font-bold text-white font-khmer flex items-center gap-2">
+                <span className="h-2 w-2 rounded-full bg-indigo-500"></span>
+                <span>{editId ? t("edit") : t("add")} {t("employees")}</span>
               </h3>
+              <button
+                type="button"
+                onClick={() => setShowModal(false)}
+                className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-white/10 transition-colors cursor-pointer"
+              >
+                ✕
+              </button>
             </div>
 
-            <form onSubmit={handleSubmit} className="p-6 space-y-4 max-h-[75vh] overflow-y-auto">
+            <form onSubmit={handleSubmit} className="p-6 md:p-8 space-y-5 max-h-[82vh] overflow-y-auto">
               {errorMsg && (
                 <div className="rounded-lg bg-rose-500/10 border border-rose-500/20 p-3 text-xs text-rose-300 text-center">
                   {errorMsg}
@@ -916,7 +1124,7 @@ const Employees = () => {
                     onChange={(e) => setPositionId(e.target.value)}
                     className="block w-full py-2 px-3 border border-white/10 bg-slate-950/60 text-white rounded-xl text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/20 focus:bg-slate-900 outline-none transition-all font-khmer"
                   >
-                    {availablePositions.map(p => (
+                    {displayPositions.map(p => (
                       <option key={p.id} value={p.id} className="bg-slate-900">{getLocalizedName(p.titleEn, p.titleKh)}</option>
                     ))}
                   </select>
@@ -1000,63 +1208,205 @@ const Employees = () => {
                     <option value="Admin" className="bg-slate-900">Admin</option>
                   </select>
                 </div>
-              </div>
 
-              {/* Shift definitions */}
-              <div className="border-t border-white/10 pt-4 space-y-4">
-                <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider font-khmer">Shift Times Configuration</h4>
-
-                <div className="grid grid-cols-2 gap-4 bg-slate-950/40 p-4 rounded-xl border border-white/5">
-                  {/* Shift 1 */}
-                  <div className="space-y-2">
-                    <p className="text-[11px] font-bold text-slate-400 uppercase font-khmer">{t("shift1")}</p>
-                    <div className="grid grid-cols-2 gap-2 text-xs">
-                      <div>
-                        <label className="block text-[10px] text-slate-500 uppercase mb-0.5">{t("start")}</label>
-                        <input
-                          type="time"
-                          value={shift1Start}
-                          onChange={(e) => setShift1Start(e.target.value)}
-                          className="block w-full py-1.5 px-2 border border-white/10 bg-slate-950/60 text-white rounded-lg outline-none"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-[10px] text-slate-500 uppercase mb-0.5">{t("end")}</label>
-                        <input
-                          type="time"
-                          value={shift1End}
-                          onChange={(e) => setShift1End(e.target.value)}
-                          className="block w-full py-1.5 px-2 border border-white/10 bg-slate-950/60 text-white rounded-lg outline-none"
-                        />
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Shift 2 */}
-                  <div className="space-y-2">
-                    <p className="text-[11px] font-bold text-slate-400 uppercase font-khmer">{t("shift2")}</p>
-                    <div className="grid grid-cols-2 gap-2 text-xs">
-                      <div>
-                        <label className="block text-[10px] text-slate-500 uppercase mb-0.5">{t("start")}</label>
-                        <input
-                          type="time"
-                          value={shift2Start}
-                          onChange={(e) => setShift2Start(e.target.value)}
-                          className="block w-full py-1.5 px-2 border border-white/10 bg-slate-950/60 text-white rounded-lg outline-none"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-[10px] text-slate-500 uppercase mb-0.5">{t("end")}</label>
-                        <input
-                          type="time"
-                          value={shift2End}
-                          onChange={(e) => setShift2End(e.target.value)}
-                          className="block w-full py-1.5 px-2 border border-white/10 bg-slate-950/60 text-white rounded-lg outline-none"
-                        />
-                      </div>
-                    </div>
+                {/* Working Days Checkboxes (Monday - Sunday) - Located Between Role and Flexible */}
+                <div className="col-span-1 md:col-span-2 space-y-2">
+                  <label className="block text-xs font-semibold text-slate-400 uppercase font-khmer">
+                    {t("workingDaysWeekly")} * ({locale === 'kh' ? 'ជ្រើសរើសថ្ងៃធ្វើការប្រចាំសប្ដាហ៍' : 'Select working days of the week'})
+                  </label>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-7 gap-2.5 p-3.5 bg-slate-950/60 border border-white/10 rounded-xl">
+                    {WEEKDAYS.map(day => {
+                      const isChecked = workingDays.includes(day.key);
+                      return (
+                        <label key={day.key} className="flex items-center gap-2 text-xs text-slate-200 cursor-pointer select-none font-semibold">
+                          <input
+                            type="checkbox"
+                            checked={isChecked}
+                            onChange={() => {
+                              if (workingDays.includes(day.key)) {
+                                setWorkingDays(workingDays.filter(d => d !== day.key));
+                              } else {
+                                setWorkingDays([...workingDays, day.key]);
+                              }
+                            }}
+                            className="rounded border-white/20 bg-slate-900 text-indigo-600 focus:ring-indigo-500 focus:ring-offset-0 focus:ring-offset-transparent cursor-pointer h-4 w-4"
+                          />
+                          <span className="font-khmer">{locale === 'kh' ? day.kh : day.en}</span>
+                        </label>
+                      );
+                    })}
                   </div>
                 </div>
+              </div>
+
+              {/* Shift definitions & Flexible Working Hours */}
+              <div className="border-t border-white/10 pt-4 space-y-4">
+                {/* Master Flexible Mode Switch */}
+                <div className="flex items-center justify-between p-3 rounded-xl bg-slate-950/60 border border-indigo-500/20">
+                  <div className="flex items-center gap-2.5">
+                    <div className={`p-2 rounded-lg ${isFlexible ? 'bg-purple-500/20 text-purple-300' : 'bg-indigo-500/10 text-indigo-400'}`}>
+                      {isFlexible ? <CalendarDaysIcon className="h-5 w-5" /> : <ClockIcon className="h-5 w-5" />}
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-bold text-white font-khmer">{t("flexibleHours")}</span>
+                        {isFlexible && (
+                          <span className="px-2 py-0.5 rounded-full text-[9px] font-bold bg-purple-500/20 text-purple-300 border border-purple-500/30 font-khmer">
+                            Active
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-[10px] text-slate-400 font-khmer mt-0.5">{t("flexibleHoursDesc")}</p>
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={isFlexible}
+                    onClick={() => setIsFlexible(!isFlexible)}
+                    className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                      isFlexible ? 'bg-purple-600 shadow-md shadow-purple-600/40' : 'bg-slate-700'
+                    }`}
+                  >
+                    <span
+                      className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-lg ring-0 transition duration-200 ease-in-out ${
+                        isFlexible ? 'translate-x-5' : 'translate-x-0'
+                      }`}
+                    />
+                  </button>
+                </div>
+
+                {/* FIXED SHIFTS PANEL (When isFlexible is FALSE) */}
+                {!isFlexible && (
+                  <div className="space-y-4 animate-fade-in">
+                    {/* Shift Times Header & Toggle */}
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider font-khmer">
+                          {t("shiftConfig")}
+                        </h4>
+                        <p className="text-[10px] text-slate-500 font-khmer mt-0.5">
+                          {enableShift2 ? t("twoShiftsDesc") : t("singleShift")}
+                        </p>
+                      </div>
+
+                      {/* Switch Toggle */}
+                      <div className="flex items-center gap-2.5 bg-slate-900/80 px-3 py-1.5 rounded-xl border border-white/10">
+                        <span className="text-[11px] font-semibold text-slate-300 font-khmer">
+                          {enableShift2 ? t("twoShifts") : t("singleShift")}
+                        </span>
+                        <button
+                          type="button"
+                          role="switch"
+                          aria-checked={enableShift2}
+                          onClick={() => setEnableShift2(!enableShift2)}
+                          className={`relative inline-flex h-5 w-10 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                            enableShift2 ? 'bg-indigo-600' : 'bg-slate-700'
+                          }`}
+                        >
+                          <span
+                            className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow-lg ring-0 transition duration-200 ease-in-out ${
+                              enableShift2 ? 'translate-x-5' : 'translate-x-0'
+                            }`}
+                          />
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className={`grid gap-4 bg-slate-950/40 p-4 rounded-xl border border-white/5 transition-all duration-300 ${
+                      enableShift2 ? 'grid-cols-1 md:grid-cols-2' : 'grid-cols-1'
+                    }`}>
+                      {/* Shift 1 */}
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <p className="text-[11px] font-bold text-slate-400 uppercase font-khmer">{t("shift1")}</p>
+                          {!enableShift2 && (
+                            <span className="text-[10px] font-semibold text-indigo-400 bg-indigo-500/10 px-2 py-0.5 rounded-md font-khmer">
+                              {t("singleShift")}
+                            </span>
+                          )}
+                        </div>
+                        <div className="grid grid-cols-2 gap-2 text-xs">
+                          <div>
+                            <label className="block text-[10px] text-slate-500 uppercase mb-0.5">{t("start")}</label>
+                            <input
+                              type="time"
+                              value={shift1Start}
+                              onChange={(e) => setShift1Start(e.target.value)}
+                              required={!isFlexible}
+                              className="block w-full py-1.5 px-2 border border-white/10 bg-slate-950/60 text-white rounded-lg outline-none font-mono focus:border-indigo-500 font-bold"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[10px] text-slate-500 uppercase mb-0.5">{t("end")}</label>
+                            <input
+                              type="time"
+                              value={shift1End}
+                              onChange={(e) => setShift1End(e.target.value)}
+                              required={!isFlexible}
+                              className="block w-full py-1.5 px-2 border border-white/10 bg-slate-950/60 text-white rounded-lg outline-none font-mono focus:border-indigo-500 font-bold"
+                            />
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Shift 2 (Only visible if enableShift2 is true) */}
+                      {enableShift2 && (
+                        <div className="space-y-2 animate-fade-in">
+                          <p className="text-[11px] font-bold text-slate-400 uppercase font-khmer">{t("shift2")}</p>
+                          <div className="grid grid-cols-2 gap-2 text-xs">
+                            <div>
+                              <label className="block text-[10px] text-slate-500 uppercase mb-0.5">{t("start")}</label>
+                              <input
+                                type="time"
+                                value={shift2Start}
+                                onChange={(e) => setShift2Start(e.target.value)}
+                                required={!isFlexible && enableShift2}
+                                className="block w-full py-1.5 px-2 border border-white/10 bg-slate-950/60 text-white rounded-lg outline-none font-mono focus:border-indigo-500 font-bold"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-[10px] text-slate-500 uppercase mb-0.5">{t("end")}</label>
+                              <input
+                                type="time"
+                                value={shift2End}
+                                onChange={(e) => setShift2End(e.target.value)}
+                                required={!isFlexible && enableShift2}
+                                className="block w-full py-1.5 px-2 border border-white/10 bg-slate-950/60 text-white rounded-lg outline-none font-mono focus:border-indigo-500 font-bold"
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* FLEXIBLE WORKING HOURS MONTHLY SCHEDULE (When isFlexible is TRUE) */}
+                {isFlexible && (
+                  <div className="space-y-3 animate-fade-in">
+                    <FlexibleSchedulePicker
+                      scheduleData={{
+                        ...(typeof flexibleSchedule === 'object' ? flexibleSchedule : {}),
+                        workingDays,
+                      }}
+                      onChange={(newSchedule) => {
+                        setFlexibleSchedule(newSchedule);
+                        if (newSchedule && Array.isArray(newSchedule.workingDays)) {
+                          setWorkingDays(newSchedule.workingDays);
+                        }
+                      }}
+                      defaultShift={{
+                        shift1Start,
+                        shift1End,
+                        shift2Start,
+                        shift2End,
+                        enableShift2,
+                      }}
+                    />
+                  </div>
+                )}
               </div>
 
               {/* Action Buttons */}
@@ -1070,9 +1420,17 @@ const Employees = () => {
                 </button>
                 <button
                   type="submit"
-                  className="py-2 px-4 text-xs font-semibold bg-gradient-to-r from-indigo-500 to-purple-600 text-white rounded-xl hover:from-indigo-600 hover:to-purple-700 transition-all shadow-md shadow-indigo-500/25 font-khmer cursor-pointer border-none outline-none"
+                  disabled={submitting}
+                  className="py-2 px-5 text-xs font-semibold bg-gradient-to-r from-indigo-500 to-purple-600 text-white rounded-xl hover:from-indigo-600 hover:to-purple-700 transition-all shadow-md shadow-indigo-500/25 font-khmer cursor-pointer border-none outline-none disabled:opacity-50 flex items-center gap-1.5"
                 >
-                  {t("save")}
+                  {submitting ? (
+                    <>
+                      <span className="animate-spin rounded-full h-3 w-3 border border-white border-t-transparent"></span>
+                      <span>{locale === 'kh' ? 'កំពុងរក្សាទុក...' : 'Saving...'}</span>
+                    </>
+                  ) : (
+                    <span>{t("save")}</span>
+                  )}
                 </button>
               </div>
             </form>
@@ -1406,16 +1764,20 @@ const Employees = () => {
 
               {/* Work Shifts */}
               <div className="border-t border-white/10 pt-4">
-                <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider font-khmer mb-3">Shift Configurations</h4>
-                <div className="grid grid-cols-2 gap-4 bg-slate-950/40 p-4 rounded-xl border border-white/5 text-xs">
+                <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider font-khmer mb-3">{t("shiftConfig")}</h4>
+                <div className={`grid gap-4 bg-slate-950/40 p-4 rounded-xl border border-white/5 text-xs ${
+                  profileEmp.shift2Start && profileEmp.shift2End ? 'grid-cols-2' : 'grid-cols-1'
+                }`}>
                   <div>
                     <span className="font-semibold text-indigo-400 block font-khmer mb-1">{t("shift1")}</span>
-                    <span className="text-slate-300">{profileEmp.shift1Start} - {profileEmp.shift1End}</span>
+                    <span className="text-slate-300 font-mono">{profileEmp.shift1Start || 'N/A'} - {profileEmp.shift1End || 'N/A'}</span>
                   </div>
-                  <div>
-                    <span className="font-semibold text-indigo-400 block font-khmer mb-1">{t("shift2")}</span>
-                    <span className="text-slate-300">{profileEmp.shift2Start} - {profileEmp.shift2End}</span>
-                  </div>
+                  {profileEmp.shift2Start && profileEmp.shift2End ? (
+                    <div>
+                      <span className="font-semibold text-indigo-400 block font-khmer mb-1">{t("shift2")}</span>
+                      <span className="text-slate-300 font-mono">{profileEmp.shift2Start} - {profileEmp.shift2End}</span>
+                    </div>
+                  ) : null}
                 </div>
               </div>
             </div>

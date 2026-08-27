@@ -4,6 +4,7 @@ import { useLanguage } from '../context/LanguageContext';
 import {
   DocumentArrowDownIcon,
   PrinterIcon,
+  ArrowDownTrayIcon,
 } from '@heroicons/react/24/outline';
 import { formatTime12Hour } from '../utils/dateUtils';
 
@@ -134,10 +135,10 @@ const Reports = () => {
           <button
             onClick={handleExportCSV}
             disabled={logs.length === 0}
-            className="flex items-center gap-2 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 px-4 py-2.5 rounded-xl font-semibold text-sm transition-all border border-indigo-500/20 font-khmer disabled:opacity-50 cursor-pointer outline-none"
+            className="flex items-center gap-2 px-4 py-2 bg-[#d1fae5] hover:bg-[#a7f3d0] border border-[#6ee7b7] text-[#059669] rounded-2xl font-bold text-sm transition-all shadow-sm hover:shadow cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            <DocumentArrowDownIcon className="h-5 w-5" />
-            {t("exportExcel")}
+            <ArrowDownTrayIcon className="h-4 w-4 stroke-[2.5]" />
+            <span>Export Excel</span>
           </button>
           <button
             onClick={handlePrint}

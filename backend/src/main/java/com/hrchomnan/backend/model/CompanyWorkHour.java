@@ -36,6 +36,18 @@ public class CompanyWorkHour {
     @Builder.Default
     private String shift2End = "17:00";
 
+    @Column(name = "is_flexible")
+    @Builder.Default
+    private Boolean isFlexible = false;
+
+    @Column(name = "late_grace_minutes")
+    @Builder.Default
+    private Integer lateGraceMinutes = 0;
+
+    @Column(name = "flexible_schedule", columnDefinition = "TEXT")
+    @Builder.Default
+    private String flexibleSchedule = "{}";
+
     @UpdateTimestamp
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;

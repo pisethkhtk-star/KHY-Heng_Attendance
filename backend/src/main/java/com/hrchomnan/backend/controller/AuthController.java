@@ -204,6 +204,8 @@ public class AuthController {
         map.put("shift1End", employee.getShift1End());
         map.put("shift2Start", employee.getShift2Start());
         map.put("shift2End", employee.getShift2End());
+        map.put("isFlexible", employee.getIsFlexible() != null ? employee.getIsFlexible() : false);
+        map.put("flexibleSchedule", employee.getFlexibleSchedule() != null ? employee.getFlexibleSchedule() : "{}");
         map.put("address", employee.getAddress());
         map.put("idCardPassport", employee.getIdCardPassport());
         map.put("photoUrl", employee.getPhotoUrl());

@@ -68,6 +68,14 @@ public class Employee {
     @Builder.Default
     private String shift2End = "";
 
+    @Column(name = "is_flexible")
+    @Builder.Default
+    private Boolean isFlexible = false;
+
+    @Column(name = "flexible_schedule", columnDefinition = "TEXT")
+    @Builder.Default
+    private String flexibleSchedule = "{}";
+
     @Builder.Default
     private String address = "";
 
