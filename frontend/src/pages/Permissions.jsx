@@ -644,11 +644,12 @@ const Permissions = () => {
       .filter(Boolean);
   }, [searchQuery, language]);
 
-  // Filter employees for employee select dropdown
+  // Filter employees for employee select dropdown (Exclude Admin since Admin always has full access)
   const filteredEmployees = useMemo(() => {
-    if (!empFilterQuery || !empFilterQuery.trim()) return employees;
+    const nonAdminEmployees = employees.filter(emp => emp.role !== 'Admin');
+    if (!empFilterQuery || !empFilterQuery.trim()) return nonAdminEmployees;
     const q = empFilterQuery.trim().toLowerCase();
-    return employees.filter(emp => {
+    return nonAdminEmployees.filter(emp => {
       const staffId = (emp.staffId || '').toLowerCase();
       const nameEn = (emp.nameEn || '').toLowerCase();
       const nameKh = (emp.nameKh || '').toLowerCase();
