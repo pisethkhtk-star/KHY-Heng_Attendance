@@ -31,7 +31,9 @@ const Employees = () => {
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [profileEmp, setProfileEmp] = useState(null);
 
-  // Filters State
+  // Filters & Pagination State
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 10;
   const [search, setSearch] = useState('');
   const [filterDept, setFilterDept] = useState('');
   const [filterBranch, setFilterBranch] = useState('');
@@ -129,8 +131,48 @@ const Employees = () => {
   }, []);
 
   useEffect(() => {
+    setCurrentPage(1);
     fetchEmployees();
   }, [search, filterDept, filterBranch, filterStatus]);
+
+  const totalRecords = employees.length;
+  const totalPages = Math.ceil(totalRecords / pageSize) || 1;
+  const paginatedEmployees = employees.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+
+  const getPaginationItems = () => {
+    const delta = 2;
+    const range = [];
+    const rangeWithDots = [];
+    let l;
+
+    for (let i = 1; i <= totalPages; i++) {
+      if (
+        i === 1 ||
+        i === totalPages ||
+        (i >= currentPage - delta && i <= currentPage + delta) ||
+        (currentPage <= 4 && i <= 5) ||
+        (currentPage >= totalPages - 3 && i >= totalPages - 4)
+      ) {
+        range.push(i);
+      }
+    }
+
+    const uniqueRange = [...new Set(range)].sort((a, b) => a - b);
+
+    for (let i of uniqueRange) {
+      if (l) {
+        if (i - l === 2) {
+          rangeWithDots.push(l + 1);
+        } else if (i - l !== 1) {
+          rangeWithDots.push('...');
+        }
+      }
+      rangeWithDots.push(i);
+      l = i;
+    }
+
+    return rangeWithDots;
+  };
 
   // Filter positions matching selected department in Form Modal
   const availablePositions = positions.filter(pos => !pos.departmentId || String(pos.departmentId) === String(departmentId));
@@ -841,109 +883,169 @@ const Employees = () => {
                     </td>
                   </tr>
                 ) : (
-                  employees.map((emp, index) => (
-                    <tr key={emp.id} className="hover:bg-white/5 transition-colors">
-                      <td className="py-4 px-6 text-center font-semibold text-slate-400 whitespace-nowrap font-mono">
-                        {index + 1}
-                      </td>
-                      <td className="py-4 px-6">
-                        <div className="flex items-center gap-3">
-                          {/* Profile Avatar */}
-                          {emp.photoUrl ? (
-                            <img
-                              src={emp.photoUrl}
-                              alt={emp.nameEn}
-                              className="w-10 h-10 rounded-full object-cover border-2 border-indigo-500/30 flex-shrink-0 shadow-md"
-                            />
-                          ) : (
-                            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center flex-shrink-0 text-white font-bold text-sm shadow-md">
-                              {emp.nameEn?.charAt(0)?.toUpperCase() || '?'}
+                  paginatedEmployees.map((emp, index) => {
+                    const rowNumber = (currentPage - 1) * pageSize + index + 1;
+                    return (
+                      <tr key={emp.id} className="hover:bg-white/5 transition-colors">
+                        <td className="py-4 px-6 text-center font-semibold text-slate-400 whitespace-nowrap font-mono">
+                          {rowNumber}
+                        </td>
+                        <td className="py-4 px-6">
+                          <div className="flex items-center gap-3">
+                            {/* Profile Avatar */}
+                            {emp.photoUrl ? (
+                              <img
+                                src={emp.photoUrl}
+                                alt={emp.nameEn}
+                                className="w-10 h-10 rounded-full object-cover border-2 border-indigo-500/30 flex-shrink-0 shadow-md"
+                              />
+                            ) : (
+                              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center flex-shrink-0 text-white font-bold text-sm shadow-md">
+                                {emp.nameEn?.charAt(0)?.toUpperCase() || '?'}
+                              </div>
+                            )}
+                            <div>
+                              <p className="font-semibold text-white">
+                                {getLocalizedName(emp.nameEn, emp.nameKh)}
+                              </p>
+                              <p className="text-xs text-slate-400 font-mono">
+                                ID: <span className="text-indigo-400 font-semibold">{emp.staffId}</span>{emp.role ? ` • ${emp.role}` : ''}
+                              </p>
+                              <p className="text-xs font-semibold text-indigo-400">
+                                {getLocalizedName(emp.department.nameEn, emp.department.nameKh)} • {getLocalizedName(emp.position.titleEn, emp.position.titleKh)}
+                              </p>
                             </div>
-                          )}
-                          <div>
-                            <p className="font-semibold text-white">
-                              {getLocalizedName(emp.nameEn, emp.nameKh)}
-                            </p>
-                            <p className="text-xs text-slate-400 font-mono">
-                              ID: <span className="text-indigo-400 font-semibold">{emp.staffId}</span>{emp.role ? ` • ${emp.role}` : ''}
-                            </p>
-                            <p className="text-xs font-semibold text-indigo-400">
-                              {getLocalizedName(emp.department.nameEn, emp.department.nameKh)} • {getLocalizedName(emp.position.titleEn, emp.position.titleKh)}
-                            </p>
                           </div>
-                        </div>
-                      </td>
-                      <td className="py-4 px-6 font-khmer text-slate-300 whitespace-nowrap">{emp.gender === 'Male' ? t("male") : emp.gender === 'Female' ? t("female") : t("other")}</td>
-                      <td className="py-4 px-6 text-slate-300 whitespace-nowrap">{emp.branch}</td>
-                      <td className="py-4 px-6 whitespace-nowrap">
-                        <span
-                          className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium font-khmer ring-1 ${emp.status === 'Active'
-                            ? 'bg-emerald-500/10 text-emerald-300 ring-emerald-500/20'
-                            : emp.status === 'Inactive'
-                              ? 'bg-slate-500/10 text-slate-400 ring-slate-500/20'
-                              : 'bg-rose-500/10 text-rose-300 ring-rose-500/20'
-                            }`}
-                        >
-                          {emp.status === 'Active' ? t("active") : emp.status === 'Inactive' ? t("inactive") : t("suspended")}
-                        </span>
-                      </td>
-                      <td className="py-4 px-6 text-slate-300 whitespace-nowrap">
-                        {emp.joinDate ? new Date(emp.joinDate).toLocaleDateString() : '-'}
-                      </td>
-                      <td className="py-4 px-6 text-right whitespace-nowrap">
-                        <div className="flex items-center justify-end gap-1.5">
-                          {/* Always show View Profile button */}
-                          <button
-                            onClick={() => {
-                              setProfileEmp(emp);
-                              setShowProfileModal(true);
-                            }}
-                            className="inline-flex p-2 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/25 border border-emerald-500/20 rounded-lg transition-colors cursor-pointer"
-                            title={t("viewProfile")}
+                        </td>
+                        <td className="py-4 px-6 font-khmer text-slate-300 whitespace-nowrap">{emp.gender === 'Male' ? t("male") : emp.gender === 'Female' ? t("female") : t("other")}</td>
+                        <td className="py-4 px-6 text-slate-300 whitespace-nowrap">{emp.branch}</td>
+                        <td className="py-4 px-6 whitespace-nowrap">
+                          <span
+                            className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium font-khmer ring-1 ${emp.status === 'Active'
+                              ? 'bg-emerald-500/10 text-emerald-300 ring-emerald-500/20'
+                              : emp.status === 'Inactive'
+                                ? 'bg-slate-500/10 text-slate-400 ring-slate-500/20'
+                                : 'bg-rose-500/10 text-rose-300 ring-rose-500/20'
+                              }`}
                           >
-                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 0 1 0-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178Z" />
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
-                            </svg>
-                          </button>
+                            {emp.status === 'Active' ? t("active") : emp.status === 'Inactive' ? t("inactive") : t("suspended")}
+                          </span>
+                        </td>
+                        <td className="py-4 px-6 text-slate-300 whitespace-nowrap">
+                          {emp.joinDate ? new Date(emp.joinDate).toLocaleDateString() : '-'}
+                        </td>
+                        <td className="py-4 px-6 text-right whitespace-nowrap">
+                          <div className="flex items-center justify-end gap-1.5">
+                            {/* Always show View Profile button */}
+                            <button
+                              onClick={() => {
+                                setProfileEmp(emp);
+                                setShowProfileModal(true);
+                              }}
+                              className="inline-flex p-2 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/25 border border-emerald-500/20 rounded-lg transition-colors cursor-pointer"
+                              title={t("viewProfile")}
+                            >
+                              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 0 1 0-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178Z" />
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
+                              </svg>
+                            </button>
 
-                          {!isReadOnly && (
-                            <>
-                              <button
-                                onClick={() => handleOpenQrModal(emp)}
-                                className="inline-flex p-2 bg-cyan-500/10 text-cyan-400 hover:bg-cyan-500/25 border border-cyan-500/20 rounded-lg transition-colors cursor-pointer"
-                                title="View QR Code"
-                              >
-                                <QrCodeIcon className="h-4 w-4" />
-                              </button>
-                              <button
-                                onClick={() => handleOpenFaceModal(emp)}
-                                className="inline-flex p-2 bg-purple-500/10 text-purple-400 hover:bg-purple-500/25 border border-purple-500/20 rounded-lg transition-colors cursor-pointer"
-                                title="Enroll Face Descriptor"
-                              >
-                                <CameraIcon className="h-4 w-4" />
-                              </button>
-                              <button
-                                onClick={() => handleOpenEditModal(emp)}
-                                className="inline-flex p-2 bg-indigo-500/10 text-indigo-400 hover:bg-indigo-500/25 border border-indigo-500/20 rounded-lg transition-colors cursor-pointer"
-                              >
-                                <PencilIcon className="h-4 w-4" />
-                              </button>
-                              <button
-                                onClick={() => handleDelete(emp.id)}
-                                className="inline-flex p-2 bg-rose-500/10 text-rose-400 hover:bg-rose-500/25 border border-rose-500/20 rounded-lg transition-colors cursor-pointer"
-                              >
-                                <TrashIcon className="h-4 w-4" />
-                              </button>
-                            </>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  ))
+                            {!isReadOnly && (
+                              <>
+                                <button
+                                  onClick={() => handleOpenQrModal(emp)}
+                                  className="inline-flex p-2 bg-cyan-500/10 text-cyan-400 hover:bg-cyan-500/25 border border-cyan-500/20 rounded-lg transition-colors cursor-pointer"
+                                  title="View QR Code"
+                                >
+                                  <QrCodeIcon className="h-4 w-4" />
+                                </button>
+                                <button
+                                  onClick={() => handleOpenFaceModal(emp)}
+                                  className="inline-flex p-2 bg-purple-500/10 text-purple-400 hover:bg-purple-500/25 border border-purple-500/20 rounded-lg transition-colors cursor-pointer"
+                                  title="Enroll Face Descriptor"
+                                >
+                                  <CameraIcon className="h-4 w-4" />
+                                </button>
+                                <button
+                                  onClick={() => handleOpenEditModal(emp)}
+                                  className="inline-flex p-2 bg-indigo-500/10 text-indigo-400 hover:bg-indigo-500/25 border border-indigo-500/20 rounded-lg transition-colors cursor-pointer"
+                                >
+                                  <PencilIcon className="h-4 w-4" />
+                                </button>
+                                <button
+                                  onClick={() => handleDelete(emp.id)}
+                                  className="inline-flex p-2 bg-rose-500/10 text-rose-400 hover:bg-rose-500/25 border border-rose-500/20 rounded-lg transition-colors cursor-pointer"
+                                >
+                                  <TrashIcon className="h-4 w-4" />
+                                </button>
+                              </>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })
                 )}
               </tbody>
             </table>
+          </div>
+        )}
+
+        {/* Pagination Bar */}
+        {!loading && totalRecords > 0 && (
+          <div className="p-4 bg-slate-950/60 border-t border-white/5 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs">
+            <div className="text-slate-400 font-khmer">
+              Total : <span className="font-bold text-white font-mono">{totalRecords}</span> records
+            </div>
+
+            <div className="flex items-center gap-1 overflow-x-auto max-w-full pb-1 sm:pb-0">
+              {/* Prev Button */}
+              <button
+                type="button"
+                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+                className="h-8 min-w-[32px] px-2 rounded-lg border border-white/10 bg-slate-900/60 hover:bg-slate-800 text-slate-300 disabled:opacity-30 disabled:cursor-not-allowed transition-all font-mono font-bold flex items-center justify-center cursor-pointer"
+              >
+                &lsaquo;
+              </button>
+
+              {/* Page Number Buttons */}
+              {getPaginationItems().map((item, idx) => {
+                if (item === '...') {
+                  return (
+                    <span key={`dots-${idx}`} className="h-8 min-w-[32px] flex items-center justify-center text-slate-500 font-mono">
+                      ...
+                    </span>
+                  );
+                }
+                const isCurrent = item === currentPage;
+                return (
+                  <button
+                    key={item}
+                    type="button"
+                    onClick={() => setCurrentPage(item)}
+                    className={`h-8 min-w-[32px] px-2 rounded-lg text-xs font-mono font-bold transition-all cursor-pointer ${
+                      isCurrent
+                        ? 'bg-blue-600 text-white shadow-md shadow-blue-500/25 border border-blue-500'
+                        : 'border border-white/10 bg-slate-900/60 hover:bg-slate-800 text-slate-300'
+                    }`}
+                  >
+                    {item}
+                  </button>
+                );
+              })}
+
+              {/* Next Button */}
+              <button
+                type="button"
+                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                disabled={currentPage === totalPages}
+                className="h-8 min-w-[32px] px-2 rounded-lg border border-white/10 bg-slate-900/60 hover:bg-slate-800 text-slate-300 disabled:opacity-30 disabled:cursor-not-allowed transition-all font-mono font-bold flex items-center justify-center cursor-pointer"
+              >
+                &rsaquo;
+              </button>
+            </div>
           </div>
         )}
       </div>

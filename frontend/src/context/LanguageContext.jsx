@@ -17,6 +17,8 @@ const translations = {
     setupGroup: "Setup",
     workHours: "Work Hours",
     telegramGroup: "Telegram Group",
+    webManage: "Web Manage",
+    approvalManage: "Approval Manage",
     reports: "Reports",
     facescan: "Facescan",
     checkAttendance: "Check Attendance",
@@ -47,9 +49,11 @@ const translations = {
     earlyArrivals: "Early In",
     lateArrivals: "Late",
     earlyDepartures: "Early Out",
+    incompleteShifts: "Incomplete Shifts",
     earlyInRecords: "Early In Attendance Records",
     lateRecords: "Late Attendance Records",
     earlyOutRecords: "Early Out Attendance Records",
+    incompleteRecords: "Incomplete Shift Attendance Records",
     logAttendanceSuccess: "Attendance logged successfully!",
 
     // General Actions
@@ -207,6 +211,8 @@ const translations = {
     setupGroup: "ការកំណត់ប្រព័ន្ធ",
     workHours: "ម៉ោងការងារ",
     telegramGroup: "Telegram Group",
+    webManage: "Web Manage",
+    approvalManage: "Approval Manage",
     reports: "របាយការណ៍",
     facescan: "ស្កេនផ្ទៃមុខ",
     checkAttendance: "ចុះវត្តមាន",
@@ -237,9 +243,11 @@ const translations = {
     earlyArrivals: "មកមុនម៉ោង (Early In)",
     lateArrivals: "មកយឺត (Late)",
     earlyDepartures: "ចេញមុនម៉ោង (Early Out)",
+    incompleteShifts: "ស្កេនមិនគ្រប់វេន (Incomplete Shifts)",
     earlyInRecords: "កំណត់ត្រាបុគ្គលិកមកមុនម៉ោង (Early In)",
     lateRecords: "កំណត់ត្រាបុគ្គលិកមកយឺត (Late)",
     earlyOutRecords: "កំណត់ត្រាបុគ្គលិកចេញមុនម៉ោង (Early Out)",
+    incompleteRecords: "កំណត់ត្រាបុគ្គលិកស្កេនមិនគ្រប់វេន (Incomplete Shifts)",
     logAttendanceSuccess: "បានកត់ត្រាវត្តមានជោគជ័យ!",
 
     // General Actions

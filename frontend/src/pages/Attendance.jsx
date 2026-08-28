@@ -106,6 +106,14 @@ const TimePicker12Hour = ({ label, value, onChange }) => {
   );
 };
 
+const getEmpPhoto = (emp) => {
+  if (!emp) return null;
+  if (emp.photoUrl) return emp.photoUrl;
+  if (Array.isArray(emp.faceData) && emp.faceData[0]?.photoUrl) return emp.faceData[0].photoUrl;
+  if (emp.faceData?.photoUrl) return emp.faceData.photoUrl;
+  return null;
+};
+
 const Attendance = () => {
   const { user, hasPermission } = useAuth();
   const { t, getLocalizedName } = useLanguage();
@@ -328,54 +336,6 @@ const Attendance = () => {
     }
   };
 
-  const handleExportCSV = () => {
-    if (logs.length === 0) return;
-
-    const headers = [
-      'Staff ID',
-      'Employee Name (EN)',
-      'Employee Name (KH)',
-      'Department',
-      'Date',
-      'Check-in 1',
-      'Check-out 1',
-      'Check-in 2',
-      'Check-out 2',
-      'Is Late',
-      'Is Early Leave',
-      'Note'
-    ];
-
-    const rows = logs.map(log => [
-      log.employee.staffId,
-      log.employee.nameEn,
-      log.employee.nameKh,
-      log.employee.department.nameEn,
-      new Date(log.attendanceDate).toLocaleDateString(),
-      formatTime12Hour(log.checkin1).replace('-', ''),
-      formatTime12Hour(log.checkout1).replace('-', ''),
-      formatTime12Hour(log.checkin2).replace('-', ''),
-      formatTime12Hour(log.checkout2).replace('-', ''),
-      log.isLate ? 'YES' : 'NO',
-      log.isEarlyLeave ? 'YES' : 'NO',
-      log.note || ''
-    ]);
-
-    const csvContent = [
-      headers.join(','),
-      ...rows.map(e => e.map(val => `"${val.replace(/"/g, '""')}"`).join(','))
-    ].join('\n');
-
-    const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.setAttribute("href", url);
-    link.setAttribute("download", `Attendance_Log_${startDate}_to_${endDate}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
-
   const fetchMetadata = async () => {
     try {
       if (user.role !== 'Employee') {
@@ -422,6 +382,14 @@ const Attendance = () => {
       return stId.includes(q) || nameEn.includes(q) || nameKh.includes(q);
     });
   }, [employeesList, showResign, empSearchQuery]);
+
+  const empMap = useMemo(() => {
+    const map = new Map();
+    employeesList.forEach(e => {
+      if (e.staffId) map.set(e.staffId, e);
+    });
+    return map;
+  }, [employeesList]);
 
   useEffect(() => {
     setCurrentPage(1);
@@ -491,6 +459,149 @@ const Attendance = () => {
     return rangeWithDots;
   };
 
+  const handleExportCSV = () => {
+    if (displayLogs.length === 0) return;
+
+    const startDisplay = startDate ? new Date(startDate).toLocaleDateString('en-US', { day: '2-digit', month: 'short', year: 'numeric' }) : 'Start';
+    const endDisplay = endDate ? new Date(endDate).toLocaleDateString('en-US', { day: '2-digit', month: 'short', year: 'numeric' }) : 'End';
+    const title = `All Attendance History Logs (${startDisplay} to ${endDisplay})`;
+
+    const totalLogs = displayLogs.length;
+    const totalLate = displayLogs.filter(l => l.isLate).length;
+    const totalEarlyLeave = displayLogs.filter(l => l.isEarlyLeave).length;
+    const totalOnTime = displayLogs.filter(l => !l.isLate && !l.isEarlyLeave).length;
+
+    let excelHTML = `
+      <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
+      <head>
+        <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+        <style>
+          body { font-family: Calibri, 'Segoe UI', Tahoma, sans-serif; }
+          .title-row { font-size: 14pt; font-weight: bold; text-align: center; height: 35px; }
+          table.kpi-table { border-collapse: collapse; width: 100%; border: 1px solid #cbd5e1; margin-bottom: 20px; }
+          table.kpi-table th { border: 1px solid #94a3b8; background-color: #1e293b; color: #ffffff; font-weight: bold; text-align: center; padding: 8px 10px; font-size: 10pt; }
+          table.kpi-table td { border: 1px solid #cbd5e1; padding: 8px 10px; font-size: 11pt; text-align: center; font-weight: bold; }
+          table.report-table { border-collapse: collapse; width: 100%; border: 1px solid #000000; }
+          table.report-table th { border: 1px solid #000000; background-color: #f3f4f6; font-weight: bold; text-align: left; padding: 6px 10px; font-size: 10pt; }
+          table.report-table td { border: 1px solid #000000; padding: 6px 10px; font-size: 10pt; }
+        </style>
+      </head>
+      <body>
+        <!-- Title Banner -->
+        <table style="width:100%; border-collapse:collapse; margin-bottom:12px;">
+          <tr>
+            <td colspan="13" class="title-row">${title}</td>
+          </tr>
+          <tr>
+            <td colspan="13" style="text-align:center; font-size:9pt; color:#64748b; height:20px;">
+              Exported on: ${new Date().toLocaleString()}
+            </td>
+          </tr>
+        </table>
+
+        <!-- Summary Statistics Table -->
+        <table class="kpi-table" border="1">
+          <thead>
+            <tr>
+              <th style="background-color:#1e293b; color:#ffffff;">TOTAL ATTENDANCE RECORDS</th>
+              <th style="background-color:#1e293b; color:#ffffff;">ON TIME RECORDS</th>
+              <th style="background-color:#1e293b; color:#ffffff;">LATE ARRIVALS</th>
+              <th style="background-color:#1e293b; color:#ffffff;">EARLY DEPARTURES</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr style="background-color:#ffffff;">
+              <td style="color:#2563eb; font-size:13pt;">${totalLogs}</td>
+              <td style="color:#059669; font-size:13pt;">${totalOnTime}</td>
+              <td style="color:#d97706; font-size:13pt;">${totalLate}</td>
+              <td style="color:#e11d48; font-size:13pt;">${totalEarlyLeave}</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <br/>
+
+        <!-- Detailed Attendance Table -->
+        <table class="report-table" border="1">
+          <thead>
+            <tr>
+              <th>No.</th>
+              <th>Date</th>
+              <th>Staff ID</th>
+              <th>Employee Name (EN)</th>
+              <th>Employee Name (KH)</th>
+              <th>Role</th>
+              <th>Department</th>
+              <th>Position</th>
+              <th>Check-in 1</th>
+              <th>Check-out 1</th>
+              <th>Check-in 2</th>
+              <th>Check-out 2</th>
+              <th>Status</th>
+              <th>Note / Description</th>
+            </tr>
+          </thead>
+          <tbody>
+    `;
+
+    displayLogs.forEach((log, idx) => {
+      const targetStaffId = log.employee?.staffId || log.staffId;
+      const matchedEmp = (targetStaffId && empMap.get(targetStaffId)) || {};
+      const emp = { ...matchedEmp, ...(log.employee || {}) };
+      const nameEn = emp.nameEn || matchedEmp.nameEn || '';
+      const nameKh = emp.nameKh || matchedEmp.nameKh || '';
+      const role = emp.role || matchedEmp.role || '';
+      const deptObj = emp.department || matchedEmp.department;
+      const posObj = emp.position || matchedEmp.position;
+      const deptName = deptObj ? (typeof deptObj === 'string' ? deptObj : (deptObj.nameEn || '')) : '';
+      const posTitle = posObj ? (typeof posObj === 'string' ? posObj : (posObj.titleEn || '')) : '';
+
+      let statusLabel = 'On Time';
+      if (log.isLate && log.isEarlyLeave) {
+        statusLabel = 'Late & Early Leave';
+      } else if (log.isLate) {
+        statusLabel = 'Late';
+      } else if (log.isEarlyLeave) {
+        statusLabel = 'Early Leave';
+      }
+
+      excelHTML += `
+        <tr>
+          <td style="text-align:center;">${idx + 1}</td>
+          <td>${log.attendanceDate ? new Date(log.attendanceDate).toLocaleDateString() : '-'}</td>
+          <td style="font-weight:bold;">${targetStaffId || '-'}</td>
+          <td>${nameEn}</td>
+          <td>${nameKh}</td>
+          <td>${role}</td>
+          <td>${deptName}</td>
+          <td>${posTitle}</td>
+          <td>${log.checkin1 ? formatTime12Hour(log.checkin1) : '-'}</td>
+          <td>${log.checkout1 ? formatTime12Hour(log.checkout1) : '-'}</td>
+          <td>${log.checkin2 ? formatTime12Hour(log.checkin2) : '-'}</td>
+          <td>${log.checkout2 ? formatTime12Hour(log.checkout2) : '-'}</td>
+          <td>${statusLabel}</td>
+          <td>${log.note || ''}</td>
+        </tr>
+      `;
+    });
+
+    excelHTML += `
+          </tbody>
+        </table>
+      </body>
+      </html>
+    `;
+
+    const blob = new Blob(['\uFEFF' + excelHTML], { type: 'application/vnd.ms-excel;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', `Attendance_All_Logs_${startDate}_to_${endDate}.xls`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   return (
     <div className="space-y-6 text-slate-100">
       {/* Title Block */}
@@ -556,9 +667,8 @@ const Attendance = () => {
               <div
                 onClick={() => setIsEmpDropdownOpen(!isEmpDropdownOpen)}
                 style={{ backgroundColor: '#FFFFFF', borderColor: isEmpDropdownOpen ? '#2D60FF' : '#CBD5E1' }}
-                className={`w-full py-2 px-3 border rounded-xl text-sm flex items-center justify-between cursor-pointer transition-all shadow-sm ${
-                  isEmpDropdownOpen ? 'ring-2 ring-blue-500/20' : 'hover:border-slate-400'
-                }`}
+                className={`w-full py-2 px-3 border rounded-xl text-sm flex items-center justify-between cursor-pointer transition-all shadow-sm ${isEmpDropdownOpen ? 'ring-2 ring-blue-500/20' : 'hover:border-slate-400'
+                  }`}
               >
                 <span
                   style={{ color: selectedStaffId ? '#000000' : '#475569' }}
@@ -636,9 +746,8 @@ const Attendance = () => {
                               color: isSelected ? '#FFFFFF' : '#000000',
                               backgroundColor: isSelected ? '#2D60FF' : 'transparent',
                             }}
-                            className={`py-2.5 px-3 text-xs cursor-pointer transition-colors flex items-center justify-between font-semibold ${
-                              isSelected ? 'font-bold' : 'hover:!bg-blue-50 hover:!text-[#2D60FF]'
-                            }`}
+                            className={`py-2.5 px-3 text-xs cursor-pointer transition-colors flex items-center justify-between font-semibold ${isSelected ? 'font-bold' : 'hover:!bg-blue-50 hover:!text-[#2D60FF]'
+                              }`}
                           >
                             <span className="truncate">{label}</span>
                             {emp.status === 'Resigned' && (
@@ -690,9 +799,8 @@ const Attendance = () => {
             <table className="w-full text-left text-sm text-slate-300">
               <thead className="bg-slate-950/80 text-xs text-slate-300 uppercase border-b border-white/10">
                 <tr>
-                  <th className="py-4 px-4 font-khmer whitespace-nowrap text-center">#</th>
+                  <th className="py-4 px-4 font-khmer whitespace-nowrap text-center">No.</th>
                   <th className="py-4 px-6 font-khmer whitespace-nowrap">{t("date")}</th>
-                  {user.role !== 'Employee' && <th className="py-4 px-6 font-khmer whitespace-nowrap">{t("staffId")}</th>}
                   {user.role !== 'Employee' && <th className="py-4 px-6 font-khmer">{t("employees")}</th>}
                   <th className="py-4 px-6 font-khmer whitespace-nowrap">{t("checkin1")}</th>
                   <th className="py-4 px-6 font-khmer whitespace-nowrap">{t("checkout1")}</th>
@@ -708,14 +816,26 @@ const Attendance = () => {
               <tbody className="divide-y divide-white/5">
                 {paginatedLogs.length === 0 ? (
                   <tr>
-                    <td colSpan={user.role === 'Employee' ? 8 : ((hasPermission('edit_attendance') || hasPermission('delete_attendance')) ? 11 : 10)} className="py-6 text-center text-slate-500 font-khmer">
+                    <td colSpan={user.role === 'Employee' ? 8 : ((hasPermission('edit_attendance') || hasPermission('delete_attendance')) ? 10 : 9)} className="py-6 text-center text-slate-500 font-khmer">
                       {t("noData")}
                     </td>
                   </tr>
                 ) : (
                   paginatedLogs.map((log, index) => {
                     const rowNumber = (currentPage - 1) * pageSize + index + 1;
-                    const emp = log.employee || {};
+                    const targetStaffId = log.employee?.staffId || log.staffId;
+                    const matchedEmp = (targetStaffId && empMap.get(targetStaffId)) || (user?.staffId === targetStaffId ? user : null) || {};
+                    const emp = { ...matchedEmp, ...(log.employee || {}) };
+                    const photo = getEmpPhoto(emp) || getEmpPhoto(matchedEmp) || (user?.staffId === targetStaffId ? user?.photoUrl : null);
+                    const nameEn = emp.nameEn || matchedEmp.nameEn || '';
+                    const nameKh = emp.nameKh || matchedEmp.nameKh || '';
+                    const displayName = getLocalizedName(nameEn, nameKh) || targetStaffId || '-';
+                    const role = emp.role || matchedEmp.role || '';
+                    const deptObj = emp.department || matchedEmp.department;
+                    const posObj = emp.position || matchedEmp.position;
+                    const deptName = deptObj ? (typeof deptObj === 'string' ? deptObj : getLocalizedName(deptObj.nameEn, deptObj.nameKh)) : '';
+                    const posTitle = posObj ? (typeof posObj === 'string' ? posObj : getLocalizedName(posObj.titleEn, posObj.titleKh)) : '';
+
                     return (
                       <tr key={log.id} className="hover:bg-white/5 transition-colors">
                         <td className="py-4 px-4 font-mono text-center text-slate-400 font-bold whitespace-nowrap">
@@ -725,19 +845,33 @@ const Attendance = () => {
                           {log.attendanceDate ? new Date(log.attendanceDate).toLocaleDateString() : '-'}
                         </td>
                         {user.role !== 'Employee' && (
-                          <td className="py-4 px-6 font-semibold text-white whitespace-nowrap">
-                            {emp.staffId || log.staffId || '-'}
-                          </td>
-                        )}
-                        {user.role !== 'Employee' && (
-                          <td className="py-4 px-6 whitespace-nowrap min-w-[180px]">
-                            <div>
-                              <p className="font-semibold text-white whitespace-nowrap">
-                                {getLocalizedName(emp.nameEn, emp.nameKh) || log.staffId || '-'}
-                              </p>
-                              <p className="text-xs text-slate-400 whitespace-nowrap">
-                                {getLocalizedName(emp.department?.nameEn, emp.department?.nameKh) || '-'}
-                              </p>
+                          <td className="py-4 px-6 whitespace-nowrap">
+                            <div className="flex items-center gap-3">
+                              {/* Profile Avatar */}
+                              {photo ? (
+                                <img
+                                  src={photo}
+                                  alt={nameEn || 'avatar'}
+                                  className="w-10 h-10 rounded-full object-cover border-2 border-indigo-500/30 flex-shrink-0 shadow-md"
+                                />
+                              ) : (
+                                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center flex-shrink-0 text-white font-bold text-sm shadow-md">
+                                  {nameEn?.charAt(0)?.toUpperCase() || nameKh?.charAt(0) || targetStaffId?.charAt(0) || '?'}
+                                </div>
+                              )}
+                              <div>
+                                <p className="font-semibold text-white whitespace-nowrap">
+                                  {displayName}
+                                </p>
+                                <p className="text-xs text-slate-400 font-mono whitespace-nowrap">
+                                  ID: <span className="text-indigo-400 font-semibold">{targetStaffId}</span>{role ? ` • ${role}` : ''}
+                                </p>
+                                {(deptName || posTitle) && (
+                                  <p className="text-xs font-semibold text-indigo-400 whitespace-nowrap">
+                                    {[deptName, posTitle].filter(Boolean).join(' • ')}
+                                  </p>
+                                )}
+                              </div>
                             </div>
                           </td>
                         )}
@@ -829,11 +963,10 @@ const Attendance = () => {
                     key={item}
                     type="button"
                     onClick={() => setCurrentPage(item)}
-                    className={`h-8 min-w-[32px] px-2 rounded-lg text-xs font-mono font-bold transition-all cursor-pointer ${
-                      isCurrent
-                        ? 'bg-blue-600 text-white shadow-md shadow-blue-500/25 border border-blue-500'
-                        : 'border border-white/10 bg-slate-900/60 hover:bg-slate-800 text-slate-300'
-                    }`}
+                    className={`h-8 min-w-[32px] px-2 rounded-lg text-xs font-mono font-bold transition-all cursor-pointer ${isCurrent
+                      ? 'bg-blue-600 text-white shadow-md shadow-blue-500/25 border border-blue-500'
+                      : 'border border-white/10 bg-slate-900/60 hover:bg-slate-800 text-slate-300'
+                      }`}
                   >
                     {item}
                   </button>

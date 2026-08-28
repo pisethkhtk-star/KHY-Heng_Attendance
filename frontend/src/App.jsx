@@ -18,6 +18,7 @@ import Attendance from './pages/Attendance';
 import AttendanceEarlyIn from './pages/AttendanceEarlyIn';
 import AttendanceLate from './pages/AttendanceLate';
 import AttendanceEarlyOut from './pages/AttendanceEarlyOut';
+import AttendanceIncomplete from './pages/AttendanceIncomplete';
 import Leaves from './pages/Leaves';
 import Overtime from './pages/Overtime';
 import Reports from './pages/Reports';
@@ -122,6 +123,7 @@ function App() {
               <Route path="attendance-early-in" element={<AttendanceEarlyIn />} />
               <Route path="attendance-late" element={<AttendanceLate />} />
               <Route path="attendance-early-out" element={<AttendanceEarlyOut />} />
+              <Route path="attendance-incomplete" element={<AttendanceIncomplete />} />
 
               {/* Overtime Request & Approvals (All authenticated users) */}
               <Route path="overtime" element={<Overtime />} />

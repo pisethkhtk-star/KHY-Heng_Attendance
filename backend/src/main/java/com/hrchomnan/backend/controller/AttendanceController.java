@@ -355,6 +355,8 @@ public class AttendanceController {
             empData.put("nameKh", emp.getNameKh());
             empData.put("gender", emp.getGender());
             empData.put("branch", emp.getBranch());
+            empData.put("role", emp.getRole() != null ? emp.getRole().name() : null);
+            empData.put("photoUrl", emp.getPhotoUrl());
             empData.put("shift1Start", emp.getShift1Start());
             empData.put("shift1End", emp.getShift1End());
             empData.put("shift2Start", emp.getShift2Start());

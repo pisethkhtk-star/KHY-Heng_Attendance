@@ -1,5 +1,6 @@
 package com.hrchomnan.backend.config;
 
+import com.hrchomnan.backend.enums.LeaveStatus;
 import com.hrchomnan.backend.enums.Role;
 import com.hrchomnan.backend.enums.Status;
 import com.hrchomnan.backend.model.*;
@@ -10,9 +11,13 @@ import org.springframework.boot.CommandLineRunner;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 
+import java.math.BigDecimal;
+import java.time.DayOfWeek;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
+import java.util.Random;
 
 @Component
 @RequiredArgsConstructor
@@ -26,6 +31,9 @@ public class DataInitializer implements CommandLineRunner {
     private final EmployeeRepository employeeRepository;
     private final DepartmentRepository departmentRepository;
     private final PositionRepository positionRepository;
+    private final AttendanceRepository attendanceRepository;
+    private final LeaveRepository leaveRepository;
+    private final OvertimeRepository overtimeRepository;
     private final PasswordEncoder passwordEncoder;
     private final org.springframework.jdbc.core.JdbcTemplate jdbcTemplate;
 
@@ -46,6 +54,7 @@ public class DataInitializer implements CommandLineRunner {
         initializeLeaveTypes();
         initializeWorkHours();
         initializeDemoData();
+        initializeTwoMonthsAttendanceAndLeaves();
         log.info("DataInitializer completed successfully.");
     }
 
@@ -574,5 +583,222 @@ public class DataInitializer implements CommandLineRunner {
                         .titleKh(titleKh)
                         .departmentId(deptId)
                         .build()));
+    }
+
+    private void initializeTwoMonthsAttendanceAndLeaves() {
+        log.info("Checking and seeding 2 months of attendance, leaves, and overtime data...");
+        List<Employee> allEmployees = employeeRepository.findAll();
+        if (allEmployees.isEmpty()) return;
+
+        // 1. Seed Leaves for July & August 2026
+        record LeaveSeed(String staffId, LocalDate date, String type, double days, String reason, String duration) {}
+        List<LeaveSeed> leaveSeeds = List.of(
+                new LeaveSeed("EMP-001", LocalDate.of(2026, 7, 10), "AL", 1.0, "Family vacation trip", "Full Day"),
+                new LeaveSeed("EMP-002", LocalDate.of(2026, 7, 15), "AL", 1.0, "Personal annual leave", "Full Day"),
+                new LeaveSeed("EMP-002", LocalDate.of(2026, 8, 3), "SL", 1.0, "Fever & doctor consultation", "Full Day"),
+                new LeaveSeed("EMP-003", LocalDate.of(2026, 7, 24), "PL", 1.0, "Attending wedding ceremony", "Full Day"),
+                new LeaveSeed("EMP-004", LocalDate.of(2026, 7, 22), "SL", 1.0, "Sick leave with medical certificate", "Full Day"),
+                new LeaveSeed("EMP-004", LocalDate.of(2026, 8, 14), "AL", 0.5, "Morning doctor appointment", "Morning"),
+                new LeaveSeed("EMP-005", LocalDate.of(2026, 8, 5), "PL", 0.5, "Morning administrative banking", "Morning"),
+                new LeaveSeed("EMP-006", LocalDate.of(2026, 8, 18), "AL", 1.0, "Annual vacation", "Full Day"),
+                new LeaveSeed("EMP-007", LocalDate.of(2026, 7, 31), "PL", 0.5, "Afternoon family business", "Afternoon"),
+                new LeaveSeed("EMP-008", LocalDate.of(2026, 8, 11), "AL", 1.0, "Annual leave trip", "Full Day"),
+                new LeaveSeed("EMP-008", LocalDate.of(2026, 8, 12), "AL", 1.0, "Annual leave trip", "Full Day"),
+                new LeaveSeed("EMP-009", LocalDate.of(2026, 8, 19), "SL", 0.5, "Afternoon medical checkup", "Afternoon"),
+                new LeaveSeed("EMP-010", LocalDate.of(2026, 7, 17), "PL", 1.0, "Private family event", "Full Day"),
+                new LeaveSeed("EMP-011", LocalDate.of(2026, 7, 28), "AL", 1.0, "Annual leave", "Full Day"),
+                new LeaveSeed("EMP-012", LocalDate.of(2026, 8, 21), "SL", 1.0, "Flu recovery", "Full Day")
+        );
+
+        for (LeaveSeed ls : leaveSeeds) {
+            boolean exists = leaveRepository.findByStaffId(ls.staffId()).stream()
+                    .anyMatch(l -> ls.date().equals(l.getLeaveDate()));
+            if (!exists) {
+                leaveRepository.save(Leave.builder()
+                        .staffId(ls.staffId())
+                        .leaveDate(ls.date())
+                        .leaveType(ls.type())
+                        .amountDays(BigDecimal.valueOf(ls.days()))
+                        .reason(ls.reason() + " (" + ls.duration() + ")")
+                        .status(LeaveStatus.Approved)
+                        .managerName("Admin")
+                        .requestedAt(ls.date().atTime(9, 0))
+                        .approvedAt(ls.date().atTime(10, 0))
+                        .createdBy("Admin")
+                        .build());
+            }
+        }
+
+        // 2. Seed Attendances from July 1, 2026 to August 28, 2026
+        LocalDate start = LocalDate.of(2026, 7, 1);
+        LocalDate end = LocalDate.of(2026, 8, 28);
+
+        LocalDate cur = start;
+        while (!cur.isAfter(end)) {
+            DayOfWeek dow = cur.getDayOfWeek();
+            // Skip weekends
+            if (dow != DayOfWeek.SATURDAY && dow != DayOfWeek.SUNDAY) {
+                final LocalDate curDate = cur;
+
+                for (Employee emp : allEmployees) {
+                    // Skip if date is before employee join date
+                    if (emp.getJoinDate() != null && curDate.isBefore(emp.getJoinDate())) {
+                        continue;
+                    }
+
+                    // Check if attendance already exists
+                    Optional<Attendance> existingAtt = attendanceRepository.findByStaffIdAndAttendanceDate(emp.getStaffId(), curDate);
+                    if (existingAtt.isPresent()) {
+                        continue;
+                    }
+
+                    // Check if employee has leave on this date
+                    Optional<Leave> leaveOpt = leaveRepository.findByStaffId(emp.getStaffId()).stream()
+                            .filter(l -> curDate.equals(l.getLeaveDate()) && l.getStatus() == LeaveStatus.Approved)
+                            .findFirst();
+
+                    boolean hasFullLeave = false;
+                    boolean hasMorningLeave = false;
+                    boolean hasAfternoonLeave = false;
+
+                    if (leaveOpt.isPresent()) {
+                        Leave lv = leaveOpt.get();
+                        double days = lv.getAmountDays() != null ? lv.getAmountDays().doubleValue() : 1.0;
+                        String reason = (lv.getReason() != null ? lv.getReason().toLowerCase() : "");
+                        if (days >= 1.0 || (!reason.contains("morning") && !reason.contains("afternoon") && days > 0.5)) {
+                            hasFullLeave = true;
+                        } else if (reason.contains("morning")) {
+                            hasMorningLeave = true;
+                        } else if (reason.contains("afternoon")) {
+                            hasAfternoonLeave = true;
+                        }
+                    }
+
+                    // If full day leave, do not insert attendance record
+                    if (hasFullLeave) {
+                        continue;
+                    }
+
+                    // Deterministic seed for realistic variation per employee and date
+                    long seed = ((long) emp.getStaffId().hashCode() * 397) ^ (curDate.toEpochDay() * 7919);
+                    Random rand = new Random(seed);
+                    int r = rand.nextInt(100);
+
+                    String c1 = null;
+                    String o1 = null;
+                    String c2 = null;
+                    String o2 = null;
+                    boolean isLate = false;
+                    boolean isEarlyLeave = false;
+                    String note = "";
+
+                    if (hasMorningLeave) {
+                        // Morning excused, afternoon attended
+                        c2 = String.format("12:%02d:00", 50 + rand.nextInt(10));
+                        o2 = String.format("17:%02d:00", rand.nextInt(15));
+                        note = "Morning Leave Excused";
+                    } else if (hasAfternoonLeave) {
+                        // Morning attended, afternoon excused
+                        c1 = String.format("07:%02d:00", 45 + rand.nextInt(14));
+                        o1 = String.format("12:%02d:00", rand.nextInt(6));
+                        note = "Afternoon Leave Excused";
+                    } else {
+                        // Normal attendance simulation
+                        if (r < 75) {
+                            // On-Time regular scan
+                            c1 = String.format("07:%02d:00", 45 + rand.nextInt(14));
+                            o1 = String.format("12:%02d:00", rand.nextInt(8));
+                            c2 = String.format("12:%02d:00", 50 + rand.nextInt(10));
+                            o2 = String.format("17:%02d:00", rand.nextInt(15));
+                        } else if (r < 84) {
+                            // Late In (Shift 1)
+                            int lateMin = 10 + rand.nextInt(25);
+                            c1 = String.format("08:%02d:00", lateMin);
+                            o1 = String.format("12:%02d:00", rand.nextInt(6));
+                            c2 = String.format("12:%02d:00", 55 + rand.nextInt(5));
+                            o2 = String.format("17:%02d:00", rand.nextInt(10));
+                            isLate = true;
+                            note = "Checkin: Late In";
+                        } else if (r < 90) {
+                            // Early Leave (Shift 2)
+                            c1 = String.format("07:%02d:00", 48 + rand.nextInt(10));
+                            o1 = String.format("12:%02d:00", rand.nextInt(5));
+                            c2 = String.format("12:%02d:00", 55 + rand.nextInt(5));
+                            int earlyMin = 30 + rand.nextInt(20);
+                            o2 = String.format("16:%02d:00", earlyMin);
+                            isEarlyLeave = true;
+                            note = "Checkout: Early Leave";
+                        } else if (r < 94) {
+                            // Incomplete: Missing Check-out 1
+                            c1 = String.format("07:%02d:00", 48 + rand.nextInt(10));
+                            o1 = null;
+                            c2 = String.format("12:%02d:00", 55 + rand.nextInt(5));
+                            o2 = String.format("17:%02d:00", rand.nextInt(10));
+                            note = "Missing Checkout 1";
+                        } else if (r < 98) {
+                            // Incomplete: Missing Check-in 2
+                            c1 = String.format("07:%02d:00", 48 + rand.nextInt(10));
+                            o1 = String.format("12:%02d:00", rand.nextInt(5));
+                            c2 = null;
+                            o2 = String.format("17:%02d:00", rand.nextInt(10));
+                            note = "Missing Checkin 2";
+                        } else {
+                            // Absent / No scan on working day
+                            c1 = null;
+                            o1 = null;
+                            c2 = null;
+                            o2 = null;
+                            note = "No Scan (Absent)";
+                        }
+                    }
+
+                    if (c1 != null || o1 != null || c2 != null || o2 != null) {
+                        attendanceRepository.save(Attendance.builder()
+                                .staffId(emp.getStaffId())
+                                .attendanceDate(curDate)
+                                .checkin1(c1)
+                                .checkout1(o1)
+                                .checkin2(c2)
+                                .checkout2(o2)
+                                .isLate(isLate)
+                                .isEarlyLeave(isEarlyLeave)
+                                .note(note)
+                                .build());
+                    }
+                }
+            }
+            cur = cur.plusDays(1);
+        }
+
+        // 3. Seed Overtime for July & August
+        if (overtimeRepository.count() < 5) {
+            record OtSeed(String staffId, LocalDate date, String start, String end, double hrs, String reason, LeaveStatus status) {}
+            List<OtSeed> otSeeds = List.of(
+                    new OtSeed("EMP-001", LocalDate.of(2026, 7, 8), "17:30", "20:00", 2.5, "Deploy new release to production", LeaveStatus.Approved),
+                    new OtSeed("EMP-004", LocalDate.of(2026, 7, 20), "17:30", "19:30", 2.0, "Fix urgent bug in reporting module", LeaveStatus.Approved),
+                    new OtSeed("EMP-006", LocalDate.of(2026, 8, 6), "17:30", "21:00", 3.5, "Database migration & security audit backup", LeaveStatus.Approved),
+                    new OtSeed("EMP-009", LocalDate.of(2026, 8, 14), "17:30", "20:00", 2.5, "Month-end financial balance sheet preparation", LeaveStatus.Approved),
+                    new OtSeed("EMP-012", LocalDate.of(2026, 8, 25), "17:30", "19:30", 2.0, "Prepare Q3 marketing promotional campaign", LeaveStatus.Pending)
+            );
+
+            for (OtSeed ot : otSeeds) {
+                overtimeRepository.save(Overtime.builder()
+                        .staffId(ot.staffId())
+                        .fromDate(ot.date())
+                        .toDate(ot.date())
+                        .startTime(ot.start())
+                        .endTime(ot.end())
+                        .amountDay(BigDecimal.valueOf(ot.hrs()))
+                        .reason(ot.reason())
+                        .status(ot.status())
+                        .managerName("Admin")
+                        .createdBy("Admin")
+                        .requestedAt(ot.date().atTime(17, 0))
+                        .approvedAt(ot.status() == LeaveStatus.Approved ? ot.date().atTime(17, 30) : null)
+                        .build());
+            }
+        }
+
+        log.info("2 months attendance, leaves, and overtime seeding completed.");
     }
 }

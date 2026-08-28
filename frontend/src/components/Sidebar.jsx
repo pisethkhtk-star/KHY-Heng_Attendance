@@ -12,6 +12,7 @@ import {
   ShieldCheckIcon,
   MapPinIcon,
   Cog6ToothIcon,
+  GlobeAltIcon,
 } from '@heroicons/react/24/outline';
 import { LOGO_TEXT } from '../utils/constants';
 import appIcon from '../assets/app_icon.png';
@@ -19,7 +20,7 @@ import appIcon from '../assets/app_icon.png';
 const Sidebar = ({ isOpen, toggleSidebar }) => {
   const { user, hasPermission } = useAuth();
   const { t } = useLanguage();
-  const [openMenus, setOpenMenus] = useState({ Attendance: true, Leave: true, Setup: true });
+  const [openMenus, setOpenMenus] = useState({ Attendance: true, Leave: true, Setup: true, WebManage: true });
 
   const menuItems = [
     {
@@ -52,16 +53,6 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
           name: t("workHours"),
           resource: "work_hours",
         },
-        {
-          path: "/telegram-settings",
-          name: t("telegramGroup"),
-          resource: "work_hours",
-        },
-        {
-          path: "/approval-manage",
-          name: t("approvalManage"),
-          resource: "leave_approvals",
-        },
       ]
     },
     {
@@ -84,6 +75,10 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
         {
           path: "/attendance-early-out",
           name: t("earlyDepartures"),
+        },
+        {
+          path: "/attendance-incomplete",
+          name: t("incompleteShifts"),
         },
       ]
     },
@@ -132,6 +127,23 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
       name: t("branchSetting"),
       icon: MapPinIcon,
       resource: "kiosk_settings",
+    },
+    {
+      key: "WebManage",
+      name: t("webManage") || "Web Manage",
+      icon: GlobeAltIcon,
+      subItems: [
+        {
+          path: "/telegram-settings",
+          name: t("telegramGroup"),
+          resource: "work_hours",
+        },
+        {
+          path: "/approval-manage",
+          name: t("approvalManage"),
+          resource: "leave_approvals",
+        },
+      ]
     },
     {
       path: "/permissions",
