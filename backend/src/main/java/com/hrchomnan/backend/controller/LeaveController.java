@@ -32,6 +32,7 @@ public class LeaveController {
     private final LeaveTypeRepository leaveTypeRepository;
     private final EmployeeLeaveLimitRepository leaveLimitRepository;
     private final LeaveApprovalRuleRepository leaveApprovalRuleRepository;
+    private final com.hrchomnan.backend.repository.EmployeeFaceDataRepository employeeFaceDataRepository;
     private final com.hrchomnan.backend.service.TelegramNotificationService telegramNotificationService;
 
     @GetMapping
@@ -55,6 +56,9 @@ public class LeaveController {
                 .collect(Collectors.toMap(Department::getId, d -> d, (a, b) -> a));
         Map<UUID, Position> posMap = positionRepository.findAll().stream()
                 .collect(Collectors.toMap(Position::getId, p -> p, (a, b) -> a));
+        Map<String, String> faceDataMap = employeeFaceDataRepository.findAll().stream()
+                .filter(f -> f.getStaffId() != null && f.getPhotoUrl() != null)
+                .collect(Collectors.toMap(com.hrchomnan.backend.model.EmployeeFaceData::getStaffId, com.hrchomnan.backend.model.EmployeeFaceData::getPhotoUrl, (a, b) -> a));
 
         if (departmentId != null && !departmentId.isBlank()) {
             try {
@@ -80,7 +84,7 @@ public class LeaveController {
         list.sort(Comparator.comparing(Leave::getRequestedAt, Comparator.nullsLast(Comparator.reverseOrder())));
 
         List<Map<String, Object>> response = list.stream()
-                .map(l -> enrichLeave(l, empMap, deptMap, posMap))
+                .map(l -> enrichLeave(l, empMap, deptMap, posMap, faceDataMap))
                 .collect(Collectors.toList());
 
         return ResponseEntity.ok(response);
@@ -97,9 +101,12 @@ public class LeaveController {
                 .collect(Collectors.toMap(Department::getId, d -> d, (a, b) -> a));
         Map<UUID, Position> posMap = positionRepository.findAll().stream()
                 .collect(Collectors.toMap(Position::getId, p -> p, (a, b) -> a));
+        Map<String, String> faceDataMap = employeeFaceDataRepository.findAll().stream()
+                .filter(f -> f.getStaffId() != null && f.getPhotoUrl() != null)
+                .collect(Collectors.toMap(com.hrchomnan.backend.model.EmployeeFaceData::getStaffId, com.hrchomnan.backend.model.EmployeeFaceData::getPhotoUrl, (a, b) -> a));
 
         List<Map<String, Object>> response = list.stream()
-                .map(l -> enrichLeave(l, empMap, deptMap, posMap))
+                .map(l -> enrichLeave(l, empMap, deptMap, posMap, faceDataMap))
                 .collect(Collectors.toList());
 
         return ResponseEntity.ok(response);
@@ -115,6 +122,7 @@ public class LeaveController {
         private String leaveType;
         private Double amountDays;
         private String reason;
+        private String createdBy;
     }
 
     @PostMapping
@@ -203,6 +211,10 @@ public class LeaveController {
             }
         }
 
+        String creator = request.getCreatedBy() != null && !request.getCreatedBy().isBlank()
+                ? request.getCreatedBy()
+                : request.getStaffId();
+
         List<Leave> createdLeaves = new ArrayList<>();
         for (LocalDate d : dates) {
             String finalReason = request.getReason();
@@ -220,6 +232,7 @@ public class LeaveController {
                     .reason(finalReason)
                     .status(LeaveStatus.Pending)
                     .requestedAt(LocalDateTime.now())
+                    .createdBy(creator)
                     .build();
 
             Leave saved = leaveRepository.save(leave);
@@ -424,6 +437,19 @@ public class LeaveController {
             Map<UUID, Department> deptMap,
             Map<UUID, Position> posMap
     ) {
+        Map<String, String> faceDataMap = employeeFaceDataRepository.findAll().stream()
+                .filter(f -> f.getStaffId() != null && f.getPhotoUrl() != null)
+                .collect(Collectors.toMap(com.hrchomnan.backend.model.EmployeeFaceData::getStaffId, com.hrchomnan.backend.model.EmployeeFaceData::getPhotoUrl, (a, b) -> a));
+        return enrichLeave(l, empMap, deptMap, posMap, faceDataMap);
+    }
+
+    private Map<String, Object> enrichLeave(
+            Leave l,
+            Map<String, Employee> empMap,
+            Map<UUID, Department> deptMap,
+            Map<UUID, Position> posMap,
+            Map<String, String> faceDataMap
+    ) {
         Map<String, Object> map = new HashMap<>();
         map.put("id", l.getId());
         map.put("staffId", l.getStaffId());
@@ -435,15 +461,34 @@ public class LeaveController {
         map.put("managerName", l.getManagerName());
         map.put("requestedAt", l.getRequestedAt());
         map.put("approvedAt", l.getApprovedAt());
+
+        String creatorRaw = l.getCreatedBy();
+        if (creatorRaw == null || creatorRaw.isBlank()) {
+            creatorRaw = l.getStaffId();
+        }
+        Employee creatorEmp = creatorRaw != null ? empMap.get(creatorRaw) : null;
+        String creatorDisplay = creatorRaw;
+        if (creatorEmp != null) {
+            creatorDisplay = (creatorEmp.getNameKh() != null && !creatorEmp.getNameKh().isBlank())
+                    ? creatorEmp.getNameEn() + " (" + creatorEmp.getNameKh() + ")"
+                    : creatorEmp.getNameEn();
+        }
+        map.put("createdBy", creatorDisplay);
         map.put("createdAt", l.getCreatedAt());
         map.put("updatedAt", l.getUpdatedAt());
 
         Employee emp = empMap.get(l.getStaffId());
         if (emp != null) {
+            String photo = (emp.getPhotoUrl() != null && !emp.getPhotoUrl().isBlank())
+                    ? emp.getPhotoUrl()
+                    : faceDataMap.get(emp.getStaffId());
             Map<String, Object> empData = new HashMap<>();
             empData.put("staffId", emp.getStaffId());
             empData.put("nameEn", emp.getNameEn());
             empData.put("nameKh", emp.getNameKh());
+            empData.put("photoUrl", photo);
+            empData.put("role", emp.getRole() != null ? emp.getRole().name() : null);
+            empData.put("email", emp.getEmail());
             empData.put("branch", emp.getBranch());
 
             Department d = emp.getDepartmentId() != null ? deptMap.get(emp.getDepartmentId()) : null;

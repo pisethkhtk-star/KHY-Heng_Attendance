@@ -54,6 +54,9 @@ public class Leave {
     @Column(name = "approved_at")
     private LocalDateTime approvedAt;
 
+    @Column(name = "created_by")
+    private String createdBy;
+
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;

@@ -26,6 +26,8 @@ public class LeaveApprovalController {
     private final LeaveApprovalRuleRepository ruleRepository;
     private final EmployeeRepository employeeRepository;
     private final DepartmentRepository departmentRepository;
+    private final com.hrchomnan.backend.repository.PositionRepository positionRepository;
+    private final com.hrchomnan.backend.repository.EmployeeFaceDataRepository employeeFaceDataRepository;
 
     @GetMapping
     public ResponseEntity<List<Map<String, Object>>> getAllRules(@RequestParam(required = false) String approverId) {
@@ -41,6 +43,11 @@ public class LeaveApprovalController {
                 .collect(Collectors.toMap(Employee::getStaffId, e -> e, (a, b) -> a));
         Map<UUID, Department> deptMap = departmentRepository.findAll().stream()
                 .collect(Collectors.toMap(Department::getId, d -> d, (a, b) -> a));
+        Map<UUID, com.hrchomnan.backend.model.Position> posMap = positionRepository.findAll().stream()
+                .collect(Collectors.toMap(com.hrchomnan.backend.model.Position::getId, p -> p, (a, b) -> a));
+        Map<String, String> faceDataMap = employeeFaceDataRepository.findAll().stream()
+                .filter(f -> f.getStaffId() != null && f.getPhotoUrl() != null)
+                .collect(Collectors.toMap(com.hrchomnan.backend.model.EmployeeFaceData::getStaffId, com.hrchomnan.backend.model.EmployeeFaceData::getPhotoUrl, (a, b) -> a));
 
         List<Map<String, Object>> response = rules.stream().map(rule -> {
             Map<String, Object> map = new HashMap<>();
@@ -54,11 +61,25 @@ public class LeaveApprovalController {
 
             Employee approver = empMap.get(rule.getApproverId());
             if (approver != null) {
-                map.put("approver", Map.of(
-                        "nameEn", approver.getNameEn(),
-                        "nameKh", approver.getNameKh(),
-                        "staffId", approver.getStaffId()
-                ));
+                String photo = (approver.getPhotoUrl() != null && !approver.getPhotoUrl().isBlank())
+                        ? approver.getPhotoUrl()
+                        : faceDataMap.get(approver.getStaffId());
+                Map<String, Object> aMap = new HashMap<>();
+                aMap.put("nameEn", approver.getNameEn());
+                aMap.put("nameKh", approver.getNameKh());
+                aMap.put("staffId", approver.getStaffId());
+                aMap.put("photoUrl", photo);
+                aMap.put("role", approver.getRole() != null ? approver.getRole().name() : null);
+                aMap.put("email", approver.getEmail());
+                if (approver.getDepartmentId() != null && deptMap.containsKey(approver.getDepartmentId())) {
+                    Department d = deptMap.get(approver.getDepartmentId());
+                    aMap.put("department", Map.of("nameEn", d.getNameEn(), "nameKh", d.getNameKh()));
+                }
+                if (approver.getPositionId() != null && posMap.containsKey(approver.getPositionId())) {
+                    com.hrchomnan.backend.model.Position p = posMap.get(approver.getPositionId());
+                    aMap.put("position", Map.of("titleEn", p.getTitleEn(), "titleKh", p.getTitleKh()));
+                }
+                map.put("approver", aMap);
             } else {
                 map.put("approver", null);
             }
@@ -77,11 +98,25 @@ public class LeaveApprovalController {
             if ("Employee".equalsIgnoreCase(rule.getScope()) && rule.getTargetStaffId() != null) {
                 Employee targetEmp = empMap.get(rule.getTargetStaffId());
                 if (targetEmp != null) {
-                    map.put("targetEmployee", Map.of(
-                            "nameEn", targetEmp.getNameEn(),
-                            "nameKh", targetEmp.getNameKh(),
-                            "staffId", targetEmp.getStaffId()
-                    ));
+                    String photo = (targetEmp.getPhotoUrl() != null && !targetEmp.getPhotoUrl().isBlank())
+                            ? targetEmp.getPhotoUrl()
+                            : faceDataMap.get(targetEmp.getStaffId());
+                    Map<String, Object> tMap = new HashMap<>();
+                    tMap.put("nameEn", targetEmp.getNameEn());
+                    tMap.put("nameKh", targetEmp.getNameKh());
+                    tMap.put("staffId", targetEmp.getStaffId());
+                    tMap.put("photoUrl", photo);
+                    tMap.put("role", targetEmp.getRole() != null ? targetEmp.getRole().name() : null);
+                    tMap.put("email", targetEmp.getEmail());
+                    if (targetEmp.getDepartmentId() != null && deptMap.containsKey(targetEmp.getDepartmentId())) {
+                        Department d = deptMap.get(targetEmp.getDepartmentId());
+                        tMap.put("department", Map.of("nameEn", d.getNameEn(), "nameKh", d.getNameKh()));
+                    }
+                    if (targetEmp.getPositionId() != null && posMap.containsKey(targetEmp.getPositionId())) {
+                        com.hrchomnan.backend.model.Position p = posMap.get(targetEmp.getPositionId());
+                        tMap.put("position", Map.of("titleEn", p.getTitleEn(), "titleKh", p.getTitleKh()));
+                    }
+                    map.put("targetEmployee", tMap);
                 } else {
                     map.put("targetEmployee", null);
                 }

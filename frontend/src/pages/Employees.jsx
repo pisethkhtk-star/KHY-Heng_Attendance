@@ -199,16 +199,27 @@ const Employees = () => {
         throw new Error('Face Recognition library loading. Please wait a second.');
       }
 
-      const MODEL_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model/';
-      if (!window.faceapi.nets.tinyFaceDetector.params) {
-        await window.faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL);
-      }
-      if (!window.faceapi.nets.faceLandmark68Net.params) {
-        await window.faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL);
-      }
-      if (!window.faceapi.nets.faceRecognitionNet.params) {
-        await window.faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL);
-      }
+      // Load neural net models locally with CDN fallback
+      const loadModels = async () => {
+        try {
+          if (!window.faceapi.nets.tinyFaceDetector.params) {
+            await window.faceapi.nets.tinyFaceDetector.loadFromUri('/models');
+          }
+          if (!window.faceapi.nets.faceLandmark68Net.params) {
+            await window.faceapi.nets.faceLandmark68Net.loadFromUri('/models');
+          }
+          if (!window.faceapi.nets.faceRecognitionNet.params) {
+            await window.faceapi.nets.faceRecognitionNet.loadFromUri('/models');
+          }
+        } catch (localErr) {
+          console.warn('Falling back to CDN for face-api models:', localErr);
+          const CDN_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model/';
+          await window.faceapi.nets.tinyFaceDetector.loadFromUri(CDN_URL);
+          await window.faceapi.nets.faceLandmark68Net.loadFromUri(CDN_URL);
+          await window.faceapi.nets.faceRecognitionNet.loadFromUri(CDN_URL);
+        }
+      };
+      await loadModels();
 
       setFaceStatus('camera_ready');
       const stream = await navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480 } });
@@ -286,9 +297,9 @@ const Employees = () => {
         handleCloseFaceModal();
       }, 2000);
     } catch (err) {
-      console.error(err);
+      console.error('Face enroll error:', err);
       setFaceStatus('camera_ready');
-      setFaceError(err.message || 'Error scanning face');
+      setFaceError(err.response?.data?.message || err.message || 'Error scanning face');
       playSound('error');
     }
   };
@@ -305,16 +316,27 @@ const Employees = () => {
         throw new Error('Face recognition models are loading. Please wait.');
       }
 
-      const MODEL_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model/';
-      if (!window.faceapi.nets.tinyFaceDetector.params) {
-        await window.faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL);
-      }
-      if (!window.faceapi.nets.faceLandmark68Net.params) {
-        await window.faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL);
-      }
-      if (!window.faceapi.nets.faceRecognitionNet.params) {
-        await window.faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL);
-      }
+      // Load neural net models locally with CDN fallback
+      const loadModels = async () => {
+        try {
+          if (!window.faceapi.nets.tinyFaceDetector.params) {
+            await window.faceapi.nets.tinyFaceDetector.loadFromUri('/models');
+          }
+          if (!window.faceapi.nets.faceLandmark68Net.params) {
+            await window.faceapi.nets.faceLandmark68Net.loadFromUri('/models');
+          }
+          if (!window.faceapi.nets.faceRecognitionNet.params) {
+            await window.faceapi.nets.faceRecognitionNet.loadFromUri('/models');
+          }
+        } catch (localErr) {
+          console.warn('Falling back to CDN for face-api models:', localErr);
+          const CDN_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model/';
+          await window.faceapi.nets.tinyFaceDetector.loadFromUri(CDN_URL);
+          await window.faceapi.nets.faceLandmark68Net.loadFromUri(CDN_URL);
+          await window.faceapi.nets.faceRecognitionNet.loadFromUri(CDN_URL);
+        }
+      };
+      await loadModels();
 
       const img = new Image();
       img.src = URL.createObjectURL(file);
@@ -373,9 +395,9 @@ const Employees = () => {
         handleCloseFaceModal();
       }, 2000);
     } catch (err) {
-      console.error(err);
+      console.error('Face upload error:', err);
       setFaceStatus('idle');
-      setFaceError(err.message || 'Error processing uploaded image.');
+      setFaceError(err.response?.data?.message || err.message || 'Error processing uploaded image.');
       playSound('error');
     }
   };
@@ -802,7 +824,7 @@ const Employees = () => {
             <table className="w-full text-left text-sm text-slate-300">
               <thead className="bg-slate-950/80 text-xs text-slate-300 uppercase border-b border-white/10">
                 <tr>
-                  <th className="py-4 px-6 font-khmer whitespace-nowrap">{t("staffId")}</th>
+                  <th className="py-4 px-6 font-khmer whitespace-nowrap w-16 text-center">{t("noNumber")}</th>
                   <th className="py-4 px-6 font-khmer">{t("employees")}</th>
                   <th className="py-4 px-6 font-khmer whitespace-nowrap">{t("gender")}</th>
                   <th className="py-4 px-6 font-khmer whitespace-nowrap">{t("branch")}</th>
@@ -819,9 +841,11 @@ const Employees = () => {
                     </td>
                   </tr>
                 ) : (
-                  employees.map((emp) => (
+                  employees.map((emp, index) => (
                     <tr key={emp.id} className="hover:bg-white/5 transition-colors">
-                      <td className="py-4 px-6 font-semibold text-white whitespace-nowrap">{emp.staffId}</td>
+                      <td className="py-4 px-6 text-center font-semibold text-slate-400 whitespace-nowrap font-mono">
+                        {index + 1}
+                      </td>
                       <td className="py-4 px-6">
                         <div className="flex items-center gap-3">
                           {/* Profile Avatar */}
@@ -840,7 +864,9 @@ const Employees = () => {
                             <p className="font-semibold text-white">
                               {getLocalizedName(emp.nameEn, emp.nameKh)}
                             </p>
-                            <p className="text-xs text-slate-400">{emp.email} • {emp.role}</p>
+                            <p className="text-xs text-slate-400 font-mono">
+                              ID: <span className="text-indigo-400 font-semibold">{emp.staffId}</span>{emp.role ? ` • ${emp.role}` : ''}
+                            </p>
                             <p className="text-xs font-semibold text-indigo-400">
                               {getLocalizedName(emp.department.nameEn, emp.department.nameKh)} • {getLocalizedName(emp.position.titleEn, emp.position.titleKh)}
                             </p>

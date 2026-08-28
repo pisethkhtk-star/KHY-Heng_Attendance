@@ -215,6 +215,14 @@ const ApprovalManage = () => {
       (rule.targetStaffId && rule.targetStaffId.toLowerCase().includes(search.toLowerCase()));
   });
 
+  const getEmployeePhoto = (emp) => {
+    if (!emp) return '';
+    if (emp.photoUrl) return emp.photoUrl;
+    if (Array.isArray(emp.faceData) && emp.faceData[0]?.photoUrl) return emp.faceData[0].photoUrl;
+    if (emp.faceData?.photoUrl) return emp.faceData.photoUrl;
+    return '';
+  };
+
   const managers = employees.filter(e => ['Admin', 'HR', 'Manager'].includes(e.role));
   const filteredEmpList = employees.filter(e =>
     `${e.nameEn} ${e.nameKh} ${e.staffId}`.toLowerCase().includes(empSearch.toLowerCase())
@@ -278,6 +286,7 @@ const ApprovalManage = () => {
             <table className="w-full text-left text-sm text-slate-300">
               <thead className="bg-slate-950/80 text-xs text-slate-300 uppercase border-b border-white/10">
                 <tr>
+                  <th className="py-4 px-6 font-khmer whitespace-nowrap w-16 text-center">{t("noNumber")}</th>
                   <th className="py-4 px-6 font-khmer">Approver</th>
                   <th className="py-4 px-6 font-khmer">Scope Type</th>
                   <th className="py-4 px-6 font-khmer">Target</th>
@@ -289,65 +298,144 @@ const ApprovalManage = () => {
               <tbody className="divide-y divide-white/5">
                 {filteredRules.length === 0 ? (
                   <tr>
-                    <td colSpan={(hasPermission('edit_leave_approvals') || hasPermission('delete_leave_approvals')) ? 4 : 3} className="py-6 text-center text-slate-500 font-khmer">
+                    <td colSpan={(hasPermission('edit_leave_approvals') || hasPermission('delete_leave_approvals')) ? 5 : 4} className="py-6 text-center text-slate-500 font-khmer">
                       មិនទាន់មានច្បាប់កំណត់អ្នកអនុម័តនៅឡើយទេ
                     </td>
                   </tr>
                 ) : (
-                  filteredRules.map((rule) => (
-                    <tr key={rule.id} className="hover:bg-white/5 transition-colors">
-                      <td className="py-4 px-6">
-                        <p className="font-semibold text-white">
-                          {rule.approver ? getLocalizedName(rule.approver.nameEn, rule.approver.nameKh) : rule.approverId}
-                        </p>
-                        <p className="text-xs text-indigo-400">ID: {rule.approverId}</p>
-                      </td>
-                      <td className="py-4 px-6">
-                        <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold ring-1 ring-inset ${rule.scope === 'Department'
-                          ? 'bg-purple-500/10 text-purple-300 ring-purple-500/20'
-                          : 'bg-indigo-500/10 text-indigo-300 ring-indigo-500/20'
-                          }`}>
-                          {rule.scope}
-                        </span>
-                      </td>
-                      <td className="py-4 px-6">
-                        {rule.scope === 'Department' ? (
-                          <span className="text-white font-semibold">
-                            🏢 ដេប៉ាតឺម៉ង់៖ {rule.targetDept ? getLocalizedName(rule.targetDept.nameEn, rule.targetDept.nameKh) : 'N/A'}
-                          </span>
-                        ) : (
-                          <div>
-                            <p className="font-semibold text-white">
-                              👤 {rule.targetEmployee ? getLocalizedName(rule.targetEmployee.nameEn, rule.targetEmployee.nameKh) : rule.targetStaffId}
-                            </p>
-                            <p className="text-xs text-slate-400">ID: {rule.targetStaffId}</p>
+                  filteredRules.map((rule, index) => {
+                    const approverEmp = employees.find(e => e.staffId === rule.approverId) || rule.approver;
+                    const approverNameEn = approverEmp?.nameEn || rule.approverId;
+                    const approverNameKh = approverEmp?.nameKh || '';
+                    const approverPhoto = getEmployeePhoto(approverEmp);
+                    const approverRole = approverEmp?.role || '';
+                    const approverDept = approverEmp?.department ? getLocalizedName(approverEmp.department.nameEn, approverEmp.department.nameKh) : '';
+                    const approverPos = approverEmp?.position ? getLocalizedName(approverEmp.position.titleEn, approverEmp.position.titleKh) : '';
+
+                    const targetEmp = employees.find(e => e.staffId === rule.targetStaffId) || rule.targetEmployee;
+                    const targetNameEn = targetEmp?.nameEn || rule.targetStaffId;
+                    const targetNameKh = targetEmp?.nameKh || '';
+                    const targetPhoto = getEmployeePhoto(targetEmp);
+                    const targetRole = targetEmp?.role || '';
+                    const targetDept = targetEmp?.department ? getLocalizedName(targetEmp.department.nameEn, targetEmp.department.nameKh) : '';
+                    const targetPos = targetEmp?.position ? getLocalizedName(targetEmp.position.titleEn, targetEmp.position.titleKh) : '';
+
+                    return (
+                      <tr key={rule.id} className="hover:bg-white/5 transition-colors">
+                        <td className="py-4 px-6 text-center font-semibold text-slate-400 whitespace-nowrap font-mono">
+                          {index + 1}
+                        </td>
+                        {/* Approver Profile */}
+                        <td className="py-4 px-6">
+                          <div className="flex items-center gap-3">
+                            {approverPhoto ? (
+                              <img
+                                src={approverPhoto}
+                                alt={approverNameEn}
+                                className="w-10 h-10 rounded-full object-cover border-2 border-indigo-500/30 flex-shrink-0 shadow-md"
+                              />
+                            ) : (
+                              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center flex-shrink-0 text-white font-bold text-sm shadow-md">
+                                {approverNameEn?.charAt(0)?.toUpperCase() || '?'}
+                              </div>
+                            )}
+                            <div>
+                              <p className="font-semibold text-white">
+                                {getLocalizedName(approverNameEn, approverNameKh)}
+                              </p>
+                              <p className="text-xs text-slate-400">
+                                ID: <span className="text-indigo-400 font-semibold">{rule.approverId}</span>
+                                {approverRole && <span> • {approverRole}</span>}
+                              </p>
+                              {(approverDept || approverPos) && (
+                                <p className="text-xs font-semibold text-indigo-400">
+                                  {[approverDept, approverPos].filter(Boolean).join(' • ')}
+                                </p>
+                              )}
+                            </div>
                           </div>
-                        )}
-                      </td>
-                      {(hasPermission('edit_leave_approvals') || hasPermission('delete_leave_approvals')) && (
-                        <td className="py-4 px-6 text-right space-x-2">
-                          {hasPermission('edit_leave_approvals') && (
-                            <button
-                              onClick={() => handleOpenEditModal(rule)}
-                              className="inline-flex p-2 bg-indigo-500/10 hover:bg-indigo-500/25 border border-indigo-500/20 rounded-xl text-indigo-400 transition-colors cursor-pointer mr-2"
-                              title="Edit Rule"
-                            >
-                              <PencilIcon className="h-4.5 w-4.5" />
-                            </button>
-                          )}
-                          {hasPermission('delete_leave_approvals') && (
-                            <button
-                              onClick={() => handleDelete(rule.id)}
-                              className="inline-flex p-2 bg-rose-500/10 hover:bg-rose-500/25 border border-rose-500/20 rounded-xl text-rose-400 transition-colors cursor-pointer"
-                              title="Delete Rule"
-                            >
-                              <TrashIcon className="h-4.5 w-4.5" />
-                            </button>
+                        </td>
+
+                        {/* Scope Type */}
+                        <td className="py-4 px-6">
+                          <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ring-1 ring-inset ${rule.scope === 'Department'
+                            ? 'bg-purple-500/10 text-purple-300 ring-purple-500/20'
+                            : 'bg-indigo-500/10 text-indigo-300 ring-indigo-500/20'
+                            }`}>
+                            {rule.scope}
+                          </span>
+                        </td>
+
+                        {/* Target Profile */}
+                        <td className="py-4 px-6">
+                          {rule.scope === 'Department' ? (
+                            <div className="flex items-center gap-3">
+                              <div className="w-10 h-10 rounded-xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-purple-400 font-bold text-lg flex-shrink-0 shadow-md">
+                                🏢
+                              </div>
+                              <div>
+                                <p className="font-semibold text-white">
+                                  {rule.targetDept ? getLocalizedName(rule.targetDept.nameEn, rule.targetDept.nameKh) : 'N/A'}
+                                </p>
+                                <p className="text-xs text-purple-300">Department Scope</p>
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-3">
+                              {targetPhoto ? (
+                                <img
+                                  src={targetPhoto}
+                                  alt={targetNameEn}
+                                  className="w-10 h-10 rounded-full object-cover border-2 border-indigo-500/30 flex-shrink-0 shadow-md"
+                                />
+                              ) : (
+                                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center flex-shrink-0 text-white font-bold text-sm shadow-md">
+                                  {targetNameEn?.charAt(0)?.toUpperCase() || '?'}
+                                </div>
+                              )}
+                              <div>
+                                <p className="font-semibold text-white">
+                                  {getLocalizedName(targetNameEn, targetNameKh)}
+                                </p>
+                                <p className="text-xs text-slate-400">
+                                  ID: <span className="text-slate-300 font-semibold">{rule.targetStaffId}</span>
+                                  {targetRole && <span> • {targetRole}</span>}
+                                </p>
+                                {(targetDept || targetPos) && (
+                                  <p className="text-xs font-semibold text-indigo-400">
+                                    {[targetDept, targetPos].filter(Boolean).join(' • ')}
+                                  </p>
+                                )}
+                              </div>
+                            </div>
                           )}
                         </td>
-                      )}
-                    </tr>
-                  ))
+
+                        {(hasPermission('edit_leave_approvals') || hasPermission('delete_leave_approvals')) && (
+                          <td className="py-4 px-6 text-right space-x-2">
+                            {hasPermission('edit_leave_approvals') && (
+                              <button
+                                onClick={() => handleOpenEditModal(rule)}
+                                className="inline-flex p-2 bg-indigo-500/10 hover:bg-indigo-500/25 border border-indigo-500/20 rounded-xl text-indigo-400 transition-colors cursor-pointer mr-2"
+                                title="Edit Rule"
+                              >
+                                <PencilIcon className="h-4.5 w-4.5" />
+                              </button>
+                            )}
+                            {hasPermission('delete_leave_approvals') && (
+                              <button
+                                onClick={() => handleDelete(rule.id)}
+                                className="inline-flex p-2 bg-rose-500/10 hover:bg-rose-500/25 border border-rose-500/20 rounded-xl text-rose-400 transition-colors cursor-pointer"
+                                title="Delete Rule"
+                              >
+                                <TrashIcon className="h-4.5 w-4.5" />
+                              </button>
+                            )}
+                          </td>
+                        )}
+                      </tr>
+                    );
+                  })
                 )}
               </tbody>
             </table>
@@ -368,7 +456,7 @@ const ApprovalManage = () => {
             <form onSubmit={handleSubmit}>
               <div className="p-6 space-y-4">
                 {/* Select Approver */}
-                <div className="space-y-1">
+                <div className="space-y-2">
                   <label className="block text-xs font-semibold text-slate-400 uppercase font-khmer">Select Approver</label>
                   <select
                     value={approverId}
@@ -381,6 +469,37 @@ const ApprovalManage = () => {
                       </option>
                     ))}
                   </select>
+
+                  {/* Selected Approver Profile Card Preview */}
+                  {(() => {
+                    const selManager = managers.find(m => m.staffId === approverId);
+                    if (!selManager) return null;
+                    const mgrPhoto = getEmployeePhoto(selManager);
+                    return (
+                      <div className="flex items-center gap-3 p-2.5 rounded-xl bg-slate-950/50 border border-white/5">
+                        {mgrPhoto ? (
+                          <img
+                            src={mgrPhoto}
+                            alt={selManager.nameEn}
+                            className="w-9 h-9 rounded-full object-cover border border-indigo-500/40 flex-shrink-0 shadow-sm"
+                          />
+                        ) : (
+                          <div className="w-9 h-9 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center flex-shrink-0 text-white font-bold text-xs shadow-sm">
+                            {selManager.nameEn?.charAt(0)?.toUpperCase() || '?'}
+                          </div>
+                        )}
+                        <div className="min-w-0 flex-1">
+                          <p className="text-xs font-bold text-white truncate">
+                            {getLocalizedName(selManager.nameEn, selManager.nameKh)}
+                          </p>
+                          <p className="text-[10px] text-indigo-400 truncate">
+                            {selManager.role} • ID: {selManager.staffId}
+                            {selManager.department ? ` • ${getLocalizedName(selManager.department.nameEn, selManager.department.nameKh)}` : ''}
+                          </p>
+                        </div>
+                      </div>
+                    );
+                  })()}
                 </div>
 
                 {/* Scope Selection */}
@@ -394,7 +513,7 @@ const ApprovalManage = () => {
                         onChange={() => setScope('Employee')}
                         className="text-indigo-600 focus:ring-indigo-500"
                       />
-                      <span>Persional Employee</span>
+                      <span>Personal Employee</span>
                     </label>
                     <label className="flex items-center gap-2 text-sm text-slate-300 cursor-pointer">
                       <input
@@ -446,6 +565,7 @@ const ApprovalManage = () => {
                       ) : (
                         filteredEmpList.map(emp => {
                           const selected = targetStaffIds.includes(emp.staffId);
+                          const empPhoto = getEmployeePhoto(emp);
                           return (
                             <div
                               key={emp.staffId}
@@ -457,11 +577,25 @@ const ApprovalManage = () => {
                                 }`}>
                                 {selected && <span className="text-white text-[10px] font-bold">✓</span>}
                               </div>
-                              <div className="min-w-0">
+                              {/* Profile Avatar */}
+                              {empPhoto ? (
+                                <img
+                                  src={empPhoto}
+                                  alt={emp.nameEn}
+                                  className="w-8 h-8 rounded-full object-cover border border-indigo-500/30 flex-shrink-0 shadow-sm"
+                                />
+                              ) : (
+                                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center flex-shrink-0 text-white font-bold text-xs shadow-sm">
+                                  {emp.nameEn?.charAt(0)?.toUpperCase() || '?'}
+                                </div>
+                              )}
+                              <div className="min-w-0 flex-1">
                                 <p className={`text-xs font-semibold truncate ${selected ? 'text-indigo-300' : 'text-white'}`}>
                                   {getLocalizedName(emp.nameEn, emp.nameKh)}
                                 </p>
-                                <p className="text-[10px] text-slate-500">ID: {emp.staffId}</p>
+                                <p className="text-[10px] text-slate-400 truncate">
+                                  ID: {emp.staffId} • {emp.department ? getLocalizedName(emp.department.nameEn, emp.department.nameKh) : ''}
+                                </p>
                               </div>
                             </div>
                           );

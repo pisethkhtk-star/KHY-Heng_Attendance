@@ -27,10 +27,20 @@ public class DataInitializer implements CommandLineRunner {
     private final DepartmentRepository departmentRepository;
     private final PositionRepository positionRepository;
     private final PasswordEncoder passwordEncoder;
+    private final org.springframework.jdbc.core.JdbcTemplate jdbcTemplate;
 
     @Override
     public void run(String... args) {
         log.info("Starting DataInitializer...");
+        try {
+            jdbcTemplate.execute("ALTER TABLE employee_face_data ALTER COLUMN photo_url TYPE TEXT");
+            jdbcTemplate.execute("ALTER TABLE employee_face_data ALTER COLUMN face_descriptor TYPE TEXT");
+            jdbcTemplate.execute("ALTER TABLE employees ALTER COLUMN photo_url TYPE TEXT");
+            log.info("Successfully ensured TEXT columns for employee_face_data and employees.");
+        } catch (Exception e) {
+            log.warn("Note on table schema migration: {}", e.getMessage());
+        }
+
         initializePermissions();
         initializeKioskSettings();
         initializeLeaveTypes();
@@ -254,162 +264,315 @@ public class DataInitializer implements CommandLineRunner {
     }
 
     private void initializeDemoData() {
-        if (employeeRepository.count() == 0) {
-            Department deptIT = departmentRepository.save(Department.builder()
-                    .nameEn("Information Technology")
-                    .nameKh("បច្ចេកវិទ្យាព័ត៌មាន")
-                    .description("Handles software development, infrastructure, and IT support")
-                    .build());
+        Department deptIT = departmentRepository.findAll().stream()
+                .filter(d -> "Information Technology".equalsIgnoreCase(d.getNameEn()))
+                .findFirst()
+                .orElseGet(() -> departmentRepository.save(Department.builder()
+                        .nameEn("Information Technology")
+                        .nameKh("បច្ចេកវិទ្យាព័ត៌មាន")
+                        .description("Handles software development, infrastructure, and IT support")
+                        .build()));
 
-            Department deptHR = departmentRepository.save(Department.builder()
-                    .nameEn("Human Resources")
-                    .nameKh("ធនធានមនុស្ស")
-                    .description("Manages recruitment, staff relations, payroll, and benefits")
-                    .build());
+        Department deptHR = departmentRepository.findAll().stream()
+                .filter(d -> "Human Resources".equalsIgnoreCase(d.getNameEn()))
+                .findFirst()
+                .orElseGet(() -> departmentRepository.save(Department.builder()
+                        .nameEn("Human Resources")
+                        .nameKh("ធនធានមនុស្ស")
+                        .description("Manages recruitment, staff relations, payroll, and benefits")
+                        .build()));
 
-            Position posDev = positionRepository.save(Position.builder()
-                    .titleEn("Software Developer")
-                    .titleKh("អ្នកអភិវឌ្ឍន៍កម្មវិធី")
-                    .departmentId(deptIT.getId())
-                    .build());
+        Department deptFinance = departmentRepository.findAll().stream()
+                .filter(d -> "Finance & Accounting".equalsIgnoreCase(d.getNameEn()) || "Finance".equalsIgnoreCase(d.getNameEn()))
+                .findFirst()
+                .orElseGet(() -> departmentRepository.save(Department.builder()
+                        .nameEn("Finance & Accounting")
+                        .nameKh("ហិរញ្ញវត្ថុ និងគណនេយ្យ")
+                        .description("Financial management, bookkeeping, and payroll accounting")
+                        .build()));
 
-            Position posITManager = positionRepository.save(Position.builder()
-                    .titleEn("IT Manager")
-                    .titleKh("ប្រធានផ្នែកបច្ចេកវិទ្យាព័ត៌មាន")
-                    .departmentId(deptIT.getId())
-                    .build());
+        Department deptMarketing = departmentRepository.findAll().stream()
+                .filter(d -> "Marketing & Operations".equalsIgnoreCase(d.getNameEn()) || "Marketing".equalsIgnoreCase(d.getNameEn()))
+                .findFirst()
+                .orElseGet(() -> departmentRepository.save(Department.builder()
+                        .nameEn("Marketing & Operations")
+                        .nameKh("ទីផ្សារ និងប្រតិបត្តិការ")
+                        .description("Brand marketing, digital campaigns, and daily business operations")
+                        .build()));
 
-            Position posHRSpecialist = positionRepository.save(Position.builder()
-                    .titleEn("HR Specialist")
-                    .titleKh("អ្នកឯកទេសធនធានមនុស្ស")
-                    .departmentId(deptHR.getId())
-                    .build());
+        Position posITManager = getOrCreatePosition("IT Manager", "ប្រធានផ្នែកបច្ចេកវិទ្យាព័ត៌មាន", deptIT.getId());
+        Position posSrDev = getOrCreatePosition("Senior Software Engineer", "វិស្វករកម្មវិធីជាន់ខ្ពស់", deptIT.getId());
+        Position posDev = getOrCreatePosition("Software Developer", "អ្នកអភិវឌ្ឍន៍កម្មវិធី", deptIT.getId());
+        Position posUIDesigner = getOrCreatePosition("UI/UX Designer", "អ្នករចនា UI/UX", deptIT.getId());
+        Position posNetwork = getOrCreatePosition("Network Specialist", "អ្នកឯកទេសប្រព័ន្ធបណ្ដាញ", deptIT.getId());
 
-            Position posHRManager = positionRepository.save(Position.builder()
-                    .titleEn("HR Manager")
-                    .titleKh("ប្រធានគ្រប់គ្រងធនធានមនុស្ស")
-                    .departmentId(deptHR.getId())
-                    .build());
+        Position posHRManager = getOrCreatePosition("HR Manager", "ប្រធានគ្រប់គ្រងធនធានមនុស្ស", deptIT.getId() != null ? deptHR.getId() : null);
+        Position posHRSpecialist = getOrCreatePosition("HR Specialist", "អ្នកឯកទេសធនធានមនុស្ស", deptHR.getId());
 
-            // 1. Admin
-            employeeRepository.save(Employee.builder()
-                    .staffId("EMP-001")
-                    .nameEn("Sok Mean")
-                    .nameKh("សុខ មាន")
-                    .gender("Male")
-                    .positionId(posITManager.getId())
-                    .departmentId(deptIT.getId())
-                    .branch("Phnom Penh HQ")
-                    .joinDate(LocalDate.of(2024, 1, 15))
-                    .status(Status.Active)
-                    .shift1Start("08:00")
-                    .shift1End("12:00")
-                    .shift2Start("13:00")
-                    .shift2End("17:00")
-                    .email("admin@attendance.com")
-                    .password(passwordEncoder.encode("admin123"))
-                    .role(Role.Admin)
-                    .build());
+        Position posFinanceMgr = getOrCreatePosition("Finance Manager", "ប្រធានផ្នែកហិរញ្ញវត្ថុ", deptFinance.getId());
+        Position posAccountant = getOrCreatePosition("Senior Accountant", "គណនេយ្យករជាន់ខ្ពស់", deptFinance.getId());
 
-            // Also keep admin@hrchomnan.com as alias admin if someone uses it
-            employeeRepository.save(Employee.builder()
-                    .staffId("EMP-000")
-                    .nameEn("System Administrator")
-                    .nameKh("អ្នកគ្រប់គ្រងប្រព័ន្ធ")
-                    .gender("Male")
-                    .positionId(posITManager.getId())
-                    .departmentId(deptIT.getId())
-                    .branch("Phnom Penh HQ")
-                    .joinDate(LocalDate.of(2024, 1, 1))
-                    .status(Status.Active)
-                    .shift1Start("08:00")
-                    .shift1End("12:00")
-                    .shift2Start("13:00")
-                    .shift2End("17:00")
-                    .email("admin@hrchomnan.com")
-                    .password(passwordEncoder.encode("admin123"))
-                    .role(Role.Admin)
-                    .build());
+        Position posMktLead = getOrCreatePosition("Marketing Lead", "ប្រធានផ្នែកទីផ្សារ", deptMarketing.getId());
+        Position posOpsOfficer = getOrCreatePosition("Operations Officer", "មន្ត្រីប្រតិបត្តិការ", deptMarketing.getId());
 
-            // 2. HR
-            employeeRepository.save(Employee.builder()
-                    .staffId("EMP-002")
-                    .nameEn("Keo Sophea")
-                    .nameKh("កែវ សុភា")
-                    .gender("Female")
-                    .positionId(posHRManager.getId())
-                    .departmentId(deptHR.getId())
-                    .branch("Phnom Penh HQ")
-                    .joinDate(LocalDate.of(2024, 3, 10))
-                    .status(Status.Active)
-                    .shift1Start("08:00")
-                    .shift1End("12:00")
-                    .shift2Start("13:00")
-                    .shift2End("17:00")
-                    .email("hr@attendance.com")
-                    .password(passwordEncoder.encode("hr123"))
-                    .role(Role.HR)
-                    .build());
+        List<Employee> employeeSeedList = List.of(
+                // 1. Admin
+                Employee.builder()
+                        .staffId("EMP-001")
+                        .nameEn("Khoem Piseth")
+                        .nameKh("ខឹម ពិសិដ្ឋ")
+                        .gender("Male")
+                        .positionId(posITManager.getId())
+                        .departmentId(deptIT.getId())
+                        .branch("Phnom Penh HQ")
+                        .joinDate(LocalDate.of(2024, 1, 15))
+                        .status(Status.Active)
+                        .shift1Start("08:00")
+                        .shift1End("12:00")
+                        .shift2Start("13:00")
+                        .shift2End("17:00")
+                        .email("admin@attendance.com")
+                        .password(passwordEncoder.encode("admin123"))
+                        .role(Role.Admin)
+                        .build(),
 
-            // 3. Manager
-            employeeRepository.save(Employee.builder()
-                    .staffId("EMP-003")
-                    .nameEn("Chan Dara")
-                    .nameKh("ចាន់ ដារ៉ា")
-                    .gender("Male")
-                    .positionId(posITManager.getId())
-                    .departmentId(deptIT.getId())
-                    .branch("Phnom Penh HQ")
-                    .joinDate(LocalDate.of(2023, 11, 1))
-                    .status(Status.Active)
-                    .shift1Start("08:00")
-                    .shift1End("12:00")
-                    .shift2Start("13:00")
-                    .shift2End("17:00")
-                    .email("manager@attendance.com")
-                    .password(passwordEncoder.encode("manager123"))
-                    .role(Role.Manager)
-                    .build());
+                // 2. HR Manager
+                Employee.builder()
+                        .staffId("EMP-002")
+                        .nameEn("Keo Sophea")
+                        .nameKh("កែវ សុភា")
+                        .gender("Female")
+                        .positionId(posHRManager.getId())
+                        .departmentId(deptHR.getId())
+                        .branch("Phnom Penh HQ")
+                        .joinDate(LocalDate.of(2024, 3, 10))
+                        .status(Status.Active)
+                        .shift1Start("08:00")
+                        .shift1End("12:00")
+                        .shift2Start("13:00")
+                        .shift2End("17:00")
+                        .email("hr@attendance.com")
+                        .password(passwordEncoder.encode("hr123"))
+                        .role(Role.HR)
+                        .build(),
 
-            // 4. Employee Dev 1
-            employeeRepository.save(Employee.builder()
-                    .staffId("EMP-004")
-                    .nameEn("Nguon Rath")
-                    .nameKh("ងួន រ័ត្ន")
-                    .gender("Male")
-                    .positionId(posDev.getId())
-                    .departmentId(deptIT.getId())
-                    .branch("Phnom Penh HQ")
-                    .joinDate(LocalDate.of(2025, 2, 20))
-                    .status(Status.Active)
-                    .shift1Start("08:00")
-                    .shift1End("12:00")
-                    .shift2Start("13:00")
-                    .shift2End("17:00")
-                    .email("rath@attendance.com")
-                    .password(passwordEncoder.encode("emp123"))
-                    .role(Role.Employee)
-                    .build());
+                // 3. Manager
+                Employee.builder()
+                        .staffId("EMP-003")
+                        .nameEn("Chan Dara")
+                        .nameKh("ចាន់ ដារ៉ា")
+                        .gender("Male")
+                        .positionId(posITManager.getId())
+                        .departmentId(deptIT.getId())
+                        .branch("Phnom Penh HQ")
+                        .joinDate(LocalDate.of(2023, 11, 1))
+                        .status(Status.Active)
+                        .shift1Start("08:00")
+                        .shift1End("12:00")
+                        .shift2Start("13:00")
+                        .shift2End("17:00")
+                        .email("manager@attendance.com")
+                        .password(passwordEncoder.encode("manager123"))
+                        .role(Role.Manager)
+                        .build(),
 
-            // 5. Employee Dev 2
-            employeeRepository.save(Employee.builder()
-                    .staffId("EMP-005")
-                    .nameEn("Phan Sreypov")
-                    .nameKh("ផាន់ ស្រីពៅ")
-                    .gender("Female")
-                    .positionId(posDev.getId())
-                    .departmentId(deptIT.getId())
-                    .branch("Siem Reap Branch")
-                    .joinDate(LocalDate.of(2025, 5, 1))
-                    .status(Status.Active)
-                    .shift1Start("08:30")
-                    .shift1End("12:30")
-                    .shift2Start("13:30")
-                    .shift2End("17:30")
-                    .email("sreypov@attendance.com")
-                    .password(passwordEncoder.encode("emp123"))
-                    .role(Role.Employee)
-                    .build());
+                // 4. Employee Dev 1
+                Employee.builder()
+                        .staffId("EMP-004")
+                        .nameEn("Nguon Rath")
+                        .nameKh("ងួន រ័ត្ន")
+                        .gender("Male")
+                        .positionId(posDev.getId())
+                        .departmentId(deptIT.getId())
+                        .branch("Phnom Penh HQ")
+                        .joinDate(LocalDate.of(2025, 2, 20))
+                        .status(Status.Active)
+                        .shift1Start("08:00")
+                        .shift1End("12:00")
+                        .shift2Start("13:00")
+                        .shift2End("17:00")
+                        .email("rath@attendance.com")
+                        .password(passwordEncoder.encode("emp123"))
+                        .role(Role.Employee)
+                        .build(),
+
+                // 5. Employee Dev 2
+                Employee.builder()
+                        .staffId("EMP-005")
+                        .nameEn("Phan Sreypov")
+                        .nameKh("ផាន់ ស្រីពៅ")
+                        .gender("Female")
+                        .positionId(posUIDesigner.getId())
+                        .departmentId(deptIT.getId())
+                        .branch("Siem Reap Branch")
+                        .joinDate(LocalDate.of(2025, 5, 1))
+                        .status(Status.Active)
+                        .shift1Start("08:30")
+                        .shift1End("12:30")
+                        .shift2Start("13:30")
+                        .shift2End("17:30")
+                        .email("sreypov@attendance.com")
+                        .password(passwordEncoder.encode("emp123"))
+                        .role(Role.Employee)
+                        .build(),
+
+                // 6. Senior Dev
+                Employee.builder()
+                        .staffId("EMP-006")
+                        .nameEn("Heng Mengly")
+                        .nameKh("ហេង ម៉េងលី")
+                        .gender("Male")
+                        .positionId(posSrDev.getId())
+                        .departmentId(deptIT.getId())
+                        .branch("Phnom Penh HQ")
+                        .joinDate(LocalDate.of(2024, 6, 15))
+                        .status(Status.Active)
+                        .shift1Start("08:00")
+                        .shift1End("12:00")
+                        .shift2Start("13:00")
+                        .shift2End("17:00")
+                        .email("mengly@attendance.com")
+                        .password(passwordEncoder.encode("emp123"))
+                        .role(Role.Employee)
+                        .build(),
+
+                // 7. Network Specialist
+                Employee.builder()
+                        .staffId("EMP-007")
+                        .nameEn("Youn Vichea")
+                        .nameKh("យុន វិជ្ជា")
+                        .gender("Male")
+                        .positionId(posNetwork.getId())
+                        .departmentId(deptIT.getId())
+                        .branch("Phnom Penh HQ")
+                        .joinDate(LocalDate.of(2024, 8, 1))
+                        .status(Status.Active)
+                        .shift1Start("08:00")
+                        .shift1End("12:00")
+                        .shift2Start("13:00")
+                        .shift2End("17:00")
+                        .email("vichea@attendance.com")
+                        .password(passwordEncoder.encode("emp123"))
+                        .role(Role.Employee)
+                        .build(),
+
+                // 8. Finance Manager
+                Employee.builder()
+                        .staffId("EMP-008")
+                        .nameEn("Chhim Sokha")
+                        .nameKh("ឈឹម សុខា")
+                        .gender("Female")
+                        .positionId(posFinanceMgr.getId())
+                        .departmentId(deptFinance.getId())
+                        .branch("Phnom Penh HQ")
+                        .joinDate(LocalDate.of(2023, 9, 10))
+                        .status(Status.Active)
+                        .shift1Start("08:00")
+                        .shift1End("12:00")
+                        .shift2Start("13:00")
+                        .shift2End("17:00")
+                        .email("sokha@attendance.com")
+                        .password(passwordEncoder.encode("manager123"))
+                        .role(Role.Manager)
+                        .build(),
+
+                // 9. Senior Accountant
+                Employee.builder()
+                        .staffId("EMP-009")
+                        .nameEn("Long Bopha")
+                        .nameKh("ឡុង បុប្ផា")
+                        .gender("Female")
+                        .positionId(posAccountant.getId())
+                        .departmentId(deptFinance.getId())
+                        .branch("Battambang Branch")
+                        .joinDate(LocalDate.of(2024, 11, 20))
+                        .status(Status.Active)
+                        .shift1Start("08:00")
+                        .shift1End("12:00")
+                        .shift2Start("13:00")
+                        .shift2End("17:00")
+                        .email("bopha@attendance.com")
+                        .password(passwordEncoder.encode("emp123"))
+                        .role(Role.Employee)
+                        .build(),
+
+                // 10. Marketing Lead
+                Employee.builder()
+                        .staffId("EMP-010")
+                        .nameEn("Chea Sovann")
+                        .nameKh("ជា សុវណ្ណ")
+                        .gender("Male")
+                        .positionId(posMktLead.getId())
+                        .departmentId(deptMarketing.getId())
+                        .branch("Phnom Penh HQ")
+                        .joinDate(LocalDate.of(2023, 12, 5))
+                        .status(Status.Active)
+                        .shift1Start("08:00")
+                        .shift1End("12:00")
+                        .shift2Start("13:00")
+                        .shift2End("17:00")
+                        .email("sovann@attendance.com")
+                        .password(passwordEncoder.encode("manager123"))
+                        .role(Role.Manager)
+                        .build(),
+
+                // 11. HR Specialist
+                Employee.builder()
+                        .staffId("EMP-011")
+                        .nameEn("Tep Kanha")
+                        .nameKh("ទេព កញ្ញា")
+                        .gender("Female")
+                        .positionId(posHRSpecialist.getId())
+                        .departmentId(deptHR.getId())
+                        .branch("Siem Reap Branch")
+                        .joinDate(LocalDate.of(2025, 1, 10))
+                        .status(Status.Active)
+                        .shift1Start("08:00")
+                        .shift1End("12:00")
+                        .shift2Start("13:00")
+                        .shift2End("17:00")
+                        .email("kanha@attendance.com")
+                        .password(passwordEncoder.encode("emp123"))
+                        .role(Role.Employee)
+                        .build(),
+
+                // 12. Operations Officer
+                Employee.builder()
+                        .staffId("EMP-012")
+                        .nameEn("Vannak Rithy")
+                        .nameKh("វណ្ណៈ រិទ្ធី")
+                        .gender("Male")
+                        .positionId(posOpsOfficer.getId())
+                        .departmentId(deptMarketing.getId())
+                        .branch("Sihanoukville Branch")
+                        .joinDate(LocalDate.of(2025, 3, 1))
+                        .status(Status.Active)
+                        .shift1Start("08:00")
+                        .shift1End("12:00")
+                        .shift2Start("13:00")
+                        .shift2End("17:00")
+                        .email("rithy@attendance.com")
+                        .password(passwordEncoder.encode("emp123"))
+                        .role(Role.Employee)
+                        .build()
+        );
+
+        for (Employee emp : employeeSeedList) {
+            if (!employeeRepository.existsByStaffId(emp.getStaffId()) && !employeeRepository.existsByEmail(emp.getEmail())) {
+                employeeRepository.save(emp);
+                log.info("Seeded employee: {} ({})", emp.getNameEn(), emp.getStaffId());
+            }
         }
+    }
+
+    private Position getOrCreatePosition(String titleEn, String titleKh, java.util.UUID deptId) {
+        return positionRepository.findAll().stream()
+                .filter(p -> titleEn.equalsIgnoreCase(p.getTitleEn()))
+                .findFirst()
+                .orElseGet(() -> positionRepository.save(Position.builder()
+                        .titleEn(titleEn)
+                        .titleKh(titleKh)
+                        .departmentId(deptId)
+                        .build()));
     }
 }

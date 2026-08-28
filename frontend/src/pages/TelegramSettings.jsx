@@ -191,8 +191,8 @@ const TelegramSettings = () => {
           type="button"
           onClick={() => setActiveTab('attendance')}
           className={`flex-1 py-2.5 px-4 rounded-xl text-xs font-bold font-khmer transition-all flex items-center justify-center gap-2 cursor-pointer ${activeTab === 'attendance'
-              ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/30'
-              : 'text-slate-400 hover:text-white hover:bg-slate-900/60'
+            ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/30'
+            : 'text-slate-400 hover:text-white hover:bg-slate-900/60'
             }`}
         >
           <ClockIcon className="h-4 w-4" />
@@ -206,8 +206,8 @@ const TelegramSettings = () => {
           type="button"
           onClick={() => setActiveTab('leave')}
           className={`flex-1 py-2.5 px-4 rounded-xl text-xs font-bold font-khmer transition-all flex items-center justify-center gap-2 cursor-pointer ${activeTab === 'leave'
-              ? 'bg-purple-600 text-white shadow-lg shadow-purple-600/30'
-              : 'text-slate-400 hover:text-white hover:bg-slate-900/60'
+            ? 'bg-purple-600 text-white shadow-lg shadow-purple-600/30'
+            : 'text-slate-400 hover:text-white hover:bg-slate-900/60'
             }`}
         >
           <CalendarDaysIcon className="h-4 w-4" />
@@ -228,8 +228,8 @@ const TelegramSettings = () => {
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-2xl bg-slate-950/60 border border-indigo-500/20">
                 <div className="flex items-center gap-3">
                   <div className={`p-2.5 rounded-xl border transition-all ${isEnabled
-                      ? 'bg-emerald-500/20 border-emerald-500/40 text-emerald-300'
-                      : 'bg-slate-800 border-slate-700 text-slate-400'
+                    ? 'bg-emerald-500/20 border-emerald-500/40 text-emerald-300'
+                    : 'bg-slate-800 border-slate-700 text-slate-400'
                     }`}>
                     <BellAlertIcon className="h-6 w-6" />
                   </div>
@@ -376,8 +376,8 @@ const TelegramSettings = () => {
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-2xl bg-slate-950/60 border border-purple-500/20">
                 <div className="flex items-center gap-3">
                   <div className={`p-2.5 rounded-xl border transition-all ${leaveEnabled
-                      ? 'bg-purple-500/20 border-purple-500/40 text-purple-300'
-                      : 'bg-slate-800 border-slate-700 text-slate-400'
+                    ? 'bg-purple-500/20 border-purple-500/40 text-purple-300'
+                    : 'bg-slate-800 border-slate-700 text-slate-400'
                     }`}>
                     <CalendarDaysIcon className="h-6 w-6" />
                   </div>
@@ -505,12 +505,12 @@ const TelegramSettings = () => {
           )}
 
           {/* Quick Instructions Banner */}
-          <div className="p-3.5 rounded-xl bg-indigo-500/5 border border-indigo-500/10 flex items-start gap-2.5">
+          {/* <div className="p-3.5 rounded-xl bg-indigo-500/5 border border-indigo-500/10 flex items-start gap-2.5">
             <ShieldCheckIcon className="h-5 w-5 text-indigo-400 flex-shrink-0 mt-0.5" />
             <p className="text-[10px] text-slate-300 font-khmer leading-relaxed">
               <strong>បញ្ជាក់៖</strong> បងអាចប្រើប្រាស់ <strong>Bot Token តែមួយ</strong> សម្រាប់ Group ទាំងពីរ ឬបង្កើត <strong>Bot ផ្សេងគ្នា ២</strong> ដាច់ដោយឡែកពីគ្នាក៏បាន។ គ្រាន់តែ Add Bot នោះចូលទៅក្នុង Group នីមួយៗជា Admin រួចបំពេញ Group ID ជាការស្រេច។
             </p>
-          </div>
+          </div> */}
 
           {/* Action Buttons */}
           <div className="flex flex-wrap items-center justify-between gap-3 pt-2">

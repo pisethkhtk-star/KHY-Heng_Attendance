@@ -34,7 +34,11 @@ const Reports = () => {
       if (filterBranch) query += `&branch=${filterBranch}`;
 
       const response = await api.get(`/attendances/history${query}`);
-      setLogs(response.data);
+      // Filter out records where all check-in/out scans are empty/null
+      const validLogs = (response.data || []).filter(log =>
+        Boolean(log.checkin1 || log.checkout1 || log.checkin2 || log.checkout2)
+      );
+      setLogs(validLogs);
     } catch (error) {
       console.error('Error fetching reports logs:', error);
     } finally {
@@ -59,12 +63,20 @@ const Reports = () => {
     fetchReports();
   }, [startDate, endDate, filterDept, filterBranch]);
 
+  // Employee photo helper with fallback
+  const getEmployeePhoto = (emp) => {
+    if (!emp) return '';
+    if (emp.photoUrl) return emp.photoUrl;
+    if (Array.isArray(emp.faceData) && emp.faceData[0]?.photoUrl) return emp.faceData[0].photoUrl;
+    if (emp.faceData?.photoUrl) return emp.faceData.photoUrl;
+    return '';
+  };
+
   // Statistics summaries
   const totalDaysLog = logs.length;
   const totalLate = logs.filter(log => log.isLate).length;
   const totalEarlyLeave = logs.filter(log => log.isEarlyLeave).length;
-  const onLeaveCount = logs.filter(log => !(log.checkin1 || log.checkin2)).length;
-  const onTimeCount = totalDaysLog - totalLate - totalEarlyLeave - onLeaveCount;
+  const onTimeCount = logs.filter(log => !log.isLate && !log.isEarlyLeave).length;
 
   // Export to CSV
   const handleExportCSV = () => {
@@ -86,26 +98,30 @@ const Reports = () => {
       'Note'
     ];
 
-    // Map logs to CSV rows
-    const rows = logs.map(log => [
-      log.employee.staffId,
-      log.employee.nameEn,
-      log.employee.nameKh,
-      log.employee.department.nameEn,
-      new Date(log.attendanceDate).toLocaleDateString(),
-      log.checkin1 || '',
-      log.checkout1 || '',
-      log.checkin2 || '',
-      log.checkout2 || '',
-      log.isLate ? 'YES' : 'NO',
-      log.isEarlyLeave ? 'YES' : 'NO',
-      log.note || ''
-    ]);
+    // Map logs to CSV rows with null safety
+    const rows = logs.map(log => {
+      const emp = log.employee || {};
+      const dept = emp.department || {};
+      return [
+        emp.staffId || log.staffId || '',
+        emp.nameEn || '',
+        emp.nameKh || '',
+        dept.nameEn || '',
+        log.attendanceDate ? new Date(log.attendanceDate).toLocaleDateString() : '',
+        log.checkin1 || '',
+        log.checkout1 || '',
+        log.checkin2 || '',
+        log.checkout2 || '',
+        log.isLate ? 'YES' : 'NO',
+        log.isEarlyLeave ? 'YES' : 'NO',
+        log.note || ''
+      ];
+    });
 
     // Construct CSV Content
     const csvContent = [
       headers.join(','),
-      ...rows.map(e => e.map(val => `"${val.replace(/"/g, '""')}"`).join(','))
+      ...rows.map(e => e.map(val => `"${String(val).replace(/"/g, '""')}"`).join(','))
     ].join('\n');
 
     // Unicode Byte Order Mark (BOM) to support Khmer unicode letters in Excel correctly
@@ -135,18 +151,17 @@ const Reports = () => {
           <button
             onClick={handleExportCSV}
             disabled={logs.length === 0}
-            className="flex items-center gap-2 px-4 py-2 bg-[#d1fae5] hover:bg-[#a7f3d0] border border-[#6ee7b7] text-[#059669] rounded-2xl font-bold text-sm transition-all shadow-sm hover:shadow cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex items-center gap-2 bg-slate-800/80 hover:bg-slate-700/80 text-white px-4 py-2 rounded-xl text-xs font-semibold border border-white/10 transition-all font-khmer cursor-pointer disabled:opacity-50"
           >
-            <ArrowDownTrayIcon className="h-4 w-4 stroke-[2.5]" />
-            <span>Export Excel</span>
+            <DocumentArrowDownIcon className="h-4 w-4 text-emerald-400" />
+            <span>Excel / CSV</span>
           </button>
           <button
             onClick={handlePrint}
-            disabled={logs.length === 0}
-            className="flex items-center gap-2 bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white px-4 py-2.5 rounded-xl font-semibold text-sm transition-all shadow-md shadow-indigo-500/25 font-khmer disabled:opacity-50 cursor-pointer border-none outline-none"
+            className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-xl text-xs font-semibold transition-all font-khmer cursor-pointer shadow-md shadow-indigo-600/30"
           >
-            <PrinterIcon className="h-5 w-5" />
-            {t("printPdf")}
+            <PrinterIcon className="h-4 w-4" />
+            <span>Print</span>
           </button>
         </div>
       </div>
@@ -162,10 +177,10 @@ const Reports = () => {
         <div className="h-px bg-slate-300 w-full my-4"></div>
       </div>
 
-      {/* Search Filter Panel */}
-      <div className="glass-card p-6 rounded-2xl grid grid-cols-1 md:grid-cols-4 gap-4 no-print">
+      {/* Date Filter & Department / Branch Strip */}
+      <div className="glass-card p-5 rounded-2xl border border-white/10 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 no-print">
         <div className="space-y-1">
-          <label className="block text-xs font-semibold text-slate-400 uppercase font-khmer">{t("startDate")}</label>
+          <label className="block text-xs font-semibold text-slate-400 uppercase font-khmer">{t("fromDate")}</label>
           <input
             type="date"
             value={startDate}
@@ -174,7 +189,7 @@ const Reports = () => {
           />
         </div>
         <div className="space-y-1">
-          <label className="block text-xs font-semibold text-slate-400 uppercase font-khmer">{t("endDate")}</label>
+          <label className="block text-xs font-semibold text-slate-400 uppercase font-khmer">{t("toDate")}</label>
           <input
             type="date"
             value={endDate}
@@ -187,11 +202,13 @@ const Reports = () => {
           <select
             value={filterDept}
             onChange={(e) => setFilterDept(e.target.value)}
-            className="w-full py-2 px-3 border border-white/10 bg-slate-950/60 text-white rounded-xl text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/20 focus:bg-slate-900 outline-none transition-all font-khmer"
+            className="w-full py-2 px-3 border border-white/10 bg-slate-950/60 text-white rounded-xl text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/20 focus:bg-slate-900 outline-none transition-all"
           >
-            <option value="" className="bg-slate-900">{t("selectDept")} ({t("all")})</option>
-            {departments.map(d => (
-              <option key={d.id} value={d.id} className="bg-slate-900">{getLocalizedName(d.nameEn, d.nameKh)}</option>
+            <option value="" className="bg-slate-900">{t("departments")} ({t("all")})</option>
+            {departments.map((dept) => (
+              <option key={dept.id} value={dept.id} className="bg-slate-900">
+                {getLocalizedName(dept.nameEn, dept.nameKh)}
+              </option>
             ))}
           </select>
         </div>
@@ -210,26 +227,22 @@ const Reports = () => {
       </div>
 
       {/* Reports Summary KPI Panel */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4 print-card">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 print-card">
         <div className="glass-card p-5 rounded-2xl text-center print:border-slate-300">
-          <span className="block text-xs text-slate-400 font-medium font-khmer">សំណុំទិន្នន័យ (Logs)</span>
+          <span className="block text-xs text-slate-400 font-medium font-khmer">Total Logs</span>
           <span className="block text-2xl font-bold mt-1 text-white">{totalDaysLog}</span>
         </div>
         <div className="glass-card p-5 rounded-2xl text-center print:border-slate-300">
-          <span className="block text-xs text-slate-400 font-medium font-khmer">{t("normal")}</span>
+          <span className="block text-xs text-emerald-400 font-medium font-khmer">{t("normal")}</span>
           <span className="block text-2xl font-bold mt-1 text-emerald-400">{onTimeCount}</span>
         </div>
         <div className="glass-card p-5 rounded-2xl text-center print:border-slate-300">
-          <span className="block text-xs text-slate-400 font-medium font-khmer">{t("lateToday")}</span>
+          <span className="block text-xs text-amber-400 font-medium font-khmer">{t("lateToday")}</span>
           <span className="block text-2xl font-bold mt-1 text-amber-400">{totalLate}</span>
         </div>
         <div className="glass-card p-5 rounded-2xl text-center print:border-slate-300">
-          <span className="block text-xs text-slate-400 font-medium font-khmer">{t("earlyLeaveToday")}</span>
+          <span className="block text-xs text-rose-400 font-medium font-khmer">{t("earlyLeaveToday")}</span>
           <span className="block text-2xl font-bold mt-1 text-rose-400">{totalEarlyLeave}</span>
-        </div>
-        <div className="glass-card p-5 rounded-2xl text-center print:border-slate-300 col-span-2 md:col-span-1">
-          <span className="block text-xs text-slate-400 font-medium font-khmer">{t("onLeaveToday")}</span>
-          <span className="block text-2xl font-bold mt-1 text-sky-400">{onLeaveCount}</span>
         </div>
       </div>
 
@@ -242,8 +255,8 @@ const Reports = () => {
             <table className="w-full text-left text-sm text-slate-300 print:text-xs">
               <thead className="bg-slate-950/80 text-xs text-slate-300 uppercase border-b border-white/10 print:bg-slate-100">
                 <tr>
+                  <th className="py-4 px-6 font-khmer w-16 text-center">{t("noNumber")}</th>
                   <th className="py-4 px-6 font-khmer">{t("date")}</th>
-                  <th className="py-4 px-6 font-khmer">{t("staffId")}</th>
                   <th className="py-4 px-6 font-khmer">{t("employees")}</th>
                   <th className="py-4 px-6 font-khmer">{t("checkin1")}</th>
                   <th className="py-4 px-6 font-khmer">{t("checkout1")}</th>
@@ -260,66 +273,80 @@ const Reports = () => {
                     </td>
                   </tr>
                 ) : (
-                  logs.map((log) => {
+                  logs.map((log, index) => {
                     const emp = log.employee || {};
+                    const photo = getEmployeePhoto(emp);
+                    const nameEn = emp.nameEn || log.staffId || '';
+                    const nameKh = emp.nameKh || '';
+                    const deptName = emp.department ? getLocalizedName(emp.department.nameEn, emp.department.nameKh) : '';
+                    const posTitle = emp.position ? getLocalizedName(emp.position.titleEn, emp.position.titleKh) : '';
+
                     return (
-                      <tr key={log.id} className="hover:bg-white/5 transition-colors print:hover:bg-transparent">
-                        <td className="py-4 px-6 font-semibold text-white whitespace-nowrap">
+                      <tr key={log.id || index} className="hover:bg-white/5 transition-colors print:hover:bg-transparent">
+                        <td className="py-4 px-6 text-center font-semibold text-slate-400 whitespace-nowrap font-mono">
+                          {index + 1}
+                        </td>
+                        <td className="py-4 px-6 font-semibold text-white whitespace-nowrap font-mono">
                           {log.attendanceDate ? new Date(log.attendanceDate).toLocaleDateString() : '-'}
                         </td>
-                        <td className="py-4 px-6 font-semibold text-white whitespace-nowrap">{emp.staffId || log.staffId || '-'}</td>
                         <td className="py-4 px-6 min-w-[220px]">
                           <div className="flex items-center gap-3">
-                            {emp.photoUrl ? (
+                            {photo ? (
                               <img
-                                src={emp.photoUrl}
-                                alt={emp.nameEn || ''}
+                                src={photo}
+                                alt={nameEn}
                                 className="w-10 h-10 rounded-full object-cover border-2 border-indigo-500/30 flex-shrink-0 shadow-md print:hidden"
                               />
                             ) : (
                               <div className="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center flex-shrink-0 text-white font-bold text-sm shadow-md print:hidden">
-                                {emp.nameEn?.charAt(0)?.toUpperCase() || emp.nameKh?.charAt(0) || '?'}
+                                {nameEn?.charAt(0)?.toUpperCase() || '?'}
                               </div>
                             )}
                             <div>
                               <p className="font-semibold text-white whitespace-nowrap">
-                                {getLocalizedName(emp.nameEn, emp.nameKh) || log.staffId || '-'}
+                                {getLocalizedName(nameEn, nameKh) || log.staffId || '-'}
                               </p>
-                              <p className="text-xs text-slate-400 whitespace-nowrap">
-                                {getLocalizedName(emp.department?.nameEn, emp.department?.nameKh) || '-'}
+                              <p className="text-xs text-slate-400 font-mono">
+                                ID: <span className="text-indigo-400 font-semibold">{emp.staffId || log.staffId}</span>
+                                {emp.role ? ` • ${emp.role}` : ''}
                               </p>
+                              {(deptName || posTitle) && (
+                                <p className="text-[11px] text-indigo-400 truncate">
+                                  {[deptName, posTitle].filter(Boolean).join(' • ')}
+                                </p>
+                              )}
                             </div>
                           </div>
                         </td>
-                      <td className="py-4 px-6 whitespace-nowrap">{formatTime12Hour(log.checkin1)}</td>
-                      <td className="py-4 px-6 whitespace-nowrap">{formatTime12Hour(log.checkout1)}</td>
-                      <td className="py-4 px-6 whitespace-nowrap">{formatTime12Hour(log.checkin2)}</td>
-                      <td className="py-4 px-6 whitespace-nowrap">{formatTime12Hour(log.checkout2)}</td>
-                      <td className="py-4 px-6 space-y-1 whitespace-nowrap">
-                        {log.isLate && (
-                          <span className="inline-flex items-center rounded-full bg-amber-500/10 px-2 py-0.5 text-xs font-medium text-amber-300 ring-1 ring-inset ring-amber-500/20 font-khmer">
-                            {t("late")}
-                          </span>
-                        )}
-                        {log.isEarlyLeave && (
-                          <span className="inline-flex items-center rounded-full bg-rose-500/10 px-2 py-0.5 text-xs font-medium text-rose-300 ring-1 ring-inset ring-rose-500/20 font-khmer ml-1">
-                            {t("earlyLeave")}
-                          </span>
-                        )}
-                        {!log.isLate && !log.isEarlyLeave && (log.checkin1 || log.checkin2 || log.checkout1 || log.checkout2) && (
-                          <span className="inline-flex items-center rounded-full bg-emerald-500/10 px-2 py-0.5 text-xs font-medium text-emerald-300 ring-1 ring-inset ring-emerald-500/20 font-khmer">
-                            {t("normal")}
-                          </span>
-                        )}
-                        {!(log.checkin1 || log.checkin2 || log.checkout1 || log.checkout2) && (
-                          <span className="inline-flex items-center rounded-full bg-slate-500/10 px-2 py-0.5 text-xs font-medium text-slate-400 ring-1 ring-inset ring-slate-500/20 font-khmer">
-                            -
-                          </span>
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })
+                        <td className="py-4 px-6 whitespace-nowrap font-mono">{formatTime12Hour(log.checkin1)}</td>
+                        <td className="py-4 px-6 whitespace-nowrap font-mono">{formatTime12Hour(log.checkout1)}</td>
+                        <td className="py-4 px-6 whitespace-nowrap font-mono">{formatTime12Hour(log.checkin2)}</td>
+                        <td className="py-4 px-6 whitespace-nowrap font-mono">{formatTime12Hour(log.checkout2)}</td>
+                        <td className="py-4 px-6 space-y-1 whitespace-nowrap">
+                          {log.isLate && (
+                            <span className="inline-flex items-center rounded-full bg-amber-500/10 px-2.5 py-0.5 text-xs font-medium text-amber-300 ring-1 ring-inset ring-amber-500/20 font-khmer">
+                              {t("late")}
+                            </span>
+                          )}
+                          {log.isEarlyLeave && (
+                            <span className="inline-flex items-center rounded-full bg-rose-500/10 px-2.5 py-0.5 text-xs font-medium text-rose-300 ring-1 ring-inset ring-rose-500/20 font-khmer ml-1">
+                              {t("earlyLeave")}
+                            </span>
+                          )}
+                          {!log.isLate && !log.isEarlyLeave && (log.checkin1 || log.checkin2 || log.checkout1 || log.checkout2) && (
+                            <span className="inline-flex items-center rounded-full bg-emerald-500/10 px-2.5 py-0.5 text-xs font-medium text-emerald-300 ring-1 ring-inset ring-emerald-500/20 font-khmer">
+                              {t("normal")}
+                            </span>
+                          )}
+                          {!(log.checkin1 || log.checkin2 || log.checkout1 || log.checkout2) && (
+                            <span className="inline-flex items-center rounded-full bg-slate-500/10 px-2.5 py-0.5 text-xs font-medium text-slate-400 ring-1 ring-inset ring-slate-500/20 font-khmer">
+                              -
+                            </span>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })
                 )}
               </tbody>
             </table>

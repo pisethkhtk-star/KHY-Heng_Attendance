@@ -29,6 +29,7 @@ public class LeaveLimitController {
     private final LeaveRepository leaveRepository;
     private final DepartmentRepository departmentRepository;
     private final PositionRepository positionRepository;
+    private final com.hrchomnan.backend.repository.EmployeeFaceDataRepository employeeFaceDataRepository;
 
     @GetMapping
     public ResponseEntity<?> getEmployeeLeaveLimits(
@@ -79,6 +80,9 @@ public class LeaveLimitController {
                     .collect(Collectors.toMap(Department::getId, d -> d, (a, b) -> a));
             Map<UUID, Position> posMap = positionRepository.findAll().stream()
                     .collect(Collectors.toMap(Position::getId, p -> p, (a, b) -> a));
+            Map<String, String> faceDataMap = employeeFaceDataRepository.findAll().stream()
+                    .filter(f -> f.getStaffId() != null && f.getPhotoUrl() != null)
+                    .collect(Collectors.toMap(com.hrchomnan.backend.model.EmployeeFaceData::getStaffId, com.hrchomnan.backend.model.EmployeeFaceData::getPhotoUrl, (a, b) -> a));
 
             // 5. Aggregate balances in memory
             List<Map<String, Object>> reportData = employees.stream().map(emp -> {
@@ -107,10 +111,17 @@ public class LeaveLimitController {
                     return allowance;
                 }).collect(Collectors.toList());
 
+                String photo = (emp.getPhotoUrl() != null && !emp.getPhotoUrl().isBlank())
+                        ? emp.getPhotoUrl()
+                        : faceDataMap.get(emp.getStaffId());
+
                 Map<String, Object> empData = new HashMap<>();
                 empData.put("staffId", emp.getStaffId());
                 empData.put("nameEn", emp.getNameEn());
                 empData.put("nameKh", emp.getNameKh());
+                empData.put("photoUrl", photo);
+                empData.put("role", emp.getRole() != null ? emp.getRole().name() : null);
+                empData.put("email", emp.getEmail());
 
                 Department d = emp.getDepartmentId() != null ? deptMap.get(emp.getDepartmentId()) : null;
                 if (d != null) {

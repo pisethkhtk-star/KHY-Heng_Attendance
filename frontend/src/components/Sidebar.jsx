@@ -57,6 +57,11 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
           name: t("telegramGroup"),
           resource: "work_hours",
         },
+        {
+          path: "/approval-manage",
+          name: t("approvalManage"),
+          resource: "leave_approvals",
+        },
       ]
     },
     {
@@ -107,11 +112,6 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
           path: "/leave-allowances",
           name: t("allowances"),
           resource: "leave_allowances",
-        },
-        {
-          path: "/approval-manage",
-          name: t("approvalManage"),
-          resource: "leave_approvals",
         },
       ]
     },

@@ -35,6 +35,11 @@ const Kiosk = () => {
   const [faceStatus, setFaceStatus] = useState('idle'); // idle, loading_models, scanning, error
   const [successResult, setSuccessResult] = useState(null);
 
+  // Verification & matched employee state
+  const [verifying, setVerifying] = useState(false);
+  const [verifyError, setVerifyError] = useState('');
+  const [matchedEmployee, setMatchedEmployee] = useState(null);
+
   // Kiosk Verification and Locked Camera States
   const [isUnlocked, setIsUnlocked] = useState(false);
   const [nextAction, setNextAction] = useState('checkin_1');
@@ -103,7 +108,7 @@ const Kiosk = () => {
       const todayDateStr = `${year}-${month}-${day}`;
 
       const logsRes = await api.get(`/attendances/history?staffId=${matched.staffId}`);
-      const todayRec = logsRes.data.find(item => {
+      const todayRec = (logsRes.data || []).find(item => {
         if (!item.attendanceDate) return false;
         const logDate = new Date(item.attendanceDate);
         const logParts = formatter.formatToParts(logDate);
@@ -117,15 +122,16 @@ const Kiosk = () => {
       const timeToMinutes = (timeStr) => {
         if (!timeStr) return 0;
         const [h, m] = timeStr.split(':').map(Number);
-        return h * 60 + m;
+        return (h || 0) * 60 + (m || 0);
       };
 
       const now = new Date();
       const timeOptions = { timeZone: 'Asia/Phnom_Penh', hour: '2-digit', minute: '2-digit', hour12: false };
       const currentTimeStr = now.toLocaleTimeString('en-US', timeOptions);
+      const currentMinutes = timeToMinutes(currentTimeStr);
 
-      const s1EndMinutes = timeToMinutes(matched.shift1End);
-      const s2StartMinutes = timeToMinutes(matched.shift2Start);
+      const s1EndMinutes = timeToMinutes(matched.shift1End) || (12 * 60);
+      const s2StartMinutes = timeToMinutes(matched.shift2Start) || (13 * 60);
 
       const checkin1 = todayRec?.checkin1;
       const checkout1 = todayRec?.checkout1;
@@ -484,16 +490,27 @@ const Kiosk = () => {
         throw new Error('Face recognition library (face-api.js) failed to load. Check internet connection.');
       }
 
-      const MODEL_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model/';
-      if (!window.faceapi.nets.tinyFaceDetector.params) {
-        await window.faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL);
-      }
-      if (!window.faceapi.nets.faceLandmark68Net.params) {
-        await window.faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL);
-      }
-      if (!window.faceapi.nets.faceRecognitionNet.params) {
-        await window.faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL);
-      }
+      // Load neural net models locally with CDN fallback
+      const loadModels = async () => {
+        try {
+          if (!window.faceapi.nets.tinyFaceDetector.params) {
+            await window.faceapi.nets.tinyFaceDetector.loadFromUri('/models');
+          }
+          if (!window.faceapi.nets.faceLandmark68Net.params) {
+            await window.faceapi.nets.faceLandmark68Net.loadFromUri('/models');
+          }
+          if (!window.faceapi.nets.faceRecognitionNet.params) {
+            await window.faceapi.nets.faceRecognitionNet.loadFromUri('/models');
+          }
+        } catch (localErr) {
+          console.warn('Falling back to CDN for face-api models:', localErr);
+          const CDN_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model/';
+          await window.faceapi.nets.tinyFaceDetector.loadFromUri(CDN_URL);
+          await window.faceapi.nets.faceLandmark68Net.loadFromUri(CDN_URL);
+          await window.faceapi.nets.faceRecognitionNet.loadFromUri(CDN_URL);
+        }
+      };
+      await loadModels();
 
       setFaceStatus('scanning');
       const stream = await navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480 } });

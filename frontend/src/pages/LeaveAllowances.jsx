@@ -4,8 +4,9 @@ import { useLanguage } from '../context/LanguageContext';
 import { ClipboardDocumentCheckIcon, PencilSquareIcon, MagnifyingGlassIcon, TrashIcon } from '@heroicons/react/24/outline';
 
 const LeaveAllowances = () => {
-  const { getLocalizedName } = useLanguage();
+  const { t, getLocalizedName } = useLanguage();
   const [data, setData] = useState([]);
+  const [employees, setEmployees] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
@@ -21,11 +22,23 @@ const LeaveAllowances = () => {
   const [errorMsg, setErrorMsg] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
 
+  const getEmployeePhoto = (emp) => {
+    if (!emp) return '';
+    if (emp.photoUrl) return emp.photoUrl;
+    if (Array.isArray(emp.faceData) && emp.faceData[0]?.photoUrl) return emp.faceData[0].photoUrl;
+    if (emp.faceData?.photoUrl) return emp.faceData.photoUrl;
+    return '';
+  };
+
   const fetchData = async () => {
     try {
       setLoading(true);
-      const res = await api.get('/employee-leave-limits');
+      const [res, empRes] = await Promise.all([
+        api.get('/employee-leave-limits'),
+        api.get('/employees')
+      ]);
       setData(res.data);
+      setEmployees(empRes.data);
 
       // Extract unique departments for filtering
       const depts = [];
@@ -230,6 +243,9 @@ const LeaveAllowances = () => {
           <table className="w-full text-left border-collapse glass-table">
             <thead>
               <tr className="bg-slate-950/20">
+                <th className="py-4 px-6 text-xs font-bold text-slate-400 uppercase tracking-wider font-khmer text-center w-16 whitespace-nowrap">
+                  {t("noNumber")}
+                </th>
                 <th className="py-4 px-6 text-xs font-bold text-slate-400 uppercase tracking-wider font-khmer w-52">
                   Employee
                 </th>
@@ -247,63 +263,85 @@ const LeaveAllowances = () => {
               </tr>
             </thead>
             <tbody>
-              {filteredData.map((emp) => (
-                <tr key={emp.staffId} className="transition-colors hover:bg-white/5 border-b border-white/5">
-                  <td className="py-4 px-6">
-                    <div className="flex items-center gap-3">
-                      <div className="h-8 w-8 rounded-full bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-300 font-bold text-xs uppercase shadow-sm">
-                        {emp.nameEn.charAt(0)}
-                      </div>
-                      <div>
-                        <div className="text-white text-xs font-bold font-khmer">
-                          {getLocalizedName(emp.nameEn, emp.nameKh)}
+              {filteredData.map((emp, index) => {
+                const fullEmp = employees.find(e => e.staffId === emp.staffId) || emp;
+                const photo = getEmployeePhoto(fullEmp);
+                const nameEn = fullEmp.nameEn || emp.nameEn;
+                const nameKh = fullEmp.nameKh || emp.nameKh;
+                const role = fullEmp.role || emp.role;
+
+                return (
+                  <tr key={emp.staffId} className="transition-colors hover:bg-white/5 border-b border-white/5">
+                    <td className="py-4 px-6 text-center font-semibold text-slate-400 whitespace-nowrap font-mono">
+                      {index + 1}
+                    </td>
+                    <td className="py-4 px-6">
+                      <div className="flex items-center gap-3">
+                        {photo ? (
+                          <img
+                            src={photo}
+                            alt={nameEn}
+                            className="w-10 h-10 rounded-full object-cover border-2 border-indigo-500/30 flex-shrink-0 shadow-md"
+                          />
+                        ) : (
+                          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center flex-shrink-0 text-white font-bold text-sm shadow-md">
+                            {nameEn?.charAt(0)?.toUpperCase() || '?'}
+                          </div>
+                        )}
+                        <div>
+                          <div className="text-white text-sm font-semibold font-khmer">
+                            {getLocalizedName(nameEn, nameKh)}
+                          </div>
+                          <div className="text-xs text-slate-400 font-mono mt-0.5">
+                            ID: <span className="text-indigo-400 font-semibold">{emp.staffId}</span>
+                            {role ? ` • ${role}` : ''}
+                          </div>
                         </div>
-                        <div className="text-[10px] text-slate-400 font-mono mt-0.5">{emp.staffId}</div>
-                      </div>
-                    </div>
-                  </td>
-                  <td className="py-4 px-6">
-                    <div className="text-slate-300 text-xs font-khmer">
-                      {emp.department ? getLocalizedName(emp.department.nameEn, emp.department.nameKh) : '-'}
-                    </div>
-                    <div className="text-[10px] text-slate-400 font-khmer mt-0.5">
-                      {emp.position ? getLocalizedName(emp.position.titleEn, emp.position.titleKh) : '-'}
-                    </div>
-                  </td>
-                  {emp.allowances.map((type) => (
-                    <td key={type.id} className="py-4 px-6 text-center">
-                      <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-950/40 border border-white/5 font-mono text-xs">
-                        <span className="text-white font-bold">{type.usedDays.toFixed(1)}</span>
-                        <span className="text-slate-500">/</span>
-                        <span className={`font-bold ${type.hasOverride ? 'text-indigo-400' : 'text-slate-400'}`} title={type.hasOverride ? 'Custom Override limit' : 'Global standard limit'}>
-                          {type.maxDays.toFixed(1)}
-                        </span>
                       </div>
                     </td>
-                  ))}
-                  <td className="py-4 px-6 text-center border-none">
-                    <div className="flex items-center justify-center gap-1">
-                      <button
-                        onClick={() => handleOpenEditModal(emp)}
-                        className="p-2 rounded-lg text-slate-400 hover:text-indigo-400 hover:bg-indigo-500/10 transition-all cursor-pointer border-none bg-transparent outline-none"
-                        title="Edit Employee Leave Limits"
-                      >
-                        <PencilSquareIcon className="h-4 w-4" />
-                      </button>
-                      <button
-                        onClick={() => handleDeleteLimits(emp)}
-                        className="p-2 rounded-lg text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 transition-all cursor-pointer border-none bg-transparent outline-none"
-                        title="Reset all custom overrides to global defaults"
-                      >
-                        <TrashIcon className="h-4 w-4" />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
+                    <td className="py-4 px-6">
+                      <div className="text-slate-300 text-xs font-khmer">
+                        {emp.department ? getLocalizedName(emp.department.nameEn, emp.department.nameKh) : '-'}
+                      </div>
+                      <div className="text-[10px] text-slate-400 font-khmer mt-0.5">
+                        {emp.position ? getLocalizedName(emp.position.titleEn, emp.position.titleKh) : '-'}
+                      </div>
+                    </td>
+                    {emp.allowances.map((type) => (
+                      <td key={type.id} className="py-4 px-6 text-center">
+                        <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-950/40 border border-white/5 font-mono text-xs">
+                          <span className="text-white font-bold">{type.usedDays.toFixed(1)}</span>
+                          <span className="text-slate-500">/</span>
+                          <span className={`font-bold ${type.hasOverride ? 'text-indigo-400' : 'text-slate-400'}`} title={type.hasOverride ? 'Custom Override limit' : 'Global standard limit'}>
+                            {type.maxDays.toFixed(1)}
+                          </span>
+                        </div>
+                      </td>
+                    ))}
+                    <td className="py-4 px-6 text-center border-none">
+                      <div className="flex items-center justify-center gap-1">
+                        <button
+                          onClick={() => handleOpenEditModal(emp)}
+                          className="p-2 rounded-lg text-slate-400 hover:text-indigo-400 hover:bg-indigo-500/10 transition-all cursor-pointer border-none bg-transparent outline-none"
+                          title="Edit Employee Leave Limits"
+                        >
+                          <PencilSquareIcon className="h-4 w-4" />
+                        </button>
+                        <button
+                          onClick={() => handleDeleteLimits(emp)}
+                          className="p-2 rounded-lg text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 transition-all cursor-pointer border-none bg-transparent outline-none"
+                          title="Reset all custom overrides to global defaults"
+                        >
+                          <TrashIcon className="h-4 w-4" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
               {filteredData.length === 0 && (
                 <tr>
-                  <td colSpan={activeLeaveTypes.length + 3} className="py-8 text-center text-slate-500 text-xs font-khmer">
+                  <td colSpan={activeLeaveTypes.length + 4} className="py-8 text-center text-slate-500 text-xs font-khmer">
                     គ្មានបុគ្គលិកត្រូវបង្ហាញទេ (No employees found).
                   </td>
                 </tr>
@@ -317,9 +355,38 @@ const LeaveAllowances = () => {
       {showModal && selectedEmployee && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-fade-in">
           <div className="w-full max-w-md bg-slate-900 border border-white/10 rounded-2xl overflow-hidden shadow-2xl p-6 relative">
-            <h3 className="text-base font-bold text-white font-khmer border-b border-white/5 pb-2 mb-4">
-              📝 កែប្រែចំនួនថ្ងៃច្បាប់បុគ្គលិក ({getLocalizedName(selectedEmployee.nameEn, selectedEmployee.nameKh)})
-            </h3>
+            {(() => {
+              const fullSelected = employees.find(e => e.staffId === selectedEmployee.staffId) || selectedEmployee;
+              const modalPhoto = getEmployeePhoto(fullSelected);
+              const modalNameEn = fullSelected.nameEn || selectedEmployee.nameEn;
+              const modalNameKh = fullSelected.nameKh || selectedEmployee.nameKh;
+
+              return (
+                <div className="flex items-center gap-3 border-b border-white/10 pb-4 mb-4">
+                  {modalPhoto ? (
+                    <img
+                      src={modalPhoto}
+                      alt={modalNameEn}
+                      className="w-12 h-12 rounded-full object-cover border-2 border-indigo-500/40 shadow-md flex-shrink-0"
+                    />
+                  ) : (
+                    <div className="w-12 h-12 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center flex-shrink-0 text-white font-bold text-base shadow-md">
+                      {modalNameEn?.charAt(0)?.toUpperCase() || '?'}
+                    </div>
+                  )}
+                  <div className="min-w-0 flex-1">
+                    <h3 className="text-base font-bold text-white font-khmer truncate">
+                      {getLocalizedName(modalNameEn, modalNameKh)}
+                    </h3>
+                    <p className="text-xs text-slate-400 truncate">
+                      ID: <span className="text-indigo-400 font-semibold">{selectedEmployee.staffId}</span>
+                      {selectedEmployee.department ? ` • ${getLocalizedName(selectedEmployee.department.nameEn, selectedEmployee.department.nameKh)}` : ''}
+                      {selectedEmployee.position ? ` • ${getLocalizedName(selectedEmployee.position.titleEn, selectedEmployee.position.titleKh)}` : ''}
+                    </p>
+                  </div>
+                </div>
+              );
+            })()}
 
             {errorMsg && (
               <div className="p-3 mb-4 rounded-xl bg-rose-500/10 border border-rose-500/20 text-xs text-rose-300 font-khmer animate-pulse">

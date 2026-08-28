@@ -39,6 +39,8 @@ public class OvertimeController {
     private final DepartmentRepository departmentRepository;
     private final PositionRepository positionRepository;
     private final KioskSettingRepository kioskSettingRepository;
+    private final com.hrchomnan.backend.repository.EmployeeFaceDataRepository employeeFaceDataRepository;
+    private final com.hrchomnan.backend.repository.LeaveApprovalRuleRepository leaveApprovalRuleRepository;
 
     @GetMapping
     public ResponseEntity<List<Map<String, Object>>> getAllOvertimes(
@@ -93,6 +95,9 @@ public class OvertimeController {
                 .collect(Collectors.toMap(Position::getId, p -> p, (a, b) -> a));
         Map<UUID, KioskSetting> kioskMap = kioskSettingRepository.findAll().stream()
                 .collect(Collectors.toMap(KioskSetting::getId, k -> k, (a, b) -> a));
+        Map<String, String> faceDataMap = employeeFaceDataRepository.findAll().stream()
+                .filter(f -> f.getStaffId() != null && f.getPhotoUrl() != null)
+                .collect(Collectors.toMap(com.hrchomnan.backend.model.EmployeeFaceData::getStaffId, com.hrchomnan.backend.model.EmployeeFaceData::getPhotoUrl, (a, b) -> a));
 
         if (departmentId != null && !departmentId.isBlank()) {
             UUID deptUuid = UUID.fromString(departmentId);
@@ -103,20 +108,18 @@ public class OvertimeController {
         }
 
         if (search != null && !search.isBlank()) {
-            final String s = search.trim().toLowerCase();
+            final String q = search.trim().toLowerCase();
             list = list.stream().filter(o -> {
                 Employee emp = employeeMap.get(o.getStaffId());
-                boolean staffMatch = o.getStaffId() != null && o.getStaffId().toLowerCase().contains(s);
-                boolean nameEnMatch = emp != null && emp.getNameEn() != null && emp.getNameEn().toLowerCase().contains(s);
-                boolean nameKhMatch = emp != null && emp.getNameKh() != null && emp.getNameKh().toLowerCase().contains(s);
-                boolean reasonMatch = o.getReason() != null && o.getReason().toLowerCase().contains(s);
-                boolean managerMatch = o.getManagerName() != null && o.getManagerName().toLowerCase().contains(s);
-                return staffMatch || nameEnMatch || nameKhMatch || reasonMatch || managerMatch;
+                boolean sMatch = o.getStaffId() != null && o.getStaffId().toLowerCase().contains(q);
+                boolean nEnMatch = emp != null && emp.getNameEn() != null && emp.getNameEn().toLowerCase().contains(q);
+                boolean nKhMatch = emp != null && emp.getNameKh() != null && emp.getNameKh().toLowerCase().contains(q);
+                return sMatch || nEnMatch || nKhMatch;
             }).collect(Collectors.toList());
         }
 
         List<Map<String, Object>> response = list.stream()
-                .map(o -> enrichOvertime(o, employeeMap, deptMap, posMap, kioskMap))
+                .map(o -> enrichOvertime(o, employeeMap, deptMap, posMap, kioskMap, faceDataMap))
                 .collect(Collectors.toList());
 
         return ResponseEntity.ok(response);
@@ -230,6 +233,29 @@ public class OvertimeController {
 
         String creatorName = currentUser != null ? (currentUser.getNameEn() != null ? currentUser.getNameEn() : currentUser.getNameKh()) : "Employee";
 
+        // Resolve designated approver from approval rules
+        String assignedApproverId = null;
+        String assignedApproverName = null;
+        List<com.hrchomnan.backend.model.LeaveApprovalRule> indRules = leaveApprovalRuleRepository.findByTargetStaffId(resolvedStaffId).stream()
+                .filter(r -> "Employee".equalsIgnoreCase(r.getScope()))
+                .collect(Collectors.toList());
+        if (!indRules.isEmpty()) {
+            assignedApproverId = indRules.get(0).getApproverId();
+        } else if (employee.getDepartmentId() != null) {
+            List<com.hrchomnan.backend.model.LeaveApprovalRule> deptRules = leaveApprovalRuleRepository.findByTargetDeptId(employee.getDepartmentId()).stream()
+                    .filter(r -> "Department".equalsIgnoreCase(r.getScope()))
+                    .collect(Collectors.toList());
+            if (!deptRules.isEmpty()) {
+                assignedApproverId = deptRules.get(0).getApproverId();
+            }
+        }
+        if (assignedApproverId != null) {
+            Employee approverEmp = employeeRepository.findByStaffId(assignedApproverId).orElse(null);
+            if (approverEmp != null) {
+                assignedApproverName = approverEmp.getNameEn() != null ? approverEmp.getNameEn() : approverEmp.getNameKh();
+            }
+        }
+
         Overtime overtime = Overtime.builder()
                 .staffId(resolvedStaffId)
                 .fromDate(start)
@@ -241,13 +267,16 @@ public class OvertimeController {
                 .branch(resolvedBranchName)
                 .branchId(resolvedBranchId)
                 .status(LeaveStatus.Pending)
+                .managerId(assignedApproverId)
+                .managerName(assignedApproverName)
                 .createdBy(creatorName)
                 .requestedAt(LocalDateTime.now())
                 .build();
 
         Overtime saved = overtimeRepository.save(overtime);
 
-        Map<String, Employee> employeeMap = Map.of(employee.getStaffId(), employee);
+        Map<String, Employee> employeeMap = employeeRepository.findAll().stream()
+                .collect(Collectors.toMap(Employee::getStaffId, e -> e, (a, b) -> a));
         Map<UUID, Department> deptMap = departmentRepository.findAll().stream()
                 .collect(Collectors.toMap(Department::getId, d -> d, (a, b) -> a));
         Map<UUID, Position> posMap = positionRepository.findAll().stream()
@@ -287,11 +316,36 @@ public class OvertimeController {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("message", "Overtime record not found"));
         }
 
+        Overtime overtime = existingOpt.get();
         Employee currentUser = (authentication != null && authentication.getPrincipal() instanceof Employee emp) ? emp : null;
+
+        // Approver validation (Admins can bypass)
+        if (currentUser != null && currentUser.getRole() != Role.Admin) {
+            Employee targetEmp = employeeRepository.findByStaffId(overtime.getStaffId()).orElse(null);
+            List<com.hrchomnan.backend.model.LeaveApprovalRule> indRules = leaveApprovalRuleRepository.findByTargetStaffId(overtime.getStaffId()).stream()
+                    .filter(r -> "Employee".equalsIgnoreCase(r.getScope()))
+                    .collect(Collectors.toList());
+
+            List<com.hrchomnan.backend.model.LeaveApprovalRule> deptRules = (targetEmp != null && targetEmp.getDepartmentId() != null)
+                    ? leaveApprovalRuleRepository.findByTargetDeptId(targetEmp.getDepartmentId()).stream()
+                    .filter(r -> "Department".equalsIgnoreCase(r.getScope()))
+                    .collect(Collectors.toList())
+                    : Collections.emptyList();
+
+            Set<String> allowedApprovers = new HashSet<>();
+            indRules.forEach(r -> allowedApprovers.add(r.getApproverId().toLowerCase()));
+            deptRules.forEach(r -> allowedApprovers.add(r.getApproverId().toLowerCase()));
+
+            if (!allowedApprovers.isEmpty() && !allowedApprovers.contains(currentUser.getStaffId().toLowerCase())) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of(
+                        "message", "អ្នកមិនមានសិទ្ធិអនុម័ត Overtime របស់បុគ្គលិកនេះទេ! (You are not the designated approver for this employee)"
+                ));
+            }
+        }
+
         String reviewerStaffId = currentUser != null ? currentUser.getStaffId() : "SYS_ADMIN";
         String reviewerName = request.getManagerName() != null ? request.getManagerName() : (currentUser != null ? (currentUser.getNameEn() != null ? currentUser.getNameEn() : currentUser.getNameKh()) : reviewerStaffId);
 
-        Overtime overtime = existingOpt.get();
         overtime.setStatus(newStatus);
         if (request.getComment() != null) {
             overtime.setComment(request.getComment());
@@ -347,11 +401,53 @@ public class OvertimeController {
             Map<UUID, Position> posMap,
             Map<UUID, KioskSetting> kioskMap
     ) {
+        Map<String, String> faceDataMap = employeeFaceDataRepository.findAll().stream()
+                .filter(f -> f.getStaffId() != null && f.getPhotoUrl() != null)
+                .collect(Collectors.toMap(com.hrchomnan.backend.model.EmployeeFaceData::getStaffId, com.hrchomnan.backend.model.EmployeeFaceData::getPhotoUrl, (a, b) -> a));
+        return enrichOvertime(o, employeeMap, deptMap, posMap, kioskMap, faceDataMap);
+    }
+
+    private Map<String, Object> enrichOvertime(
+            Overtime o,
+            Map<String, Employee> employeeMap,
+            Map<UUID, Department> deptMap,
+            Map<UUID, Position> posMap,
+            Map<UUID, KioskSetting> kioskMap,
+            Map<String, String> faceDataMap
+    ) {
         Map<String, Object> map = new HashMap<>();
         map.put("id", o.getId());
         map.put("staffId", o.getStaffId());
-        map.put("managerId", o.getManagerId());
-        map.put("managerName", o.getManagerName());
+
+        String managerId = o.getManagerId();
+        String managerName = o.getManagerName();
+        if ((managerId == null || managerId.isBlank()) && o.getStaffId() != null) {
+            List<com.hrchomnan.backend.model.LeaveApprovalRule> indRules = leaveApprovalRuleRepository.findByTargetStaffId(o.getStaffId()).stream()
+                    .filter(r -> "Employee".equalsIgnoreCase(r.getScope()))
+                    .collect(Collectors.toList());
+            if (!indRules.isEmpty()) {
+                managerId = indRules.get(0).getApproverId();
+            } else {
+                Employee emp = employeeMap.get(o.getStaffId());
+                if (emp != null && emp.getDepartmentId() != null) {
+                    List<com.hrchomnan.backend.model.LeaveApprovalRule> deptRules = leaveApprovalRuleRepository.findByTargetDeptId(emp.getDepartmentId()).stream()
+                            .filter(r -> "Department".equalsIgnoreCase(r.getScope()))
+                            .collect(Collectors.toList());
+                    if (!deptRules.isEmpty()) {
+                        managerId = deptRules.get(0).getApproverId();
+                    }
+                }
+            }
+            if (managerId != null) {
+                Employee mgr = employeeMap.get(managerId);
+                if (mgr != null) {
+                    managerName = mgr.getNameEn() != null ? mgr.getNameEn() : mgr.getNameKh();
+                }
+            }
+        }
+
+        map.put("managerId", managerId);
+        map.put("managerName", managerName);
         map.put("branchId", o.getBranchId());
         map.put("branch", o.getBranch());
         map.put("fromDate", o.getFromDate());
@@ -364,16 +460,34 @@ public class OvertimeController {
         map.put("comment", o.getComment());
         map.put("requestedAt", o.getRequestedAt());
         map.put("approvedAt", o.getApprovedAt());
-        map.put("createdBy", o.getCreatedBy());
+
+        String creatorRaw = o.getCreatedBy();
+        if (creatorRaw == null || creatorRaw.isBlank()) {
+            creatorRaw = o.getStaffId();
+        }
+        Employee creatorEmp = creatorRaw != null ? employeeMap.get(creatorRaw) : null;
+        String creatorDisplay = creatorRaw;
+        if (creatorEmp != null) {
+            creatorDisplay = (creatorEmp.getNameKh() != null && !creatorEmp.getNameKh().isBlank())
+                    ? creatorEmp.getNameEn() + " (" + creatorEmp.getNameKh() + ")"
+                    : creatorEmp.getNameEn();
+        }
+        map.put("createdBy", creatorDisplay);
         map.put("createdAt", o.getCreatedAt());
         map.put("updatedAt", o.getUpdatedAt());
 
         Employee emp = employeeMap.get(o.getStaffId());
         if (emp != null) {
+            String photo = (emp.getPhotoUrl() != null && !emp.getPhotoUrl().isBlank())
+                    ? emp.getPhotoUrl()
+                    : faceDataMap.get(emp.getStaffId());
             Map<String, Object> empData = new HashMap<>();
             empData.put("staffId", emp.getStaffId());
             empData.put("nameEn", emp.getNameEn());
             empData.put("nameKh", emp.getNameKh());
+            empData.put("photoUrl", photo);
+            empData.put("role", emp.getRole() != null ? emp.getRole().name() : null);
+            empData.put("email", emp.getEmail());
             empData.put("branch", emp.getBranch());
 
             Department d = emp.getDepartmentId() != null ? deptMap.get(emp.getDepartmentId()) : null;
@@ -395,8 +509,8 @@ public class OvertimeController {
             map.put("employee", null);
         }
 
-        if (o.getManagerId() != null) {
-            Employee mgr = employeeMap.get(o.getManagerId());
+        if (managerId != null) {
+            Employee mgr = employeeMap.get(managerId);
             if (mgr != null) {
                 map.put("manager", Map.of("staffId", mgr.getStaffId(), "nameEn", mgr.getNameEn(), "nameKh", mgr.getNameKh()));
             } else {

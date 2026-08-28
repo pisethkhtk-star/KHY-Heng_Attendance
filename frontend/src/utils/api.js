@@ -12,10 +12,10 @@ const getBaseUrl = () => {
       return '/api';
     }
     // If running frontend dev server locally or custom port
-    return 'http://10.210.5.43:8080/api';
+    return 'http://192.168.88.78:8080/api';
   }
 
-  return import.meta.env.DEV ? 'http://10.210.5.43:8080/api' : '/api';
+  return import.meta.env.DEV ? 'http://192.168.88.78:8080/api' : '/api';
 };
 
 const api = axios.create({

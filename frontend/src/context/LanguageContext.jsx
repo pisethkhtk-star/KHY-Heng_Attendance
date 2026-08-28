@@ -80,6 +80,7 @@ const translations = {
     selectDept: "Select Department",
 
     // Employees
+    noNumber: "No.",
     staffId: "Staff ID",
     nameEn: "Name (EN)",
     nameKh: "Name (KH)",
@@ -137,6 +138,7 @@ const translations = {
     amountDays: "Duration (Days)",
     reason: "Reason",
     managerName: "Approved By",
+    createdBy: "Created By",
     requestLeave: "Request Leave",
     approvalManage: "Approval Manage",
     approve: "Approve",
@@ -268,6 +270,7 @@ const translations = {
     selectDept: "ជ្រើសរើសដេប៉ាតឺម៉ង់",
 
     // Employees
+    noNumber: "ល.រ",
     staffId: "អត្តលេខ",
     nameEn: "ឈ្មោះ (EN)",
     nameKh: "ឈ្មោះ (KH)",
@@ -326,6 +329,7 @@ const translations = {
     amountDays: "ចំនួនថ្ងៃច្បាប់",
     reason: "មូលហេតុ",
     managerName: "អនុម័តដោយ",
+    createdBy: "បង្កើតដោយ",
     requestLeave: "ស្នើសុំច្បាប់",
     approvalManage: "កំណត់អ្នកអនុម័ត",
     approve: "អនុម័ត",

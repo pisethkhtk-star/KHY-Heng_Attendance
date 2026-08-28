@@ -179,6 +179,14 @@ public class AttendanceController {
             }).collect(Collectors.toList());
         }
 
+        // Only include attendance logs that have at least one check-in or check-out timestamp
+        list = list.stream().filter(a ->
+                (a.getCheckin1() != null && !a.getCheckin1().isBlank()) ||
+                (a.getCheckout1() != null && !a.getCheckout1().isBlank()) ||
+                (a.getCheckin2() != null && !a.getCheckin2().isBlank()) ||
+                (a.getCheckout2() != null && !a.getCheckout2().isBlank())
+        ).collect(Collectors.toList());
+
         list.sort(Comparator.comparing(Attendance::getAttendanceDate).reversed()
                 .thenComparing(Attendance::getStaffId, Comparator.nullsLast(String::compareToIgnoreCase)));
 

@@ -56,14 +56,20 @@ const Overtime = () => {
   const [formError, setFormError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  const getEmployeePhoto = (emp) => {
+    if (!emp) return '';
+    if (emp.photoUrl) return emp.photoUrl;
+    if (Array.isArray(emp.faceData) && emp.faceData[0]?.photoUrl) return emp.faceData[0].photoUrl;
+    if (emp.faceData?.photoUrl) return emp.faceData.photoUrl;
+    return '';
+  };
+
   // Fetch branches & employees
   const fetchMetadata = async () => {
     try {
       const [branchRes, empRes] = await Promise.all([
         api.get('/kiosk-settings').catch(() => ({ data: [] })),
-        ['Admin', 'HR', 'Manager'].includes(user?.role)
-          ? api.get('/employees').catch(() => ({ data: [] }))
-          : Promise.resolve({ data: [] })
+        api.get('/employees').catch(() => ({ data: [] }))
       ]);
       setBranches(branchRes.data || []);
       setEmployees(empRes.data || []);
@@ -169,6 +175,8 @@ const Overtime = () => {
       setIsSubmitting(true);
       setFormError('');
 
+      const creator = getLocalizedName(user?.nameEn, user?.nameKh) || user?.nameEn || user?.staffId || '';
+
       await api.post('/overtimes', {
         staffId: selectedStaffId || user?.staffId,
         fromDate,
@@ -179,6 +187,7 @@ const Overtime = () => {
         reason: reason.trim(),
         branchId: selectedBranchId || undefined,
         branch: selectedBranchName || undefined,
+        createdBy: creator,
       });
 
       setShowRequestModal(false);
@@ -264,6 +273,19 @@ const Overtime = () => {
     } catch {
       return dateStr;
     }
+  };
+
+  const getCreatorDisplayName = (creatorVal) => {
+    if (!creatorVal) return '-';
+    const emp = employees.find(
+      e => e.staffId?.toLowerCase() === String(creatorVal).toLowerCase() ||
+           e.email?.toLowerCase() === String(creatorVal).toLowerCase() ||
+           e.nameEn?.toLowerCase() === String(creatorVal).toLowerCase()
+    );
+    if (emp) {
+      return getLocalizedName(emp.nameEn, emp.nameKh);
+    }
+    return creatorVal;
   };
 
   return (
@@ -436,6 +458,7 @@ const Overtime = () => {
           <table className="w-full text-left text-sm text-slate-300">
             <thead className="bg-slate-950/80 text-xs text-slate-300 uppercase border-b border-white/10">
               <tr>
+                <th className="py-4 px-6 font-khmer whitespace-nowrap w-16 text-center">{t("noNumber")}</th>
                 <th className="py-4 px-6 font-khmer">{t('employee')}</th>
                 <th className="py-4 px-6 font-khmer">{t('manager')}</th>
                 <th className="py-4 px-6 font-khmer">{t('branch')}</th>
@@ -456,7 +479,7 @@ const Overtime = () => {
             <tbody className="divide-y divide-white/5">
               {loading ? (
                 <tr>
-                  <td colSpan="15" className="py-12 text-center text-slate-400 font-khmer">
+                  <td colSpan="16" className="py-12 text-center text-slate-400 font-khmer">
                     <div className="inline-flex items-center gap-2">
                       <ArrowPathIcon className="h-5 w-5 animate-spin text-indigo-400" />
                       <span>{t('loading')}</span>
@@ -465,29 +488,57 @@ const Overtime = () => {
                 </tr>
               ) : overtimes.length === 0 ? (
                 <tr>
-                  <td colSpan="15" className="py-12 text-center text-slate-500 font-khmer">
+                  <td colSpan="16" className="py-12 text-center text-slate-500 font-khmer">
                     {t('noOvertimeData')}
                   </td>
                 </tr>
               ) : (
-                overtimes.map((item) => {
-                  const empName = getLocalizedName(item.employee?.nameEn, item.employee?.nameKh) || item.staffId;
-                  const branchDisplay = item.branchLocation?.name || item.branch || item.employee?.branch || '-';
+                overtimes.map((item, index) => {
+                  const emp = employees.find(e => e.staffId === item.staffId) || item.employee;
+                  const photo = getEmployeePhoto(emp);
+                  const nameEn = emp?.nameEn || item.staffId;
+                  const nameKh = emp?.nameKh || '';
+                  const deptName = emp?.department ? getLocalizedName(emp.department.nameEn, emp.department.nameKh) : '';
+                  const posTitle = emp?.position ? getLocalizedName(emp.position.titleEn, emp.position.titleKh) : '';
+
+                  const branchDisplay = item.branchLocation?.name || item.branch || emp?.branch || '-';
                   const managerDisplay = item.manager
                     ? getLocalizedName(item.manager.nameEn, item.manager.nameKh)
                     : (item.managerName || '-');
 
                   return (
                     <tr key={item.id} className="hover:bg-white/5 transition-colors">
+                      {/* 0. No. */}
+                      <td className="py-4 px-6 text-center font-semibold text-slate-400 whitespace-nowrap font-mono">
+                        {index + 1}
+                      </td>
+
                       {/* 1. Employee */}
                       <td className="py-4 px-6 whitespace-nowrap">
-                        <div className="flex items-center gap-2.5">
-                          <div className="h-8 w-8 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-300 font-bold text-xs flex items-center justify-center">
-                            {item.employee?.nameEn?.charAt(0) || item.staffId?.charAt(0) || 'E'}
-                          </div>
+                        <div className="flex items-center gap-3">
+                          {photo ? (
+                            <img
+                              src={photo}
+                              alt={nameEn}
+                              className="w-10 h-10 rounded-full object-cover border-2 border-indigo-500/30 flex-shrink-0 shadow-md"
+                            />
+                          ) : (
+                            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center flex-shrink-0 text-white font-bold text-sm shadow-md">
+                              {nameEn?.charAt(0)?.toUpperCase() || item.staffId?.charAt(0) || '?'}
+                            </div>
+                          )}
                           <div>
-                            <p className="font-semibold text-xs text-white font-khmer">{empName}</p>
-                            <p className="text-[11px] text-slate-400 font-mono">{item.staffId}</p>
+                            <p className="font-semibold text-white">
+                              {getLocalizedName(nameEn, nameKh)}
+                            </p>
+                            <p className="text-xs text-slate-400 font-mono">
+                              ID: <span className="text-indigo-400 font-semibold">{item.staffId}</span>{emp?.role ? ` • ${emp.role}` : ''}
+                            </p>
+                            {(deptName || posTitle) && (
+                              <p className="text-xs font-semibold text-indigo-400">
+                                {[deptName, posTitle].filter(Boolean).join(' • ')}
+                              </p>
+                            )}
                           </div>
                         </div>
                       </td>
@@ -578,7 +629,7 @@ const Overtime = () => {
 
                       {/* 14. Created by */}
                       <td className="py-4 px-6 whitespace-nowrap text-xs text-slate-300 font-khmer">
-                        {item.createdBy || '-'}
+                        {getCreatorDisplayName(item.createdBy || item.staffId)}
                       </td>
 
                       {/* 15. Actions */}

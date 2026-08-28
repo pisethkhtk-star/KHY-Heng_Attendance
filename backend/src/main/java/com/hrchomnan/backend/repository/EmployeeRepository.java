@@ -11,4 +11,6 @@ import java.util.UUID;
 public interface EmployeeRepository extends JpaRepository<Employee, UUID> {
     Optional<Employee> findByStaffId(String staffId);
     Optional<Employee> findByEmail(String email);
+    boolean existsByStaffId(String staffId);
+    boolean existsByEmail(String email);
 }

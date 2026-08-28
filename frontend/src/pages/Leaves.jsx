@@ -10,6 +10,7 @@ const Leaves = () => {
   const canApprove = ['Admin', 'HR', 'Manager'].includes(user.role);
 
   const [leaves, setLeaves] = useState([]);
+  const [employees, setEmployees] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [leaveTypes, setLeaveTypes] = useState([]);
@@ -19,12 +20,30 @@ const Leaves = () => {
   const [search, setSearch] = useState('');
 
   // Request Form State
+  const [selectedStaffId, setSelectedStaffId] = useState(user?.staffId || '');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [durationType, setDurationType] = useState('Full Day');
   const [leaveType, setLeaveType] = useState('AL');
   const [reason, setReason] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
+
+  const getEmployeePhoto = (emp) => {
+    if (!emp) return '';
+    if (emp.photoUrl) return emp.photoUrl;
+    if (Array.isArray(emp.faceData) && emp.faceData[0]?.photoUrl) return emp.faceData[0].photoUrl;
+    if (emp.faceData?.photoUrl) return emp.faceData.photoUrl;
+    return '';
+  };
+
+  const fetchEmployees = async () => {
+    try {
+      const res = await api.get('/employees');
+      setEmployees(res.data);
+    } catch (err) {
+      console.error('Error fetching employees:', err);
+    }
+  };
 
   const fetchLeaveTypes = async () => {
     try {
@@ -40,6 +59,7 @@ const Leaves = () => {
 
   useEffect(() => {
     fetchLeaveTypes();
+    fetchEmployees();
   }, []);
 
   const getLeaveTypeLabel = (code) => {
@@ -51,6 +71,19 @@ const Leaves = () => {
     if (code === 'Sick Leave') return t("sickLeave");
     if (code === 'Personal Leave') return t("personalLeave");
     return code;
+  };
+
+  const getCreatorDisplayName = (creatorVal) => {
+    if (!creatorVal) return '-';
+    const emp = employees.find(
+      e => e.staffId?.toLowerCase() === String(creatorVal).toLowerCase() ||
+           e.email?.toLowerCase() === String(creatorVal).toLowerCase() ||
+           e.nameEn?.toLowerCase() === String(creatorVal).toLowerCase()
+    );
+    if (emp) {
+      return getLocalizedName(emp.nameEn, emp.nameKh);
+    }
+    return creatorVal;
   };
 
   const fetchLeaves = async () => {
@@ -73,6 +106,7 @@ const Leaves = () => {
 
   const handleOpenRequestModal = () => {
     const today = new Date().toISOString().split('T')[0];
+    setSelectedStaffId(user?.staffId || (employees.length > 0 ? employees[0].staffId : ''));
     setStartDate(today);
     setEndDate(today);
     setDurationType('Full Day');
@@ -93,14 +127,21 @@ const Leaves = () => {
       return;
     }
 
+    const targetStaffId = ['Admin', 'HR', 'Manager'].includes(user?.role) && selectedStaffId
+      ? selectedStaffId
+      : user.staffId;
+
+    const creator = getLocalizedName(user?.nameEn, user?.nameKh) || user?.nameEn || user?.staffId || '';
+
     try {
       await api.post('/leaves', {
-        staffId: user.staffId, // Backend forces if Employee, otherwise uses this
+        staffId: targetStaffId,
         startDate,
         endDate,
         durationType,
         leaveType,
-        reason
+        reason,
+        createdBy: creator
       });
       setShowModal(false);
       fetchLeaves();
@@ -179,7 +220,7 @@ const Leaves = () => {
             <table className="w-full text-left text-sm text-slate-300">
               <thead className="bg-slate-950/80 text-xs text-slate-300 uppercase border-b border-white/10">
                 <tr>
-                  {user.role !== 'Employee' && <th className="py-4 px-6 font-khmer whitespace-nowrap">{t("staffId")}</th>}
+                  <th className="py-4 px-6 font-khmer whitespace-nowrap w-16 text-center">{t("noNumber")}</th>
                   {user.role !== 'Employee' && <th className="py-4 px-6 font-khmer whitespace-nowrap">{t("employees")}</th>}
                   <th className="py-4 px-6 font-khmer whitespace-nowrap">{t("leaveDate")}</th>
                   <th className="py-4 px-6 font-khmer whitespace-nowrap">{t("leaveType")}</th>
@@ -187,30 +228,62 @@ const Leaves = () => {
                   <th className="py-4 px-6 font-khmer">{t("reason")}</th>
                   <th className="py-4 px-6 font-khmer whitespace-nowrap">{t("status")}</th>
                   <th className="py-4 px-6 font-khmer whitespace-nowrap">{t("managerName")}</th>
+                  <th className="py-4 px-6 font-khmer whitespace-nowrap">{t("createdBy")}</th>
                   {canApprove && <th className="py-4 px-6 text-right font-khmer whitespace-nowrap min-w-[110px]">{t("actions")}</th>}
                 </tr>
               </thead>
               <tbody className="divide-y divide-white/5">
                 {leaves.length === 0 ? (
                   <tr>
-                    <td colSpan={canApprove ? 9 : 7} className="py-6 text-center text-slate-500 font-khmer">
+                    <td colSpan={8 + (user.role !== 'Employee' ? 1 : 0) + (canApprove ? 1 : 0)} className="py-6 text-center text-slate-500 font-khmer">
                       {t("noData")}
                     </td>
                   </tr>
                 ) : (
-                  leaves.map((leave) => (
-                    <tr key={leave.id} className="hover:bg-white/5 transition-colors">
-                      {user.role !== 'Employee' && <td className="py-4 px-6 font-semibold text-white whitespace-nowrap">{leave.staffId}</td>}
-                      {user.role !== 'Employee' && (
-                        <td className="py-4 px-6 whitespace-nowrap">
-                          <p className="font-semibold text-white">
-                            {getLocalizedName(leave.employee.nameEn, leave.employee.nameKh)}
-                          </p>
-                          <p className="text-xs text-slate-400">
-                            {getLocalizedName(leave.employee.department.nameEn, leave.employee.department.nameKh)}
-                          </p>
+                  leaves.map((leave, index) => {
+                    const emp = employees.find(e => e.staffId === leave.staffId) || leave.employee;
+                    const photo = getEmployeePhoto(emp);
+                    const nameEn = emp?.nameEn || leave.staffId;
+                    const nameKh = emp?.nameKh || '';
+                    const deptName = emp?.department ? getLocalizedName(emp.department.nameEn, emp.department.nameKh) : '';
+                    const posTitle = emp?.position ? getLocalizedName(emp.position.titleEn, emp.position.titleKh) : '';
+
+                    return (
+                      <tr key={leave.id} className="hover:bg-white/5 transition-colors">
+                        <td className="py-4 px-6 text-center font-semibold text-slate-400 whitespace-nowrap font-mono">
+                          {index + 1}
                         </td>
-                      )}
+                        {user.role !== 'Employee' && (
+                          <td className="py-4 px-6 whitespace-nowrap">
+                            <div className="flex items-center gap-3">
+                              {photo ? (
+                                <img
+                                  src={photo}
+                                  alt={nameEn}
+                                  className="w-10 h-10 rounded-full object-cover border-2 border-indigo-500/30 flex-shrink-0 shadow-md"
+                                />
+                              ) : (
+                                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center flex-shrink-0 text-white font-bold text-sm shadow-md">
+                                  {nameEn?.charAt(0)?.toUpperCase() || '?'}
+                                </div>
+                              )}
+                              <div>
+                                <p className="font-semibold text-white">
+                                  {getLocalizedName(nameEn, nameKh)}
+                                </p>
+                                <p className="text-xs text-slate-400 font-mono">
+                                  ID: <span className="text-indigo-400 font-semibold">{leave.staffId}</span>
+                                  {emp?.role && <span> • {emp.role}</span>}
+                                </p>
+                                {(deptName || posTitle) && (
+                                  <p className="text-xs font-semibold text-indigo-400">
+                                    {[deptName, posTitle].filter(Boolean).join(' • ')}
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+                          </td>
+                        )}
                       <td className="py-4 px-6 font-semibold text-white whitespace-nowrap">
                         {new Date(leave.leaveDate).toLocaleDateString()}
                       </td>
@@ -234,6 +307,7 @@ const Leaves = () => {
                         </span>
                       </td>
                       <td className="py-4 px-6 font-khmer text-slate-300 whitespace-nowrap">{leave.managerName || '-'}</td>
+                      <td className="py-4 px-6 font-khmer text-slate-300 whitespace-nowrap">{getCreatorDisplayName(leave.createdBy || leave.staffId)}</td>
                       {canApprove && (
                         <td className="py-4 px-6 text-right whitespace-nowrap">
                           {leave.status === 'Pending' ? (
@@ -261,7 +335,8 @@ const Leaves = () => {
                         </td>
                       )}
                     </tr>
-                  ))
+                    );
+                  })
                 )}
               </tbody>
             </table>
@@ -283,6 +358,68 @@ const Leaves = () => {
               {errorMsg && (
                 <div className="rounded-lg bg-rose-500/10 border border-rose-500/20 p-3 text-xs text-rose-300 text-center">
                   {errorMsg}
+                </div>
+              )}
+
+              {/* Employee selector for Admin/HR/Manager */}
+              {['Admin', 'HR', 'Manager'].includes(user?.role) && employees.length > 0 && (
+                <div>
+                  <label className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase font-khmer">
+                    {t("employees")} <span className="text-rose-400">*</span>
+                  </label>
+                  <select
+                    value={selectedStaffId}
+                    onChange={(e) => setSelectedStaffId(e.target.value)}
+                    className="block w-full py-2 px-3 border border-white/10 bg-slate-950/60 text-white rounded-xl text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/20 focus:bg-slate-900 outline-none transition-all font-khmer"
+                    required
+                  >
+                    {employees.map((emp) => (
+                      <option key={emp.staffId} value={emp.staffId} className="bg-slate-900">
+                        {emp.staffId} - {getLocalizedName(emp.nameEn, emp.nameKh)}
+                      </option>
+                    ))}
+                  </select>
+
+                  {/* Selected employee card preview */}
+                  {(() => {
+                    const selectedEmp = employees.find(e => e.staffId === selectedStaffId);
+                    if (!selectedEmp) return null;
+                    const photo = getEmployeePhoto(selectedEmp);
+                    const nameEn = selectedEmp.nameEn || selectedEmp.staffId;
+                    const nameKh = selectedEmp.nameKh || '';
+                    const deptName = selectedEmp.department ? getLocalizedName(selectedEmp.department.nameEn, selectedEmp.department.nameKh) : '';
+                    const posTitle = selectedEmp.position ? getLocalizedName(selectedEmp.position.titleEn, selectedEmp.position.titleKh) : '';
+
+                    return (
+                      <div className="mt-2 flex items-center gap-3 p-2.5 rounded-xl bg-slate-950/40 border border-white/5">
+                        {photo ? (
+                          <img
+                            src={photo}
+                            alt={nameEn}
+                            className="w-9 h-9 rounded-full object-cover border-2 border-indigo-500/30 flex-shrink-0 shadow-md"
+                          />
+                        ) : (
+                          <div className="w-9 h-9 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center flex-shrink-0 text-white font-bold text-xs shadow-md">
+                            {nameEn?.charAt(0)?.toUpperCase() || '?'}
+                          </div>
+                        )}
+                        <div className="min-w-0 flex-1">
+                          <div className="text-white text-xs font-semibold font-khmer truncate">
+                            {getLocalizedName(nameEn, nameKh)}
+                          </div>
+                          <div className="text-[11px] text-slate-400 font-mono">
+                            ID: <span className="text-indigo-400 font-semibold">{selectedEmp.staffId}</span>
+                            {selectedEmp.role ? ` • ${selectedEmp.role}` : ''}
+                          </div>
+                          {(deptName || posTitle) && (
+                            <div className="text-[10px] text-indigo-400 truncate">
+                              {[deptName, posTitle].filter(Boolean).join(' • ')}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })()}
                 </div>
               )}
 

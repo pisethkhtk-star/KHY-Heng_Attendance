@@ -52,7 +52,7 @@ public class FaceDataController {
 
         Optional<Employee> empOpt = employeeRepository.findByStaffId(request.getStaffId());
         if (empOpt.isEmpty()) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("message", "Employee not found"));
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("message", "Employee not found with ID: " + request.getStaffId()));
         }
 
         String descriptorStr;
@@ -66,33 +66,46 @@ public class FaceDataController {
             return ResponseEntity.badRequest().body(Map.of("message", "Invalid face descriptor format"));
         }
 
-        faceDataRepository.findByStaffId(request.getStaffId()).ifPresent(faceDataRepository::delete);
+        try {
+            List<EmployeeFaceData> existingList = faceDataRepository.findAllByStaffId(request.getStaffId());
+            if (!existingList.isEmpty()) {
+                faceDataRepository.deleteAll(existingList);
+            }
 
-        EmployeeFaceData faceData = EmployeeFaceData.builder()
-                .staffId(request.getStaffId())
-                .faceDescriptor(descriptorStr)
-                .photoUrl(request.getPhotoUrl())
-                .build();
+            EmployeeFaceData faceData = EmployeeFaceData.builder()
+                    .staffId(request.getStaffId())
+                    .faceDescriptor(descriptorStr)
+                    .photoUrl(request.getPhotoUrl())
+                    .build();
 
-        EmployeeFaceData saved = faceDataRepository.save(faceData);
-        return ResponseEntity.status(HttpStatus.CREATED).body(Map.of(
-                "message", "Face coordinates registered successfully",
-                "data", saved
-        ));
+            EmployeeFaceData saved = faceDataRepository.save(faceData);
+
+            return ResponseEntity.status(HttpStatus.CREATED).body(Map.of(
+                    "message", "Face coordinates registered successfully",
+                    "data", saved
+            ));
+        } catch (Exception e) {
+            log.error("Error during face enrollment for {}: ", request.getStaffId(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of(
+                    "message", "Face enrollment failed: " + e.getMessage()
+            ));
+        }
     }
 
     @GetMapping("/{staffId}")
     public ResponseEntity<?> getFaceData(@PathVariable String staffId) {
-        return faceDataRepository.findByStaffId(staffId)
-                .map(ResponseEntity::ok)
-                .orElse(ResponseEntity.status(HttpStatus.NOT_FOUND).body(null));
+        List<EmployeeFaceData> list = faceDataRepository.findAllByStaffId(staffId);
+        if (!list.isEmpty()) {
+            return ResponseEntity.ok(list.get(0));
+        }
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(null);
     }
 
     @DeleteMapping("/{staffId}")
     public ResponseEntity<?> deleteFaceData(@PathVariable String staffId) {
-        Optional<EmployeeFaceData> faceOpt = faceDataRepository.findByStaffId(staffId);
-        if (faceOpt.isPresent()) {
-            faceDataRepository.delete(faceOpt.get());
+        List<EmployeeFaceData> list = faceDataRepository.findAllByStaffId(staffId);
+        if (!list.isEmpty()) {
+            faceDataRepository.deleteAll(list);
             return ResponseEntity.ok(Map.of("message", "Face data deleted successfully"));
         }
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("message", "Face data not found"));
