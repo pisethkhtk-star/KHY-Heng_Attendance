@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import api from '../utils/api';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
 import { PlusIcon, CheckIcon, XMarkIcon, ArrowDownTrayIcon } from '@heroicons/react/24/outline';
+import { formatDateDDMMYYYY } from '../utils/dateUtils';
 
 const Leaves = () => {
   const { user } = useAuth();
@@ -18,6 +19,11 @@ const Leaves = () => {
   // Filters State
   const [filterStatus, setFilterStatus] = useState('');
   const [search, setSearch] = useState('');
+  const [filterFromDate, setFilterFromDate] = useState('');
+  const [filterToDate, setFilterToDate] = useState('');
+  const [dateFilterType, setDateFilterType] = useState('requestDate'); // 'requestDate' | 'leaveDate'
+  const [sortBy, setSortBy] = useState('leaveDate'); // 'leaveDate' | 'requestedAt'
+  const [sortOrder, setSortOrder] = useState('desc'); // 'desc' | 'asc'
 
   // Request Form State
   const [selectedStaffId, setSelectedStaffId] = useState(user?.staffId || '');
@@ -89,10 +95,13 @@ const Leaves = () => {
   const fetchLeaves = async () => {
     try {
       setLoading(true);
-      let query = `?status=${filterStatus}&search=${search}`;
+      let query = `?status=${filterStatus}&search=${encodeURIComponent(search)}`;
+      if (filterFromDate) query += `&startDate=${filterFromDate}`;
+      if (filterToDate) query += `&endDate=${filterToDate}`;
+      if (dateFilterType) query += `&dateType=${dateFilterType}`;
 
       const response = await api.get(`/leaves${query}`);
-      setLeaves(response.data);
+      setLeaves(response.data || []);
     } catch (error) {
       console.error('Error loading leaves:', error);
     } finally {
@@ -102,7 +111,48 @@ const Leaves = () => {
 
   useEffect(() => {
     fetchLeaves();
-  }, [filterStatus, search]);
+  }, [filterStatus, search, filterFromDate, filterToDate, dateFilterType]);
+
+  // Client-side date filter and sorting ensuring instantaneous accuracy
+  const displayLeaves = useMemo(() => {
+    const filtered = leaves.filter(leave => {
+      if (filterFromDate) {
+        const target = dateFilterType === 'leaveDate'
+          ? (leave.leaveDate ? leave.leaveDate.split('T')[0] : '')
+          : (leave.requestedAt ? leave.requestedAt.split('T')[0] : (leave.createdAt ? leave.createdAt.split('T')[0] : (leave.leaveDate ? leave.leaveDate.split('T')[0] : '')));
+        if (target && target < filterFromDate) return false;
+      }
+      if (filterToDate) {
+        const target = dateFilterType === 'leaveDate'
+          ? (leave.leaveDate ? leave.leaveDate.split('T')[0] : '')
+          : (leave.requestedAt ? leave.requestedAt.split('T')[0] : (leave.createdAt ? leave.createdAt.split('T')[0] : (leave.leaveDate ? leave.leaveDate.split('T')[0] : '')));
+        if (target && target > filterToDate) return false;
+      }
+      return true;
+    });
+
+    // Sort by selected date (default: leaveDate descending - newest date first)
+    return [...filtered].sort((a, b) => {
+      let timeA = 0;
+      let timeB = 0;
+      if (sortBy === 'leaveDate') {
+        timeA = a.leaveDate ? new Date(a.leaveDate).getTime() : 0;
+        timeB = b.leaveDate ? new Date(b.leaveDate).getTime() : 0;
+      } else {
+        timeA = a.requestedAt ? new Date(a.requestedAt).getTime() : (a.createdAt ? new Date(a.createdAt).getTime() : 0);
+        timeB = b.requestedAt ? new Date(b.requestedAt).getTime() : (b.createdAt ? new Date(b.createdAt).getTime() : 0);
+      }
+
+      if (timeA !== timeB) {
+        return sortOrder === 'desc' ? timeB - timeA : timeA - timeB;
+      }
+
+      // Tie breaker by the other date
+      const subA = a.requestedAt ? new Date(a.requestedAt).getTime() : (a.leaveDate ? new Date(a.leaveDate).getTime() : 0);
+      const subB = b.requestedAt ? new Date(b.requestedAt).getTime() : (b.leaveDate ? new Date(b.leaveDate).getTime() : 0);
+      return sortOrder === 'desc' ? subB - subA : subA - subB;
+    });
+  }, [leaves, filterFromDate, filterToDate, dateFilterType, sortBy, sortOrder]);
 
   const handleOpenRequestModal = () => {
     const today = new Date().toISOString().split('T')[0];
@@ -170,11 +220,7 @@ const Leaves = () => {
       return;
     }
 
-    const todayStr = new Date().toLocaleDateString('en-US', {
-      day: '2-digit',
-      month: 'long',
-      year: 'numeric',
-    });
+    const todayStr = formatDateDDMMYYYY(new Date());
     const title = `Leave Requests Report (${todayStr})`;
 
     let excelHTML = `
@@ -227,6 +273,7 @@ const Leaves = () => {
               <th style="border:1px solid #000000; padding:6px 10px; font-weight:bold; width:160px;">Department</th>
               <th style="border:1px solid #000000; padding:6px 10px; font-weight:bold; width:140px;">Position</th>
               <th style="border:1px solid #000000; padding:6px 10px; font-weight:bold; width:110px; text-align:center;">Leave Date</th>
+              <th style="border:1px solid #000000; padding:6px 10px; font-weight:bold; width:110px; text-align:center;">Request Date</th>
               <th style="border:1px solid #000000; padding:6px 10px; font-weight:bold; width:140px;">Leave Type</th>
               <th style="border:1px solid #000000; padding:6px 10px; font-weight:bold; width:90px; text-align:center;">Days</th>
               <th style="border:1px solid #000000; padding:6px 10px; font-weight:bold; width:220px;">Reason</th>
@@ -238,13 +285,14 @@ const Leaves = () => {
           <tbody>
     `;
 
-    leaves.forEach((leave, idx) => {
+    displayLeaves.forEach((leave, idx) => {
       const emp = employees.find(e => e.staffId === leave.staffId) || leave.employee || {};
       const deptName = emp.department ? (emp.department.nameEn || '') : '';
       const posTitle = emp.position ? (emp.position.titleEn || '') : '';
       const typeLabel = getLeaveTypeLabel(leave.leaveType);
       const creatorName = getCreatorDisplayName(leave.createdBy || leave.staffId);
-      const dateDisplay = leave.leaveDate ? new Date(leave.leaveDate).toLocaleDateString() : '-';
+      const dateDisplay = formatDateDDMMYYYY(leave.leaveDate);
+      const reqDateDisplay = formatDateDDMMYYYY(leave.requestedAt || leave.createdAt);
       const days = parseFloat(leave.amountDays || 0).toFixed(1);
 
       let statusBg = '#fef3c7';
@@ -266,6 +314,7 @@ const Leaves = () => {
           <td style="border:1px solid #000000;">${deptName}</td>
           <td style="border:1px solid #000000;">${posTitle}</td>
           <td style="border:1px solid #000000; text-align:center;">${dateDisplay}</td>
+          <td style="border:1px solid #000000; text-align:center;">${reqDateDisplay}</td>
           <td style="border:1px solid #000000;">${typeLabel}</td>
           <td style="border:1px solid #000000; text-align:center; font-weight:bold;">${days}</td>
           <td style="border:1px solid #000000;">${leave.reason || '-'}</td>
@@ -275,6 +324,7 @@ const Leaves = () => {
         </tr>
       `;
     });
+
 
     excelHTML += `
           </tbody>
@@ -324,32 +374,89 @@ const Leaves = () => {
       </div>
 
       {/* Filter panel */}
-      <div className="glass-card p-6 rounded-2xl flex flex-col sm:flex-row gap-4">
-        {/* Search */}
-        {user.role !== 'Employee' && (
-          <div className="flex-1">
+      <div className="glass-card p-5 rounded-2xl">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-3 items-end">
+          {/* Search */}
+          {user.role !== 'Employee' && (
+            <div>
+              <label className="block text-xs font-semibold text-slate-400 mb-1 font-khmer">{t("search")}</label>
+              <input
+                type="text"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder={locale === 'kh' ? 'ស្វែងរកឈ្មោះ, ID, មូលហេតុ...' : 'Search name, ID, reason...'}
+                className="w-full py-2 px-3 border border-white/10 bg-slate-950/60 text-white rounded-xl text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/20 outline-none transition-all"
+              />
+            </div>
+          )}
+
+          {/* Status selector */}
+          <div>
+            <label className="block text-xs font-semibold text-slate-400 mb-1 font-khmer">{t("status")}</label>
+            <select
+              value={filterStatus}
+              onChange={(e) => setFilterStatus(e.target.value)}
+              className="w-full py-2 px-3 border border-white/10 bg-slate-950/60 text-white rounded-xl text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/20 focus:bg-slate-900 outline-none transition-all font-khmer"
+            >
+              <option value="" className="bg-slate-900">{t("status")} ({t("all")})</option>
+              <option value="Pending" className="bg-slate-900">{t("pending")}</option>
+              <option value="Approved" className="bg-slate-900">{t("approved")}</option>
+              <option value="Rejected" className="bg-slate-900">{t("rejected")}</option>
+            </select>
+          </div>
+
+          {/* Date Filter Type */}
+          <div>
+            <label className="block text-xs font-semibold text-slate-400 mb-1 font-khmer">
+              {locale === 'kh' ? 'ស្វែងរកតាមថ្ងៃ' : 'Filter Date By'}
+            </label>
+            <select
+              value={dateFilterType}
+              onChange={(e) => setDateFilterType(e.target.value)}
+              className="w-full py-2 px-3 border border-white/10 bg-slate-950/60 text-white rounded-xl text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/20 focus:bg-slate-900 outline-none transition-all font-khmer"
+            >
+              <option value="requestDate" className="bg-slate-900">{locale === 'kh' ? 'ថ្ងៃស្នើសុំ (Request Date)' : 'Request Date'}</option>
+              <option value="leaveDate" className="bg-slate-900">{locale === 'kh' ? 'ថ្ងៃសុំច្បាប់ (Leave Date)' : 'Leave Date'}</option>
+            </select>
+          </div>
+
+          {/* From Date */}
+          <div>
+            <label className="block text-xs font-semibold text-slate-400 mb-1 font-khmer">
+              {t("fromDate")}
+            </label>
             <input
-              type="text"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder={t("search")}
-              className="w-full py-2 px-3 border border-white/10 bg-slate-950/60 text-white rounded-xl text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/20 outline-none transition-all"
+              type="date"
+              value={filterFromDate}
+              onChange={(e) => setFilterFromDate(e.target.value)}
+              className="w-full py-2 px-3 border border-white/10 bg-slate-950/60 text-white rounded-xl text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/20 outline-none transition-all text-slate-200"
             />
           </div>
-        )}
 
-        {/* Status selector */}
-        <div className="w-full sm:w-48">
-          <select
-            value={filterStatus}
-            onChange={(e) => setFilterStatus(e.target.value)}
-            className="w-full py-2 px-3 border border-white/10 bg-slate-950/60 text-white rounded-xl text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/20 focus:bg-slate-900 outline-none transition-all font-khmer"
-          >
-            <option value="" className="bg-slate-900">{t("status")} ({t("all")})</option>
-            <option value="Pending" className="bg-slate-900">{t("pending")}</option>
-            <option value="Approved" className="bg-slate-900">{t("approved")}</option>
-            <option value="Rejected" className="bg-slate-900">{t("rejected")}</option>
-          </select>
+          {/* To Date */}
+          <div>
+            <div className="flex items-center justify-between mb-1">
+              <label className="block text-xs font-semibold text-slate-400 font-khmer">{t("toDate")}</label>
+              {(filterFromDate || filterToDate) && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setFilterFromDate('');
+                    setFilterToDate('');
+                  }}
+                  className="text-[11px] text-indigo-400 hover:text-indigo-300 font-khmer transition-colors cursor-pointer"
+                >
+                  {locale === 'kh' ? 'សម្អាតថ្ងៃ' : 'Clear Dates'}
+                </button>
+              )}
+            </div>
+            <input
+              type="date"
+              value={filterToDate}
+              onChange={(e) => setFilterToDate(e.target.value)}
+              className="w-full py-2 px-3 border border-white/10 bg-slate-950/60 text-white rounded-xl text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/20 outline-none transition-all text-slate-200"
+            />
+          </div>
         </div>
       </div>
 
@@ -364,7 +471,48 @@ const Leaves = () => {
                 <tr>
                   <th className="py-4 px-6 font-khmer whitespace-nowrap w-16 text-center">{t("noNumber")}</th>
                   {user.role !== 'Employee' && <th className="py-4 px-6 font-khmer whitespace-nowrap">{t("employees")}</th>}
-                  <th className="py-4 px-6 font-khmer whitespace-nowrap">{t("leaveDate")}</th>
+                  <th
+                    onClick={() => {
+                      if (sortBy === 'leaveDate') {
+                        setSortOrder(prev => prev === 'desc' ? 'asc' : 'desc');
+                      } else {
+                        setSortBy('leaveDate');
+                        setSortOrder('desc');
+                      }
+                    }}
+                    className="py-4 px-6 font-khmer whitespace-nowrap cursor-pointer hover:text-white transition-colors select-none"
+                    title={locale === 'kh' ? 'ចុចដើម្បីតម្រៀបតាមថ្ងៃសុំច្បាប់' : 'Click to sort by Leave Date'}
+                  >
+                    <div className="inline-flex items-center gap-1.5">
+                      <span>{t("leaveDate")}</span>
+                      {sortBy === 'leaveDate' ? (
+                        <span className="text-indigo-400 font-bold">{sortOrder === 'desc' ? '▼' : '▲'}</span>
+                      ) : (
+                        <span className="text-slate-600 text-xs">⇅</span>
+                      )}
+                    </div>
+                  </th>
+                  <th
+                    onClick={() => {
+                      if (sortBy === 'requestedAt') {
+                        setSortOrder(prev => prev === 'desc' ? 'asc' : 'desc');
+                      } else {
+                        setSortBy('requestedAt');
+                        setSortOrder('desc');
+                      }
+                    }}
+                    className="py-4 px-6 font-khmer whitespace-nowrap cursor-pointer hover:text-white transition-colors select-none"
+                    title={locale === 'kh' ? 'ចុចដើម្បីតម្រៀបតាមថ្ងៃស្នើសុំ' : 'Click to sort by Request Date'}
+                  >
+                    <div className="inline-flex items-center gap-1.5">
+                      <span>{locale === 'kh' ? 'ថ្ងៃស្នើសុំ' : 'Request Date'}</span>
+                      {sortBy === 'requestedAt' ? (
+                        <span className="text-indigo-400 font-bold">{sortOrder === 'desc' ? '▼' : '▲'}</span>
+                      ) : (
+                        <span className="text-slate-600 text-xs">⇅</span>
+                      )}
+                    </div>
+                  </th>
                   <th className="py-4 px-6 font-khmer whitespace-nowrap">{t("leaveType")}</th>
                   <th className="py-4 px-6 text-center font-khmer whitespace-nowrap">{t("amountDays")}</th>
                   <th className="py-4 px-6 font-khmer">{t("reason")}</th>
@@ -375,14 +523,14 @@ const Leaves = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-white/5">
-                {leaves.length === 0 ? (
+                {displayLeaves.length === 0 ? (
                   <tr>
-                    <td colSpan={8 + (user.role !== 'Employee' ? 1 : 0) + (canApprove ? 1 : 0)} className="py-6 text-center text-slate-500 font-khmer">
+                    <td colSpan={9 + (user.role !== 'Employee' ? 1 : 0) + (canApprove ? 1 : 0)} className="py-6 text-center text-slate-500 font-khmer">
                       {t("noData")}
                     </td>
                   </tr>
                 ) : (
-                  leaves.map((leave, index) => {
+                  displayLeaves.map((leave, index) => {
                     const emp = employees.find(e => e.staffId === leave.staffId) || leave.employee;
                     const photo = getEmployeePhoto(emp);
                     const nameEn = emp?.nameEn || leave.staffId;
@@ -426,57 +574,60 @@ const Leaves = () => {
                             </div>
                           </td>
                         )}
-                      <td className="py-4 px-6 font-semibold text-white whitespace-nowrap">
-                        {new Date(leave.leaveDate).toLocaleDateString()}
-                      </td>
-                      <td className="py-4 px-6 font-khmer whitespace-nowrap">
-                        {getLeaveTypeLabel(leave.leaveType)}
-                      </td>
-                      <td className="py-4 px-6 text-center font-semibold text-white whitespace-nowrap">
-                        {parseFloat(leave.amountDays).toFixed(1)}
-                      </td>
-                      <td className="py-4 px-6 max-w-xs truncate text-slate-300">{leave.reason || '-'}</td>
-                      <td className="py-4 px-6 whitespace-nowrap">
-                        <span
-                          className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium font-khmer ring-1 ${leave.status === 'Approved'
-                            ? 'bg-emerald-500/10 text-emerald-300 ring-emerald-500/20'
-                            : leave.status === 'Rejected'
-                              ? 'bg-rose-500/10 text-rose-300 ring-rose-500/20'
-                              : 'bg-amber-500/10 text-amber-300 ring-amber-500/20'
-                            }`}
-                        >
-                          {leave.status === 'Approved' ? t("approved") : leave.status === 'Rejected' ? t("rejected") : t("pending")}
-                        </span>
-                      </td>
-                      <td className="py-4 px-6 font-khmer text-slate-300 whitespace-nowrap">{leave.managerName || '-'}</td>
-                      <td className="py-4 px-6 font-khmer text-slate-300 whitespace-nowrap">{getCreatorDisplayName(leave.createdBy || leave.staffId)}</td>
-                      {canApprove && (
-                        <td className="py-4 px-6 text-right whitespace-nowrap">
-                          {leave.status === 'Pending' ? (
-                            <div className="inline-flex items-center justify-end gap-2">
-                              <button
-                                type="button"
-                                onClick={() => handleDecision(leave.id, 'Approved')}
-                                className="inline-flex items-center justify-center p-2 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/25 rounded-xl transition-colors border border-emerald-500/20 cursor-pointer shadow-sm"
-                                title={t("approve")}
-                              >
-                                <CheckIcon className="h-4 w-4" />
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => handleDecision(leave.id, 'Rejected')}
-                                className="inline-flex items-center justify-center p-2 bg-rose-500/10 text-rose-400 hover:bg-rose-500/25 rounded-xl transition-colors border border-rose-500/20 cursor-pointer shadow-sm"
-                                title={t("reject")}
-                              >
-                                <XMarkIcon className="h-4 w-4" />
-                              </button>
-                            </div>
-                          ) : (
-                            <span className="text-xs text-slate-500 italic font-khmer">-</span>
-                          )}
+                        <td className="py-4 px-6 font-semibold text-white whitespace-nowrap">
+                          {formatDateDDMMYYYY(leave.leaveDate)}
                         </td>
-                      )}
-                    </tr>
+                        <td className="py-4 px-6 text-slate-300 whitespace-nowrap font-mono text-xs">
+                          {formatDateDDMMYYYY(leave.requestedAt || leave.createdAt)}
+                        </td>
+                        <td className="py-4 px-6 font-khmer whitespace-nowrap">
+                          {getLeaveTypeLabel(leave.leaveType)}
+                        </td>
+                        <td className="py-4 px-6 text-center font-semibold text-white whitespace-nowrap">
+                          {parseFloat(leave.amountDays).toFixed(1)}
+                        </td>
+                        <td className="py-4 px-6 max-w-xs truncate text-slate-300">{leave.reason || '-'}</td>
+                        <td className="py-4 px-6 whitespace-nowrap">
+                          <span
+                            className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium font-khmer ring-1 ${leave.status === 'Approved'
+                              ? 'bg-emerald-500/10 text-emerald-300 ring-emerald-500/20'
+                              : leave.status === 'Rejected'
+                                ? 'bg-rose-500/10 text-rose-300 ring-rose-500/20'
+                                : 'bg-amber-500/10 text-amber-300 ring-amber-500/20'
+                              }`}
+                          >
+                            {leave.status === 'Approved' ? t("approved") : leave.status === 'Rejected' ? t("rejected") : t("pending")}
+                          </span>
+                        </td>
+                        <td className="py-4 px-6 font-khmer text-slate-300 whitespace-nowrap">{leave.managerName || '-'}</td>
+                        <td className="py-4 px-6 font-khmer text-slate-300 whitespace-nowrap">{getCreatorDisplayName(leave.createdBy || leave.staffId)}</td>
+                        {canApprove && (
+                          <td className="py-4 px-6 text-right whitespace-nowrap">
+                            {leave.status === 'Pending' ? (
+                              <div className="inline-flex items-center justify-end gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => handleDecision(leave.id, 'Approved')}
+                                  className="inline-flex items-center justify-center p-2 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/25 rounded-xl transition-colors border border-emerald-500/20 cursor-pointer shadow-sm"
+                                  title={t("approve")}
+                                >
+                                  <CheckIcon className="h-4 w-4" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleDecision(leave.id, 'Rejected')}
+                                  className="inline-flex items-center justify-center p-2 bg-rose-500/10 text-rose-400 hover:bg-rose-500/25 rounded-xl transition-colors border border-rose-500/20 cursor-pointer shadow-sm"
+                                  title={t("reject")}
+                                >
+                                  <XMarkIcon className="h-4 w-4" />
+                                </button>
+                              </div>
+                            ) : (
+                              <span className="text-xs text-slate-500 italic font-khmer">-</span>
+                            )}
+                          </td>
+                        )}
+                      </tr>
                     );
                   })
                 )}

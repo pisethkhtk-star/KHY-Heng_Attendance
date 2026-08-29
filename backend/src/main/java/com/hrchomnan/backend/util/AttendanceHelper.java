@@ -10,6 +10,7 @@ import com.hrchomnan.backend.service.TelegramNotificationService;
 import lombok.Builder;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 import java.time.LocalDate;
@@ -20,6 +21,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Optional;
 
+@Slf4j
 @Component
 @RequiredArgsConstructor
 public class AttendanceHelper {
@@ -141,14 +143,25 @@ public class AttendanceHelper {
         String timeString = timeDetails.getTimeString();
 
         Optional<Attendance> existingOpt = attendanceRepository.findByStaffIdAndAttendanceDate(staffId, attendanceDate);
+        boolean hadCheckout2Already = existingOpt.isPresent() &&
+                existingOpt.get().getCheckout2() != null &&
+                !existingOpt.get().getCheckout2().isBlank() &&
+                !existingOpt.get().getCheckout2().equals("--:--") &&
+                !existingOpt.get().getCheckout2().equals("-");
+
         Attendance attendance = existingOpt.orElseGet(() -> Attendance.builder()
                 .staffId(staffId)
                 .attendanceDate(attendanceDate)
                 .build());
 
-        String action = (requestedAction != null && !requestedAction.isBlank())
-                ? requestedAction
-                : determineAutoAction(employee, attendance, timeString);
+        String action;
+        if (hadCheckout2Already) {
+            action = "completed";
+        } else {
+            action = (requestedAction != null && !requestedAction.isBlank())
+                    ? requestedAction
+                    : determineAutoAction(employee, attendance, timeString);
+        }
 
         if (note != null && !note.isBlank()) {
             attendance.setNote(note);
@@ -196,15 +209,19 @@ public class AttendanceHelper {
 
         Attendance savedAttendance = attendanceRepository.save(attendance);
 
-        // Send instant notification to Telegram Group
-        telegramNotificationService.sendAttendanceNotification(
-                employee,
-                savedAttendance,
-                action,
-                timeString,
-                null,
-                note
-        );
+        // Send instant notification to Telegram Group ONLY if shift out 2 did not already have data
+        if (!hadCheckout2Already && !"completed".equalsIgnoreCase(action)) {
+            telegramNotificationService.sendAttendanceNotification(
+                    employee,
+                    savedAttendance,
+                    action,
+                    timeString,
+                    null,
+                    note
+            );
+        } else {
+            log.info("Skipping Telegram notification for staffId {} - shift out 2 already has data for today or action is completed.", staffId);
+        }
 
         return ScanResult.builder()
                 .attendance(savedAttendance)

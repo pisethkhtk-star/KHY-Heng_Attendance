@@ -6,6 +6,7 @@ import { PlusIcon, PencilIcon, TrashIcon, MagnifyingGlassIcon, QrCodeIcon, Camer
 import FlexibleSchedulePicker from '../components/FlexibleSchedulePicker';
 import { WEEKDAYS } from '../utils/constants';
 import { registerCameraStream } from '../utils/cameraManager';
+import { formatDateDDMMYYYY } from '../utils/dateUtils';
 
 const Employees = () => {
   const { user } = useAuth();
@@ -666,11 +667,7 @@ const Employees = () => {
   const handleExportExcel = () => {
     if (employees.length === 0) return;
 
-    const todayStr = new Date().toLocaleDateString('en-US', {
-      day: '2-digit',
-      month: 'long',
-      year: 'numeric',
-    });
+    const todayStr = formatDateDDMMYYYY(new Date());
     const title = `Employee Personnel Records (${todayStr})`;
 
     let excelHTML = `
@@ -739,7 +736,7 @@ const Employees = () => {
       const branch = emp.branch || '';
       const email = emp.email || '';
       const role = emp.role || '';
-      const joinDate = emp.joinDate ? new Date(emp.joinDate).toLocaleDateString('en-US') : '-';
+      const joinDate = formatDateDDMMYYYY(emp.joinDate);
       const status = emp.status || '';
 
       excelHTML += `
@@ -933,8 +930,8 @@ const Employees = () => {
                             {emp.status === 'Active' ? t("active") : emp.status === 'Inactive' ? t("inactive") : t("suspended")}
                           </span>
                         </td>
-                        <td className="py-4 px-6 text-slate-300 whitespace-nowrap">
-                          {emp.joinDate ? new Date(emp.joinDate).toLocaleDateString() : '-'}
+                        <td className="py-4 px-6 text-slate-300 whitespace-nowrap font-mono">
+                          {formatDateDDMMYYYY(emp.joinDate)}
                         </td>
                         <td className="py-4 px-6 text-right whitespace-nowrap">
                           <div className="flex items-center justify-end gap-1.5">
@@ -1865,8 +1862,8 @@ const Employees = () => {
                 {/* Join Date */}
                 <div className="bg-slate-950/20 border border-white/5 p-3 rounded-xl">
                   <span className="block text-[10px] uppercase tracking-wider text-slate-500 font-khmer">{t("joinDate")}</span>
-                  <span className="text-sm font-semibold text-white mt-1 block">
-                    {profileEmp.joinDate ? new Date(profileEmp.joinDate).toLocaleDateString() : '-'}
+                  <span className="text-sm font-semibold text-white mt-1 block font-mono">
+                    {formatDateDDMMYYYY(profileEmp.joinDate)}
                   </span>
                 </div>
 

@@ -17,7 +17,7 @@ import {
   InformationCircleIcon,
   ChevronRightIcon
 } from '@heroicons/react/24/outline';
-import { formatTime12Hour } from '../utils/dateUtils';
+import { formatTime12Hour, formatDateDDMMYYYY } from '../utils/dateUtils';
 
 // Helper to convert HH:mm or HH:mm:ss to minutes from midnight
 const timeToMinutes = (timeStr) => {
@@ -28,6 +28,14 @@ const timeToMinutes = (timeStr) => {
   const m = parseInt(parts[1], 10);
   if (isNaN(h) || isNaN(m)) return null;
   return h * 60 + m;
+};
+
+// Helper to format minutes into h:mn format (e.g. 1h:30mn, 0h:45mn, 0h:00mn)
+const formatHMn = (totalMinutes) => {
+  if (!totalMinutes || totalMinutes <= 0) return '0h:00mn';
+  const h = Math.floor(totalMinutes / 60);
+  const m = Math.round(totalMinutes % 60);
+  return `${h}h:${String(m).padStart(2, '0')}mn`;
 };
 
 const Reports = () => {
@@ -45,6 +53,9 @@ const Reports = () => {
 
   // Chart Orientation: 'vertical' (បញ្ឈរ) | 'horizontal' (ផ្ដេក)
   const [chartOrientation, setChartOrientation] = useState('vertical');
+
+  // Compare Mode for Rankings / Chart: 'count' (ចំនួនដង) | 'hours' (គិតជាម៉ោង)
+  const [compareMode, setCompareMode] = useState('count');
 
   // Pagination for detailed logs table
   const [currentPage, setCurrentPage] = useState(1);
@@ -66,6 +77,7 @@ const Reports = () => {
   });
   const [filterDept, setFilterDept] = useState('');
   const [filterBranch, setFilterBranch] = useState('');
+  const [filterLogType, setFilterLogType] = useState('all'); // 'all' | 'onTime' | 'late' | 'earlyOut' | 'earlyIn' | 'incomplete'
 
   const fetchInitialData = async () => {
     try {
@@ -123,30 +135,101 @@ const Reports = () => {
     return '';
   };
 
-  // 1. Calculate Department Comparison Data (Late, Early Out, Early In, Incomplete Scans)
-  const departmentStats = useMemo(() => {
-    if (departments.length === 0) return [];
+  // 1. Process each log with status flags directly matching Attendance Dropdown pages
+  const processedLogs = useMemo(() => {
+    const defaultS1Start = companyWorkHours?.shift1Start || '08:00';
+    const defaultS2Start = companyWorkHours?.shift2Start || '13:00';
+    const defaultS1End = companyWorkHours?.shift1End || '12:00';
+    const defaultS2End = companyWorkHours?.shift2End || '17:00';
+    const grace = Number(companyWorkHours?.lateGraceMinutes) || 0;
 
-    const defaultShift1StartMin = timeToMinutes(companyWorkHours?.shift1Start || '08:00') || 480;
-    const defaultShift1EndMin = timeToMinutes(companyWorkHours?.shift1End || '12:00') || 720;
-    const defaultShift2StartMin = timeToMinutes(companyWorkHours?.shift2Start || '13:00') || 780;
-    const defaultShift2EndMin = timeToMinutes(companyWorkHours?.shift2End || '17:00') || 1020;
-    const defaultWorkingDays = [1, 2, 3, 4, 5];
+    return logs.map(log => {
+      const emp = employees.find(e => e.staffId === (log.employee?.staffId || log.staffId)) || log.employee || {};
 
-    // Build leaves map
-    const leavesMap = new Map();
-    leaves.forEach(lv => {
-      if (lv.status === 'Approved' || lv.status === 'Pending') {
-        const dateStr = lv.leaveDate ? new Date(lv.leaveDate).toISOString().split('T')[0] : '';
-        if (lv.staffId && dateStr) {
-          const key = `${lv.staffId}_${dateStr}`;
-          if (!leavesMap.has(key)) leavesMap.set(key, []);
-          leavesMap.get(key).push(lv);
-        }
-      }
+      const s1StartStr = (emp.shift1Start && emp.shift1Start.trim() !== '') ? emp.shift1Start : defaultS1Start;
+      const s2StartStr = (emp.shift2Start && emp.shift2Start.trim() !== '') ? emp.shift2Start : defaultS2Start;
+      const s1EndStr = (emp.shift1End && emp.shift1End.trim() !== '') ? emp.shift1End : defaultS1End;
+      const s2EndStr = (emp.shift2End && emp.shift2End.trim() !== '') ? emp.shift2End : defaultS2End;
+
+      const s1StartMin = timeToMinutes(s1StartStr) ?? 480;
+      const s2StartMin = timeToMinutes(s2StartStr) ?? 780;
+      const s1EndMin = timeToMinutes(s1EndStr) ?? 720;
+      const s2EndMin = timeToMinutes(s2EndStr) ?? 1020;
+
+      const c1 = log.checkin1 && log.checkin1 !== '-' && log.checkin1 !== '--:--' && log.checkin1.trim() !== '' ? log.checkin1 : null;
+      const c2 = log.checkin2 && log.checkin2 !== '-' && log.checkin2 !== '--:--' && log.checkin2.trim() !== '' ? log.checkin2 : null;
+      const o1 = log.checkout1 && log.checkout1 !== '-' && log.checkout1 !== '--:--' && log.checkout1.trim() !== '' ? log.checkout1 : null;
+      const o2 = log.checkout2 && log.checkout2 !== '-' && log.checkout2 !== '--:--' && log.checkout2.trim() !== '' ? log.checkout2 : null;
+
+      const c1Min = timeToMinutes(c1);
+      const c2Min = timeToMinutes(c2);
+      const o1Min = timeToMinutes(o1);
+      const o2Min = timeToMinutes(o2);
+
+      // Late: Exactly matches AttendanceLate page (log.isLate)
+      const isLate = Boolean(log.isLate);
+      const s1GraceThreshold = s1StartMin + grace;
+      const s2GraceThreshold = s2StartMin + grace;
+      let late1 = 0;
+      let late2 = 0;
+      if (c1Min !== null && c1Min > s1GraceThreshold) late1 = c1Min - s1StartMin;
+      if (c2Min !== null && c2Min > s2GraceThreshold) late2 = c2Min - s2StartMin;
+      let lateMinutes = (log.lateMinutes !== undefined && Number(log.lateMinutes) > 0) ? Number(log.lateMinutes) : (late1 + late2);
+      if (lateMinutes === 0 && isLate) lateMinutes = 1;
+
+      // Early Out: Exactly matches AttendanceEarlyOut page (log.isEarlyLeave)
+      const isEarlyOut = Boolean(log.isEarlyLeave);
+      let earlyOut1 = 0;
+      let earlyOut2 = 0;
+      if (o1Min !== null && o1Min < s1EndMin) earlyOut1 = s1EndMin - o1Min;
+      if (o2Min !== null && o2Min < s2EndMin) earlyOut2 = s2EndMin - o2Min;
+      let earlyOutMinutes = (log.earlyOutMinutes !== undefined && Number(log.earlyOutMinutes) > 0) ? Number(log.earlyOutMinutes) : (earlyOut1 + earlyOut2);
+      if (earlyOutMinutes === 0 && isEarlyOut) earlyOutMinutes = 1;
+
+      // Early In: Exactly matches AttendanceEarlyIn page
+      let earlyIn1 = 0;
+      let earlyIn2 = 0;
+      if (c1Min !== null && c1Min < s1StartMin) earlyIn1 = s1StartMin - c1Min;
+      if (c2Min !== null && c2Min < s2StartMin) earlyIn2 = s2StartMin - c2Min;
+      let earlyInMinutes = (log.earlyInMinutes !== undefined && Number(log.earlyInMinutes) > 0) ? Number(log.earlyInMinutes) : (earlyIn1 + earlyIn2);
+      const isEarlyIn = earlyInMinutes > 0;
+
+      // On Time: Not late and not early out
+      const isOnTime = !isLate && !isEarlyOut;
+
+      const deptId = emp.departmentId || emp.department?.id || log.employee?.departmentId || log.employee?.department?.id;
+
+      return {
+        ...log,
+        _emp: emp,
+        _deptId: deptId,
+        _isLate: isLate,
+        _isEarlyOut: isEarlyOut,
+        _isEarlyIn: isEarlyIn,
+        _isOnTime: isOnTime,
+        _lateMinutes: isLate ? lateMinutes : 0,
+        _earlyOutMinutes: isEarlyOut ? earlyOutMinutes : 0,
+        _earlyInMinutes: isEarlyIn ? earlyInMinutes : 0,
+      };
     });
+  }, [logs, employees, companyWorkHours]);
 
-    // Build logs map
+  // 2. Incomplete Shifts records - calculated exactly identical to AttendanceIncomplete.jsx
+  const incompleteRecords = useMemo(() => {
+    if (!startDate || !endDate || employees.length === 0) return [];
+
+    let defaultWorkingDays = [1, 2, 3, 4, 5];
+    if (companyWorkHours?.flexibleSchedule) {
+      try {
+        const parsed = typeof companyWorkHours.flexibleSchedule === 'string'
+          ? JSON.parse(companyWorkHours.flexibleSchedule)
+          : companyWorkHours.flexibleSchedule;
+        if (Array.isArray(parsed?.workingDays)) {
+          defaultWorkingDays = parsed.workingDays;
+        }
+      } catch (e) {}
+    }
+
     const logsMap = new Map();
     logs.forEach(l => {
       const sId = l.employee?.staffId || l.staffId;
@@ -156,7 +239,30 @@ const Reports = () => {
       }
     });
 
-    // Generate date range list
+    // 2. Approved and Pending leaves map: key = `${staffId}_${dateString}` -> list of leave records
+    const leavesMap = new Map();
+    leaves.forEach(lv => {
+      const st = (lv.status || '').toLowerCase();
+      if (st === 'approved' || st === 'pending') {
+        const rawDate = lv.leaveDate || lv.startDate || '';
+        let dateStr = '';
+        if (typeof rawDate === 'string') {
+          dateStr = rawDate.split('T')[0];
+        } else if (rawDate) {
+          dateStr = new Date(rawDate).toISOString().split('T')[0];
+        }
+        if (lv.staffId && dateStr) {
+          const key = `${lv.staffId}_${dateStr}`;
+          if (!leavesMap.has(key)) leavesMap.set(key, []);
+          leavesMap.get(key).push(lv);
+        }
+      }
+    });
+
+    // Local today string (YYYY-MM-DD)
+    const now = new Date();
+    const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+
     const dateList = [];
     let cur = new Date(startDate);
     const stop = new Date(endDate);
@@ -164,6 +270,151 @@ const Reports = () => {
       dateList.push(cur.toISOString().split('T')[0]);
       cur.setDate(cur.getDate() + 1);
     }
+
+    const results = [];
+
+    const targetEmployees = employees.filter(emp => {
+      if (filterDept && String(emp.departmentId) !== String(filterDept)) return false;
+      if (filterBranch && emp.branch !== filterBranch) return false;
+      if (emp.status === 'Inactive' || emp.status === 'Resigned' || emp.status === 'Terminated') return false;
+      return true;
+    });
+
+    targetEmployees.forEach(emp => {
+      let empWorkingDays = defaultWorkingDays;
+      let empFlexibleObj = {};
+      if (emp.flexibleSchedule) {
+        try {
+          empFlexibleObj = typeof emp.flexibleSchedule === 'string'
+            ? JSON.parse(emp.flexibleSchedule)
+            : emp.flexibleSchedule;
+          if (Array.isArray(empFlexibleObj?.workingDays)) {
+            empWorkingDays = empFlexibleObj.workingDays;
+          }
+        } catch (e) {}
+      }
+
+      dateList.forEach(dateStr => {
+        if (emp.joinDate && dateStr < emp.joinDate) return;
+
+        const dateObj = new Date(dateStr);
+        const dayOfWeek = dateObj.getDay();
+
+        const dateSchedule = empFlexibleObj[dateStr];
+        let isWorkingDay = empWorkingDays.includes(dayOfWeek);
+        if (dateSchedule) {
+          if (dateSchedule.isDayOff === true || dateSchedule.working === false) {
+            isWorkingDay = false;
+          } else if (dateSchedule.isWorkingDay === true || dateSchedule.working === true) {
+            isWorkingDay = true;
+          }
+        }
+
+        const log = logsMap.get(`${emp.staffId}_${dateStr}`);
+        const c1 = log?.checkin1 && log.checkin1 !== '-' && log.checkin1 !== '--:--' && log.checkin1.trim() !== '' ? log.checkin1 : null;
+        const o1 = log?.checkout1 && log.checkout1 !== '-' && log.checkout1 !== '--:--' && log.checkout1.trim() !== '' ? log.checkout1 : null;
+        const c2 = log?.checkin2 && log.checkin2 !== '-' && log.checkin2 !== '--:--' && log.checkin2.trim() !== '' ? log.checkin2 : null;
+        const o2 = log?.checkout2 && log.checkout2 !== '-' && log.checkout2 !== '--:--' && log.checkout2.trim() !== '' ? log.checkout2 : null;
+        const hasAnyScan = Boolean(c1 || o1 || c2 || o2);
+
+        const s2Start = emp.shift2Start || companyWorkHours?.shift2Start;
+        const s2End = emp.shift2End || companyWorkHours?.shift2End;
+        const hasShift2 = Boolean(
+          (s2Start && s2End && s2Start.trim() !== '' && s2End.trim() !== '') ||
+          c2 || o2
+        );
+
+        if (!isWorkingDay && !hasAnyScan) return;
+
+        const empLeaves = leavesMap.get(`${emp.staffId}_${dateStr}`) || [];
+        const isToday = dateStr === todayStr;
+        const hasLeaveRecord = empLeaves.length > 0 || (log?.note && log.note.toLowerCase().includes('leave'));
+
+        // If employee took leave on today, do NOT count into incomplete!
+        if (isToday && hasLeaveRecord) return;
+
+        let hasFullDayLeave = false;
+        let hasMorningLeave = false;
+        let hasAfternoonLeave = false;
+        let leaveNote = '';
+
+        empLeaves.forEach(lv => {
+          const dur = lv.durationType || '';
+          const days = Number(lv.amountDays) || 1;
+          const reason = (lv.reason || '').toLowerCase();
+          const typeName = lv.leaveType || 'Leave';
+
+          if (dur === 'Full Day' || days >= 1.0 || (!dur && days >= 1.0)) {
+            hasFullDayLeave = true;
+            leaveNote = `${typeName} (Full Day)`;
+          } else if (dur === 'Morning' || reason.includes('morning') || reason.includes('shift 1') || reason.includes('វេនទី ១')) {
+            hasMorningLeave = true;
+            leaveNote = `${typeName} (Morning Shift)`;
+          } else if (dur === 'Afternoon' || reason.includes('afternoon') || reason.includes('shift 2') || reason.includes('វេនទី ២')) {
+            hasAfternoonLeave = true;
+            leaveNote = `${typeName} (Afternoon Shift)`;
+          } else if (days <= 0.5) {
+            hasMorningLeave = true;
+            leaveNote = `${typeName} (Half Day)`;
+          }
+        });
+
+        if (hasFullDayLeave && !hasAnyScan) return;
+
+        const shift1Required = (!hasMorningLeave) || Boolean(c1 || o1);
+        const shift2Required = (hasShift2 && !hasAfternoonLeave) || Boolean(c2 || o2);
+
+        const missingCheckin1 = shift1Required && !c1;
+        const missingCheckout1 = shift1Required && !o1;
+        const missingCheckin2 = shift2Required && !c2;
+        const missingCheckout2 = shift2Required && !o2;
+
+        const isShift1Incomplete = missingCheckin1 || missingCheckout1;
+        const isShift2Incomplete = missingCheckin2 || missingCheckout2;
+
+        if (isShift1Incomplete || isShift2Incomplete) {
+          const missingDetails = [];
+          if (missingCheckin1 && missingCheckout1 && (!shift2Required || (missingCheckin2 && missingCheckout2))) {
+            missingDetails.push('No Scan / Absent (អវត្តមាន)');
+          } else {
+            if (missingCheckin1) missingDetails.push('Missing Check-in 1');
+            if (missingCheckout1) missingDetails.push('Missing Check-out 1');
+            if (missingCheckin2) missingDetails.push('Missing Check-in 2');
+            if (missingCheckout2) missingDetails.push('Missing Check-out 2');
+          }
+
+          results.push({
+            id: log?.id || `missing-${emp.staffId}-${dateStr}`,
+            attendanceDate: dateStr,
+            staffId: emp.staffId,
+            employee: emp,
+            checkin1: c1,
+            checkout1: o1,
+            checkin2: c2,
+            checkout2: o2,
+            missingDetails,
+            isShift1Incomplete,
+            isShift2Incomplete,
+            departmentId: emp.departmentId,
+            _isLate: false,
+            _isEarlyOut: false,
+            _isEarlyIn: false,
+            _isIncomplete: true,
+            _isOnTime: false,
+            _emp: emp,
+            _deptId: emp.departmentId,
+            note: log?.note || (missingDetails.length > 0 ? missingDetails.join(', ') : 'Incomplete Shifts'),
+          });
+        }
+      });
+    });
+
+    return results;
+  }, [logs, employees, leaves, companyWorkHours, startDate, endDate, filterDept, filterBranch]);
+
+  // 3. Calculate Department Breakdown
+  const departmentStats = useMemo(() => {
+    if (departments.length === 0) return [];
 
     return departments.map(dept => {
       const deptEmployees = employees.filter(e => {
@@ -173,99 +424,33 @@ const Reports = () => {
         return true;
       });
 
-      let lateCount = 0;
-      let earlyOutCount = 0;
-      let earlyInCount = 0;
-      let incompleteScanCount = 0;
-      let onTimeCount = 0;
-      let totalLogsCount = 0;
-
-      deptEmployees.forEach(emp => {
-        const s1Start = timeToMinutes(emp.shift1Start) || defaultShift1StartMin;
-        const s2End = timeToMinutes(emp.shift2End) || defaultShift2EndMin;
-        const hasShift2 = Boolean(emp.shift2Start && emp.shift2End && emp.shift2Start.trim() !== '');
-
-        let empWorkingDays = defaultWorkingDays;
-        if (emp.flexibleSchedule) {
-          try {
-            const parsed = typeof emp.flexibleSchedule === 'string' ? JSON.parse(emp.flexibleSchedule) : emp.flexibleSchedule;
-            if (Array.isArray(parsed?.workingDays)) empWorkingDays = parsed.workingDays;
-          } catch (e) {}
-        }
-
-        dateList.forEach(dateStr => {
-          if (emp.joinDate && dateStr < emp.joinDate) return;
-
-          const dateObj = new Date(dateStr);
-          const dayOfWeek = dateObj.getDay();
-          if (!empWorkingDays.includes(dayOfWeek)) return;
-
-          const empLeaves = leavesMap.get(`${emp.staffId}_${dateStr}`) || [];
-          let hasFullLeave = false;
-          let hasMorningLeave = false;
-          let hasAfternoonLeave = false;
-
-          empLeaves.forEach(lv => {
-            const dur = lv.durationType || '';
-            const days = Number(lv.amountDays) || 1;
-            const reason = (lv.reason || '').toLowerCase();
-            if (dur === 'Full Day' || days >= 1.0 || (!dur && days >= 1.0)) {
-              hasFullLeave = true;
-            } else if (dur === 'Morning' || reason.includes('morning') || reason.includes('shift 1')) {
-              hasMorningLeave = true;
-            } else if (dur === 'Afternoon' || reason.includes('afternoon') || reason.includes('shift 2')) {
-              hasAfternoonLeave = true;
-            }
-          });
-
-          if (hasFullLeave) return;
-
-          const log = logsMap.get(`${emp.staffId}_${dateStr}`);
-          const c1 = log?.checkin1 && log.checkin1 !== '-' && log.checkin1 !== '--:--' ? log.checkin1 : null;
-          const o1 = log?.checkout1 && log.checkout1 !== '-' && log.checkout1 !== '--:--' ? log.checkout1 : null;
-          const c2 = log?.checkin2 && log.checkin2 !== '-' && log.checkin2 !== '--:--' ? log.checkin2 : null;
-          const o2 = log?.checkout2 && log.checkout2 !== '-' && log.checkout2 !== '--:--' ? log.checkout2 : null;
-
-          const shift1Required = !hasMorningLeave;
-          const shift2Required = hasShift2 && !hasAfternoonLeave;
-
-          const missingC1 = shift1Required && !c1;
-          const missingO1 = shift1Required && !o1;
-          const missingC2 = shift2Required && !c2;
-          const missingO2 = shift2Required && !o2;
-
-          if (missingC1 || missingO1 || missingC2 || missingO2) {
-            incompleteScanCount += 1;
-          }
-
-          if (log) {
-            totalLogsCount += 1;
-
-            if (log.isLate) {
-              lateCount += 1;
-            } else if (c1) {
-              const c1Min = timeToMinutes(c1);
-              if (c1Min && c1Min > s1Start) lateCount += 1;
-            }
-
-            if (log.isEarlyLeave) {
-              earlyOutCount += 1;
-            } else if (o2) {
-              const o2Min = timeToMinutes(o2);
-              if (o2Min && o2Min < s2End) earlyOutCount += 1;
-            }
-
-            if (c1) {
-              const c1Min = timeToMinutes(c1);
-              if (c1Min && c1Min < s1Start) earlyInCount += 1;
-            }
-
-            if (!log.isLate && !log.isEarlyLeave) {
-              onTimeCount += 1;
-            }
-          }
-        });
+      // Filter processed logs that belong to this department
+      const deptLogs = processedLogs.filter(log => {
+        const emp = log._emp || {};
+        const matchesDept = String(log._deptId) === String(dept.id) ||
+                            String(emp.departmentId) === String(dept.id) ||
+                            String(emp.department?.id) === String(dept.id);
+        if (!matchesDept) return false;
+        if (filterBranch && emp.branch !== filterBranch) return false;
+        return true;
       });
+
+      const lateCount = deptLogs.filter(l => l._isLate).length;
+      const earlyOutCount = deptLogs.filter(l => l._isEarlyOut).length;
+      const earlyInCount = deptLogs.filter(l => l._isEarlyIn).length;
+      const onTimeCount = deptLogs.filter(l => l._isOnTime).length;
+      const totalLogsCount = deptLogs.length;
+
+      // Incomplete count matching AttendanceIncomplete.jsx exactly
+      const incompleteScanCount = incompleteRecords.filter(r =>
+        String(r.departmentId || r.employee?.departmentId) === String(dept.id)
+      ).length;
+
+      // Duration in minutes
+      const lateMinutes = deptLogs.filter(l => l._isLate).reduce((acc, l) => acc + (l._lateMinutes || 0), 0);
+      const earlyOutMinutes = deptLogs.filter(l => l._isEarlyOut).reduce((acc, l) => acc + (l._earlyOutMinutes || 0), 0);
+      const earlyInMinutes = deptLogs.filter(l => l._isEarlyIn).reduce((acc, l) => acc + (l._earlyInMinutes || 0), 0);
+      const totalDurationMinutes = lateMinutes + earlyOutMinutes + earlyInMinutes;
 
       return {
         id: dept.id,
@@ -280,58 +465,85 @@ const Reports = () => {
         onTimeCount,
         totalLogsCount,
         totalIncidents: lateCount + earlyOutCount + earlyInCount + incompleteScanCount,
+        lateMinutes,
+        earlyOutMinutes,
+        earlyInMinutes,
+        totalDurationMinutes,
       };
     });
-  }, [departments, employees, logs, leaves, companyWorkHours, startDate, endDate, filterBranch, language]);
+  }, [departments, employees, processedLogs, incompleteRecords, filterBranch, language, getLocalizedName]);
 
-  // Overall Totals
+  // Overall Totals directly matching Attendance Log sub-pages
   const totals = useMemo(() => {
-    const totalLate = departmentStats.reduce((acc, d) => acc + d.lateCount, 0);
-    const totalEarlyOut = departmentStats.reduce((acc, d) => acc + d.earlyOutCount, 0);
-    const totalEarlyIn = departmentStats.reduce((acc, d) => acc + d.earlyInCount, 0);
-    const totalIncomplete = departmentStats.reduce((acc, d) => acc + d.incompleteScanCount, 0);
-    const totalLogs = logs.length;
-    const totalOnTime = logs.filter(l => !l.isLate && !l.isEarlyLeave).length;
-    return { totalLate, totalEarlyOut, totalEarlyIn, totalIncomplete, totalLogs, totalOnTime };
-  }, [departmentStats, logs]);
+    const totalLate = processedLogs.filter(l => l._isLate).length;
+    const totalEarlyOut = processedLogs.filter(l => l._isEarlyOut).length;
+    const totalEarlyIn = processedLogs.filter(l => l._isEarlyIn).length;
+    const totalIncomplete = incompleteRecords.length;
+    const totalLogs = processedLogs.length;
+    const totalOnTime = processedLogs.filter(l => l._isOnTime).length;
 
-  // 2. Metric Config & Ranking
+    const totalLateMinutes = departmentStats.reduce((acc, d) => acc + (d.lateMinutes || 0), 0);
+    const totalEarlyOutMinutes = departmentStats.reduce((acc, d) => acc + (d.earlyOutMinutes || 0), 0);
+    const totalEarlyInMinutes = departmentStats.reduce((acc, d) => acc + (d.earlyInMinutes || 0), 0);
+    const totalDurationMinutes = totalLateMinutes + totalEarlyOutMinutes + totalEarlyInMinutes;
+
+    return {
+      totalLate,
+      totalEarlyOut,
+      totalEarlyIn,
+      totalIncomplete,
+      totalLogs,
+      totalOnTime,
+      totalLateMinutes,
+      totalEarlyOutMinutes,
+      totalEarlyInMinutes,
+      totalDurationMinutes,
+    };
+  }, [processedLogs, incompleteRecords, departmentStats]);
+
+  // 2. Metric Config & Ranking (supports both 'count' and 'hours' compareMode)
   const metricConfigs = {
     late: {
-      key: 'lateCount',
-      titleEn: 'Late Arrivals (មកយឺត)',
-      titleKh: 'បុគ្គលិកមកយឺត (Late Arrivals)',
+      key: compareMode === 'hours' ? 'lateMinutes' : 'lateCount',
+      titleEn: compareMode === 'hours' ? 'Late Duration (មកយឺត)' : 'Late Arrivals (មកយឺត)',
+      titleKh: compareMode === 'hours' ? 'រយៈពេលមកយឺត (Late Duration)' : 'បុគ្គលិកមកយឺត (Late Arrivals)',
       color: '#f59e0b',
       bgLight: 'bg-amber-500/10',
       border: 'border-amber-500/30',
       text: 'text-amber-400',
       barGradient: 'from-amber-600 to-amber-400',
-      totalCount: totals.totalLate,
-      unit: language === 'kh' ? 'ដង' : 'times',
+      totalValue: compareMode === 'hours' ? totals.totalLateMinutes : totals.totalLate,
+      displayTotal: compareMode === 'hours' ? formatHMn(totals.totalLateMinutes) : `${totals.totalLate} ${language === 'kh' ? 'ដង' : 'times'}`,
+      formatValue: (val) => compareMode === 'hours' ? formatHMn(val) : `${val} ${language === 'kh' ? 'ដង' : 'times'}`,
+      unit: compareMode === 'hours' ? '' : (language === 'kh' ? 'ដង' : 'times'),
     },
     earlyOut: {
-      key: 'earlyOutCount',
-      titleEn: 'Early Out (ចេញមុន)',
-      titleKh: 'បុគ្គលិកចេញមុនម៉ោង (Early Out)',
+      key: compareMode === 'hours' ? 'earlyOutMinutes' : 'earlyOutCount',
+      titleEn: compareMode === 'hours' ? 'Early Out Duration (ចេញមុន)' : 'Early Out (ចេញមុន)',
+      titleKh: compareMode === 'hours' ? 'រយៈពេលចេញមុនម៉ោង (Early Out Duration)' : 'បុគ្គលិកចេញមុនម៉ោង (Early Out)',
       color: '#f43f5e',
       bgLight: 'bg-rose-500/10',
       border: 'border-rose-500/30',
       text: 'text-rose-400',
       barGradient: 'from-rose-600 to-rose-400',
-      totalCount: totals.totalEarlyOut,
-      unit: language === 'kh' ? 'ដង' : 'times',
+      totalValue: compareMode === 'hours' ? totals.totalEarlyOutMinutes : totals.totalEarlyOut,
+      displayTotal: compareMode === 'hours' ? formatHMn(totals.totalEarlyOutMinutes) : `${totals.totalEarlyOut} ${language === 'kh' ? 'ដង' : 'times'}`,
+      formatValue: (val) => compareMode === 'hours' ? formatHMn(val) : `${val} ${language === 'kh' ? 'ដង' : 'times'}`,
+      unit: compareMode === 'hours' ? '' : (language === 'kh' ? 'ដង' : 'times'),
     },
     earlyIn: {
-      key: 'earlyInCount',
-      titleEn: 'Early In (មកមុន)',
-      titleKh: 'បុគ្គលិកមកមុនម៉ោង (Early In)',
+      key: compareMode === 'hours' ? 'earlyInMinutes' : 'earlyInCount',
+      titleEn: compareMode === 'hours' ? 'Early In Duration (មកមុន)' : 'Early In (មកមុន)',
+      titleKh: compareMode === 'hours' ? 'រយៈពេលមកមុនម៉ោង (Early In Duration)' : 'បុគ្គលិកមកមុនម៉ោង (Early In)',
       color: '#10b981',
       bgLight: 'bg-emerald-500/10',
       border: 'border-emerald-500/30',
       text: 'text-emerald-400',
       barGradient: 'from-emerald-600 to-emerald-400',
-      totalCount: totals.totalEarlyIn,
-      unit: language === 'kh' ? 'ដង' : 'times',
+      totalValue: compareMode === 'hours' ? totals.totalEarlyInMinutes : totals.totalEarlyIn,
+      displayTotal: compareMode === 'hours' ? formatHMn(totals.totalEarlyInMinutes) : `${totals.totalEarlyIn} ${language === 'kh' ? 'ដង' : 'times'}`,
+      formatValue: (val) => compareMode === 'hours' ? formatHMn(val) : `${val} ${language === 'kh' ? 'ដង' : 'times'}`,
+      unit: compareMode === 'hours' ? '' : (language === 'kh' ? 'ដង' : 'times'),
     },
     incomplete: {
       key: 'incompleteScanCount',
@@ -342,20 +554,24 @@ const Reports = () => {
       border: 'border-purple-500/30',
       text: 'text-purple-400',
       barGradient: 'from-purple-600 to-purple-400',
-      totalCount: totals.totalIncomplete,
+      totalValue: totals.totalIncomplete,
+      displayTotal: `${totals.totalIncomplete} ${language === 'kh' ? 'ដង' : 'times'}`,
+      formatValue: (val) => `${val} ${language === 'kh' ? 'ដង' : 'times'}`,
       unit: language === 'kh' ? 'ដង' : 'times',
     },
     all: {
-      key: 'totalIncidents',
-      titleEn: 'All Metrics Combined (ប្រៀបធៀបទាំងអស់)',
-      titleKh: 'ប្រៀបធៀបគ្រប់ទិន្នន័យ (All Metrics)',
+      key: compareMode === 'hours' ? 'totalDurationMinutes' : 'totalIncidents',
+      titleEn: compareMode === 'hours' ? 'Total Combined Duration (រយៈពេលសរុប)' : 'All Metrics Combined (ប្រៀបធៀបទាំងអស់)',
+      titleKh: compareMode === 'hours' ? 'រយៈពេលសរុបគ្រប់ទិន្នន័យ (Total Duration)' : 'ប្រៀបធៀបគ្រប់ទិន្នន័យ (All Metrics)',
       color: '#6366f1',
       bgLight: 'bg-indigo-500/10',
       border: 'border-indigo-500/30',
       text: 'text-indigo-400',
       barGradient: 'from-indigo-600 to-purple-500',
-      totalCount: totals.totalLate + totals.totalEarlyOut + totals.totalEarlyIn + totals.totalIncomplete,
-      unit: language === 'kh' ? 'ករណី' : 'incidents',
+      totalValue: compareMode === 'hours' ? totals.totalDurationMinutes : (totals.totalLate + totals.totalEarlyOut + totals.totalEarlyIn + totals.totalIncomplete),
+      displayTotal: compareMode === 'hours' ? formatHMn(totals.totalDurationMinutes) : `${totals.totalLate + totals.totalEarlyOut + totals.totalEarlyIn + totals.totalIncomplete} ${language === 'kh' ? 'ករណី' : 'incidents'}`,
+      formatValue: (val) => compareMode === 'hours' ? formatHMn(val) : `${val} ${language === 'kh' ? 'ករណី' : 'incidents'}`,
+      unit: compareMode === 'hours' ? '' : (language === 'kh' ? 'ករណី' : 'incidents'),
     },
   };
 
@@ -380,12 +596,20 @@ const Reports = () => {
   // Dynamic max ceiling and grid ticks for vertical column chart
   const chartMax = useMemo(() => {
     const maxVal = maxSelectedValue || 5;
+    if (compareMode === 'hours') {
+      if (maxVal <= 60) return 60;
+      if (maxVal <= 120) return 120;
+      if (maxVal <= 300) return 300;
+      if (maxVal <= 600) return 600;
+      if (maxVal <= 1200) return 1200;
+      return Math.ceil(maxVal / 240) * 240;
+    }
     if (maxVal <= 5) return 5;
     if (maxVal <= 10) return 10;
     if (maxVal <= 20) return 20;
     if (maxVal <= 50) return Math.ceil(maxVal / 10) * 10;
     return Math.ceil(maxVal / 20) * 20;
-  }, [maxSelectedValue]);
+  }, [maxSelectedValue, compareMode]);
 
   const gridTicks = useMemo(() => {
     const step = chartMax / 4;
@@ -409,10 +633,24 @@ const Reports = () => {
     return { highest, medium, lowest };
   }, [sortedBySelectedMetric]);
 
+  // Filtered Logs for Detailed Table based on filterLogType
+  const filteredDisplayLogs = useMemo(() => {
+    if (filterLogType === 'incomplete') {
+      return incompleteRecords;
+    }
+    return processedLogs.filter(log => {
+      if (filterLogType === 'late') return log._isLate;
+      if (filterLogType === 'earlyOut') return log._isEarlyOut;
+      if (filterLogType === 'earlyIn') return log._isEarlyIn;
+      if (filterLogType === 'onTime') return log._isOnTime;
+      return true;
+    });
+  }, [processedLogs, incompleteRecords, filterLogType]);
+
   // Pagination for Detailed Logs Table
-  const totalRecords = logs.length;
+  const totalRecords = filteredDisplayLogs.length;
   const totalPages = Math.ceil(totalRecords / pageSize) || 1;
-  const paginatedLogs = logs.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+  const paginatedLogs = filteredDisplayLogs.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
   const getPaginationItems = () => {
     const delta = 2;
@@ -448,8 +686,8 @@ const Reports = () => {
   const handleExportExcel = () => {
     if (logs.length === 0) return;
 
-    const startDisplay = startDate ? new Date(startDate).toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' }) : 'Start';
-    const endDisplay = endDate ? new Date(endDate).toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' }) : 'End';
+    const startDisplay = startDate ? formatDateDDMMYYYY(startDate) : 'Start';
+    const endDisplay = endDate ? formatDateDDMMYYYY(endDate) : 'End';
     const title = `Attendance Department Comparison Analytics (${startDisplay} to ${endDisplay})`;
 
     let excelHTML = `
@@ -540,6 +778,46 @@ const Reports = () => {
           </tbody>
         </table>
 
+        <!-- Department Duration Table (h:mn) -->
+        <div class="section-title">⏱️ DEPARTMENT METRICS DURATION BREAKDOWN (h:mn)</div>
+        <table class="report-table" border="1">
+          <thead>
+            <tr style="background-color:#fef3c7;">
+              <th>Department Name</th>
+              <th>Staff Count</th>
+              <th>Late Duration (មកយឺត)</th>
+              <th>Early Out Duration (ចេញមុន)</th>
+              <th>Early In Duration (មកមុន)</th>
+            </tr>
+          </thead>
+          <tbody>
+    `;
+
+    departmentStats.forEach(d => {
+      excelHTML += `
+        <tr>
+          <td style="font-weight:bold;">${d.nameEn} (${d.nameKh})</td>
+          <td style="text-align:center;">${d.employeeCount}</td>
+          <td style="text-align:center; color:#d97706; font-weight:bold;">${formatHMn(d.lateMinutes)}</td>
+          <td style="text-align:center; color:#e11d48; font-weight:bold;">${formatHMn(d.earlyOutMinutes)}</td>
+          <td style="text-align:center; color:#10b981; font-weight:bold;">${formatHMn(d.earlyInMinutes)}</td>
+        </tr>
+      `;
+    });
+
+    excelHTML += `
+          </tbody>
+          <tfoot>
+            <tr style="background-color:#f1f5f9; font-weight:bold;">
+              <td>TOTAL</td>
+              <td style="text-align:center;">${departmentStats.reduce((acc, d) => acc + (d.employeeCount || 0), 0)}</td>
+              <td style="text-align:center; color:#d97706;">${formatHMn(totals.totalLateMinutes)}</td>
+              <td style="text-align:center; color:#e11d48;">${formatHMn(totals.totalEarlyOutMinutes)}</td>
+              <td style="text-align:center; color:#10b981;">${formatHMn(totals.totalEarlyInMinutes)}</td>
+            </tr>
+          </tfoot>
+        </table>
+
         <!-- Detailed Attendance Table -->
         <div class="section-title">📋 DETAILED ATTENDANCE LOGS</div>
         <table class="report-table" border="1">
@@ -564,20 +842,23 @@ const Reports = () => {
           <tbody>
     `;
 
-    logs.forEach((log, idx) => {
-      const emp = log.employee || {};
+    processedLogs.forEach((log, idx) => {
+      const emp = log._emp || log.employee || {};
       const dept = emp.department ? (emp.department.nameEn || '') : '';
       const pos = emp.position ? (emp.position.titleEn || '') : '';
 
-      let status = 'On Time';
-      if (log.isLate && log.isEarlyLeave) status = 'Late & Early Leave';
-      else if (log.isLate) status = 'Late';
-      else if (log.isEarlyLeave) status = 'Early Leave';
+      const statusList = [];
+      if (log._isLate) statusList.push('Late');
+      if (log._isEarlyOut) statusList.push('Early Leave');
+      if (log._isEarlyIn) statusList.push('Early In');
+      if (log._isIncomplete) statusList.push('Incomplete');
+      if (log._isOnTime) statusList.push('On Time');
+      const status = statusList.join(', ') || 'Normal';
 
       excelHTML += `
         <tr>
           <td style="text-align:center;">${idx + 1}</td>
-          <td>${log.attendanceDate ? new Date(log.attendanceDate).toLocaleDateString() : '-'}</td>
+          <td>${formatDateDDMMYYYY(log.attendanceDate)}</td>
           <td style="font-weight:bold;">${emp.staffId || log.staffId || '-'}</td>
           <td>${emp.nameEn || ''}</td>
           <td>${emp.nameKh || ''}</td>
@@ -654,8 +935,8 @@ const Reports = () => {
         </div>
       </div>
 
-      {/* Date Filter & Department / Branch Strip */}
-      <div className="glass-card p-5 rounded-2xl border border-white/10 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 no-print">
+      {/* Date Filter & Department / Branch / Log Type Strip */}
+      <div className="glass-card p-5 rounded-2xl border border-white/10 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-4 no-print">
         <div className="space-y-1">
           <label className="block text-xs font-semibold text-slate-400 uppercase font-khmer">{t('fromDate')}</label>
           <input
@@ -703,49 +984,109 @@ const Reports = () => {
             <option value="Sihanoukville Branch" className="bg-slate-900">Sihanoukville Branch</option>
           </select>
         </div>
+        <div className="space-y-1">
+          <label className="block text-xs font-semibold text-slate-400 uppercase font-khmer">
+            {language === 'kh' ? 'កំណត់ត្រាវត្តមាន (Log Type)' : 'Attendance Log'}
+          </label>
+          <select
+            value={filterLogType}
+            onChange={(e) => {
+              const val = e.target.value;
+              setFilterLogType(val);
+              setCurrentPage(1);
+              if (val === 'late') setSelectedMetric('late');
+              else if (val === 'earlyOut') setSelectedMetric('earlyOut');
+              else if (val === 'earlyIn') setSelectedMetric('earlyIn');
+              else if (val === 'incomplete') setSelectedMetric('incomplete');
+              else setSelectedMetric('all');
+            }}
+            className="w-full py-2 px-3 border border-white/10 bg-slate-950/60 text-white rounded-xl text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/20 focus:bg-slate-900 outline-none transition-all font-khmer"
+          >
+            <option value="all" className="bg-slate-900">{language === 'kh' ? 'All Logs (កំណត់ត្រាទាំងអស់)' : 'All Attendance Logs'}</option>
+            <option value="onTime" className="bg-slate-900">{language === 'kh' ? 'On Time (ទាន់ពេល)' : 'On Time / Normal'}</option>
+            <option value="late" className="bg-slate-900">{language === 'kh' ? 'Late (មកយឺត)' : 'Late Arrivals'}</option>
+            <option value="earlyOut" className="bg-slate-900">{language === 'kh' ? 'Early Out (ចេញមុន)' : 'Early Departures'}</option>
+            <option value="earlyIn" className="bg-slate-900">{language === 'kh' ? 'Early In (មកមុន)' : 'Early Arrivals'}</option>
+            <option value="incomplete" className="bg-slate-900">{language === 'kh' ? 'Incomplete (មិនគ្រប់)' : 'Incomplete Shifts'}</option>
+          </select>
+        </div>
       </div>
 
       {/* Summary KPI Highlights */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-        <div className="glass-card p-4 rounded-2xl border border-white/5 text-center">
+        <div
+          onClick={() => {
+            setFilterLogType('all');
+            setSelectedMetric('all');
+            setCurrentPage(1);
+          }}
+          className={`glass-card p-4 rounded-2xl border text-center cursor-pointer transition-all ${
+            filterLogType === 'all' ? 'border-indigo-500/80 bg-indigo-500/10 shadow-lg shadow-indigo-500/10 ring-1 ring-indigo-500/50' : 'border-white/5 hover:border-indigo-500/30'
+          }`}
+        >
           <span className="block text-[11px] text-slate-400 font-semibold uppercase font-khmer">Total Logs</span>
           <span className="block text-xl font-bold mt-1 text-white font-mono">{totals.totalLogs}</span>
         </div>
-        <div className="glass-card p-4 rounded-2xl border border-white/5 text-center">
+        <div
+          onClick={() => {
+            setFilterLogType('onTime');
+            setSelectedMetric('all');
+            setCurrentPage(1);
+          }}
+          className={`glass-card p-4 rounded-2xl border text-center cursor-pointer transition-all ${
+            filterLogType === 'onTime' ? 'border-emerald-500/80 bg-emerald-500/10 shadow-lg shadow-emerald-500/10 ring-1 ring-emerald-500/50' : 'border-white/5 hover:border-emerald-500/30'
+          }`}
+        >
           <span className="block text-[11px] text-emerald-400 font-semibold uppercase font-khmer">{t('normal')}</span>
           <span className="block text-xl font-bold mt-1 text-emerald-400 font-mono">{totals.totalOnTime}</span>
         </div>
         <div
-          onClick={() => setSelectedMetric('late')}
+          onClick={() => {
+            setFilterLogType('late');
+            setSelectedMetric('late');
+            setCurrentPage(1);
+          }}
           className={`glass-card p-4 rounded-2xl border text-center cursor-pointer transition-all ${
-            selectedMetric === 'late' ? 'border-amber-500/80 bg-amber-500/10 shadow-lg shadow-amber-500/10' : 'border-white/5 hover:border-amber-500/30'
+            filterLogType === 'late' || selectedMetric === 'late' ? 'border-amber-500/80 bg-amber-500/10 shadow-lg shadow-amber-500/10 ring-1 ring-amber-500/50' : 'border-white/5 hover:border-amber-500/30'
           }`}
         >
           <span className="block text-[11px] text-amber-400 font-semibold uppercase font-khmer">Late (មកយឺត)</span>
           <span className="block text-xl font-bold mt-1 text-amber-400 font-mono">{totals.totalLate}</span>
         </div>
         <div
-          onClick={() => setSelectedMetric('earlyOut')}
+          onClick={() => {
+            setFilterLogType('earlyOut');
+            setSelectedMetric('earlyOut');
+            setCurrentPage(1);
+          }}
           className={`glass-card p-4 rounded-2xl border text-center cursor-pointer transition-all ${
-            selectedMetric === 'earlyOut' ? 'border-rose-500/80 bg-rose-500/10 shadow-lg shadow-rose-500/10' : 'border-white/5 hover:border-rose-500/30'
+            filterLogType === 'earlyOut' || selectedMetric === 'earlyOut' ? 'border-rose-500/80 bg-rose-500/10 shadow-lg shadow-rose-500/10 ring-1 ring-rose-500/50' : 'border-white/5 hover:border-rose-500/30'
           }`}
         >
           <span className="block text-[11px] text-rose-400 font-semibold uppercase font-khmer">Early Out (ចេញមុន)</span>
           <span className="block text-xl font-bold mt-1 text-rose-400 font-mono">{totals.totalEarlyOut}</span>
         </div>
         <div
-          onClick={() => setSelectedMetric('earlyIn')}
+          onClick={() => {
+            setFilterLogType('earlyIn');
+            setSelectedMetric('earlyIn');
+            setCurrentPage(1);
+          }}
           className={`glass-card p-4 rounded-2xl border text-center cursor-pointer transition-all ${
-            selectedMetric === 'earlyIn' ? 'border-emerald-500/80 bg-emerald-500/10 shadow-lg shadow-emerald-500/10' : 'border-white/5 hover:border-emerald-500/30'
+            filterLogType === 'earlyIn' || selectedMetric === 'earlyIn' ? 'border-emerald-500/80 bg-emerald-500/10 shadow-lg shadow-emerald-500/10 ring-1 ring-emerald-500/50' : 'border-white/5 hover:border-emerald-500/30'
           }`}
         >
           <span className="block text-[11px] text-emerald-400 font-semibold uppercase font-khmer">Early In (មកមុន)</span>
           <span className="block text-xl font-bold mt-1 text-emerald-400 font-mono">{totals.totalEarlyIn}</span>
         </div>
         <div
-          onClick={() => setSelectedMetric('incomplete')}
+          onClick={() => {
+            setFilterLogType('incomplete');
+            setSelectedMetric('incomplete');
+            setCurrentPage(1);
+          }}
           className={`glass-card p-4 rounded-2xl border text-center cursor-pointer transition-all ${
-            selectedMetric === 'incomplete' ? 'border-purple-500/80 bg-purple-500/10 shadow-lg shadow-purple-500/10' : 'border-white/5 hover:border-purple-500/30'
+            filterLogType === 'incomplete' || selectedMetric === 'incomplete' ? 'border-purple-500/80 bg-purple-500/10 shadow-lg shadow-purple-500/10 ring-1 ring-purple-500/50' : 'border-white/5 hover:border-purple-500/30'
           }`}
         >
           <span className="block text-[11px] text-purple-400 font-semibold uppercase font-khmer">Incomplete (មិនគ្រប់)</span>
@@ -858,14 +1199,14 @@ const Reports = () => {
                 </h3>
                 <div className="flex items-baseline gap-2 mt-1">
                   <span className="text-2xl font-black font-mono text-rose-400">
-                    {rankingAnalysis.highest[currentMetricConfig.key]}
+                    {currentMetricConfig.formatValue(rankingAnalysis.highest[currentMetricConfig.key])}
                   </span>
                   <span className="text-xs text-slate-400 font-khmer">
-                    {currentMetricConfig.unit} ({currentMetricConfig.totalCount > 0 ? Math.round((rankingAnalysis.highest[currentMetricConfig.key] / currentMetricConfig.totalCount) * 100) : 0}% នៃចំនួនសរុប)
+                    ({currentMetricConfig.totalValue > 0 ? Math.round((rankingAnalysis.highest[currentMetricConfig.key] / currentMetricConfig.totalValue) * 100) : 0}% នៃសរុប)
                   </span>
                 </div>
                 <p className="text-[11px] text-slate-400 mt-2 font-mono">
-                  បុគ្គលិក: {rankingAnalysis.highest.employeeCount} នាក់ • មធ្យម: {(rankingAnalysis.highest[currentMetricConfig.key] / Math.max(rankingAnalysis.highest.employeeCount, 1)).toFixed(1)} {currentMetricConfig.unit}/នាក់
+                  បុគ្គលិក: {rankingAnalysis.highest.employeeCount} នាក់ • មធ្យម: {compareMode === 'hours' ? formatHMn(rankingAnalysis.highest[currentMetricConfig.key] / Math.max(rankingAnalysis.highest.employeeCount, 1)) : `${(rankingAnalysis.highest[currentMetricConfig.key] / Math.max(rankingAnalysis.highest.employeeCount, 1)).toFixed(1)} ${currentMetricConfig.unit}`}/នាក់
                 </p>
               </div>
             </div>
@@ -885,14 +1226,14 @@ const Reports = () => {
                 </h3>
                 <div className="flex items-baseline gap-2 mt-1">
                   <span className="text-2xl font-black font-mono text-amber-400">
-                    {rankingAnalysis.medium ? rankingAnalysis.medium[currentMetricConfig.key] : 0}
+                    {rankingAnalysis.medium ? currentMetricConfig.formatValue(rankingAnalysis.medium[currentMetricConfig.key]) : '0'}
                   </span>
                   <span className="text-xs text-slate-400 font-khmer">
-                    {currentMetricConfig.unit} ({rankingAnalysis.medium && currentMetricConfig.totalCount > 0 ? Math.round((rankingAnalysis.medium[currentMetricConfig.key] / currentMetricConfig.totalCount) * 100) : 0}%)
+                    ({rankingAnalysis.medium && currentMetricConfig.totalValue > 0 ? Math.round((rankingAnalysis.medium[currentMetricConfig.key] / currentMetricConfig.totalValue) * 100) : 0}%)
                   </span>
                 </div>
                 <p className="text-[11px] text-slate-400 mt-2 font-mono">
-                  បុគ្គលិក: {rankingAnalysis.medium ? rankingAnalysis.medium.employeeCount : 0} នាក់ • មធ្យម: {rankingAnalysis.medium ? (rankingAnalysis.medium[currentMetricConfig.key] / Math.max(rankingAnalysis.medium.employeeCount, 1)).toFixed(1) : 0} {currentMetricConfig.unit}/នាក់
+                  បុគ្គលិក: {rankingAnalysis.medium ? rankingAnalysis.medium.employeeCount : 0} នាក់ • មធ្យម: {rankingAnalysis.medium ? (compareMode === 'hours' ? formatHMn(rankingAnalysis.medium[currentMetricConfig.key] / Math.max(rankingAnalysis.medium.employeeCount, 1)) : `${(rankingAnalysis.medium[currentMetricConfig.key] / Math.max(rankingAnalysis.medium.employeeCount, 1)).toFixed(1)} ${currentMetricConfig.unit}`) : 0}/នាក់
                 </p>
               </div>
             </div>
@@ -912,14 +1253,14 @@ const Reports = () => {
                 </h3>
                 <div className="flex items-baseline gap-2 mt-1">
                   <span className="text-2xl font-black font-mono text-emerald-400">
-                    {rankingAnalysis.lowest[currentMetricConfig.key]}
+                    {currentMetricConfig.formatValue(rankingAnalysis.lowest[currentMetricConfig.key])}
                   </span>
                   <span className="text-xs text-slate-400 font-khmer">
-                    {currentMetricConfig.unit} ({currentMetricConfig.totalCount > 0 ? Math.round((rankingAnalysis.lowest[currentMetricConfig.key] / currentMetricConfig.totalCount) * 100) : 0}%)
+                    ({currentMetricConfig.totalValue > 0 ? Math.round((rankingAnalysis.lowest[currentMetricConfig.key] / currentMetricConfig.totalValue) * 100) : 0}%)
                   </span>
                 </div>
                 <p className="text-[11px] text-slate-400 mt-2 font-mono">
-                  បុគ្គលិក: {rankingAnalysis.lowest.employeeCount} នាក់ • មធ្យម: {(rankingAnalysis.lowest[currentMetricConfig.key] / Math.max(rankingAnalysis.lowest.employeeCount, 1)).toFixed(1)} {currentMetricConfig.unit}/នាក់
+                  បុគ្គលិក: {rankingAnalysis.lowest.employeeCount} នាក់ • មធ្យម: {compareMode === 'hours' ? formatHMn(rankingAnalysis.lowest[currentMetricConfig.key] / Math.max(rankingAnalysis.lowest.employeeCount, 1)) : `${(rankingAnalysis.lowest[currentMetricConfig.key] / Math.max(rankingAnalysis.lowest.employeeCount, 1)).toFixed(1)} ${currentMetricConfig.unit}`}/នាក់
                 </p>
               </div>
             </div>
@@ -939,21 +1280,21 @@ const Reports = () => {
               <p className="text-slate-300 font-khmer leading-relaxed">
                 {language === 'kh' ? (
                   <>
-                    ដេប៉ាតឺម៉ង់ដែលមានចំនួន <span className={`font-bold ${currentMetricConfig.text}`}>{currentMetricConfig.titleKh}</span> <strong>ច្រើនជាងគេ</strong> គឺ <span className="text-white font-bold">{rankingAnalysis.highest.displayName}</span> (<strong>{rankingAnalysis.highest[currentMetricConfig.key]} {currentMetricConfig.unit}</strong>, ស្មើនឹង {currentMetricConfig.totalCount > 0 ? Math.round((rankingAnalysis.highest[currentMetricConfig.key] / currentMetricConfig.totalCount) * 100) : 0}%)។
+                    ដេប៉ាតឺម៉ង់ដែលមាន{compareMode === 'hours' ? 'រយៈពេល' : 'ចំនួន'} <span className={`font-bold ${currentMetricConfig.text}`}>{currentMetricConfig.titleKh}</span> <strong>ច្រើនជាងគេ</strong> គឺ <span className="text-white font-bold">{rankingAnalysis.highest.displayName}</span> (<strong>{currentMetricConfig.formatValue(rankingAnalysis.highest[currentMetricConfig.key])}</strong>, ស្មើនឹង {currentMetricConfig.totalValue > 0 ? Math.round((rankingAnalysis.highest[currentMetricConfig.key] / currentMetricConfig.totalValue) * 100) : 0}%)។
                     {rankingAnalysis.medium && (
-                      <> ចំណែកដេប៉ាតឺម៉ង់ <strong>កម្រិតមធ្យម</strong> គឺ <span className="text-white font-bold">{rankingAnalysis.medium.displayName}</span> (<strong>{rankingAnalysis.medium[currentMetricConfig.key]} {currentMetricConfig.unit}</strong>)។</>
+                      <> ចំណែកដេប៉ាតឺម៉ង់ <strong>កម្រិតមធ្យម</strong> គឺ <span className="text-white font-bold">{rankingAnalysis.medium.displayName}</span> (<strong>{currentMetricConfig.formatValue(rankingAnalysis.medium[currentMetricConfig.key])}</strong>)។</>
                     )}
-                    {` ហើយដេប៉ាតឺម៉ង់ដែលមានចំនួន `}
-                    <strong>តិចជាងគេបំផុត</strong> គឺ <span className="text-emerald-400 font-bold">{rankingAnalysis.lowest.displayName}</span> (<strong>{rankingAnalysis.lowest[currentMetricConfig.key]} {currentMetricConfig.unit}</strong>)។
+                    {` ហើយដេប៉ាតឺម៉ង់ដែលមាន `}
+                    <strong>{compareMode === 'hours' ? 'រយៈពេលតិចជាងគេ' : 'ចំនួនតិចជាងគេបំផុត'}</strong> គឺ <span className="text-emerald-400 font-bold">{rankingAnalysis.lowest.displayName}</span> (<strong>{currentMetricConfig.formatValue(rankingAnalysis.lowest[currentMetricConfig.key])}</strong>)។
                   </>
                 ) : (
                   <>
-                    The department with the <strong>Highest</strong> {currentMetricConfig.titleEn} is <span className="text-white font-bold">{rankingAnalysis.highest.displayName}</span> ({rankingAnalysis.highest[currentMetricConfig.key]} {currentMetricConfig.unit}, {currentMetricConfig.totalCount > 0 ? Math.round((rankingAnalysis.highest[currentMetricConfig.key] / currentMetricConfig.totalCount) * 100) : 0}%).
+                    The department with the <strong>Highest</strong> {currentMetricConfig.titleEn} is <span className="text-white font-bold">{rankingAnalysis.highest.displayName}</span> ({currentMetricConfig.formatValue(rankingAnalysis.highest[currentMetricConfig.key])}, {currentMetricConfig.totalValue > 0 ? Math.round((rankingAnalysis.highest[currentMetricConfig.key] / currentMetricConfig.totalValue) * 100) : 0}%).
                     {rankingAnalysis.medium && (
-                      <> The <strong>Moderate/Medium</strong> department is <span className="text-white font-bold">{rankingAnalysis.medium.displayName}</span> ({rankingAnalysis.medium[currentMetricConfig.key]} {currentMetricConfig.unit}).</>
+                      <> The <strong>Moderate/Medium</strong> department is <span className="text-white font-bold">{rankingAnalysis.medium.displayName}</span> ({currentMetricConfig.formatValue(rankingAnalysis.medium[currentMetricConfig.key])}).</>
                     )}
                     {` Meanwhile, the department with the `}
-                    <strong>Lowest/Best compliance</strong> is <span className="text-emerald-400 font-bold">{rankingAnalysis.lowest.displayName}</span> ({rankingAnalysis.lowest[currentMetricConfig.key]} {currentMetricConfig.unit}).
+                    <strong>Lowest</strong> {currentMetricConfig.titleEn} is <span className="text-emerald-400 font-bold">{rankingAnalysis.lowest.displayName}</span> ({currentMetricConfig.formatValue(rankingAnalysis.lowest[currentMetricConfig.key])}).
                   </>
                 )}
               </p>
@@ -969,54 +1310,89 @@ const Reports = () => {
                 <h3 className="text-xs font-bold text-slate-300 font-khmer uppercase tracking-wider">
                   {language === 'kh' ? `ចំណាត់ថ្នាក់ប្រៀបធៀបតាមដេប៉ាតឺម៉ង់ (${currentMetricConfig.titleKh})` : `Department Rankings for ${currentMetricConfig.titleEn}`}
                 </h3>
-                <span className="text-slate-500 font-mono text-[11px] bg-slate-900/80 px-2.5 py-0.5 rounded-full border border-white/5">
-                  Total: {currentMetricConfig.totalCount} {currentMetricConfig.unit}
+                <span className="text-slate-400 font-mono text-[11px] bg-slate-900/80 px-2.5 py-0.5 rounded-full border border-white/5 font-bold">
+                  Total: {currentMetricConfig.displayTotal}
                 </span>
               </div>
 
-              {/* Chart Mode Selector: Vertical (បញ្ឈរ) vs Horizontal (ផ្ដេក) */}
-              <div className="flex items-center gap-1 bg-slate-950 p-1 rounded-xl border border-white/10 shadow-inner self-start sm:self-auto">
-                <button
-                  type="button"
-                  onClick={() => setChartOrientation('vertical')}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all font-khmer cursor-pointer ${
-                    chartOrientation === 'vertical'
-                      ? 'bg-indigo-600 text-white shadow-md shadow-indigo-500/30'
-                      : 'text-slate-400 hover:text-slate-200 hover:bg-white/5'
-                  }`}
-                  title={language === 'kh' ? 'បង្ហាញជាក្រាហ្វបញ្ឈរ' : 'Switch to Vertical Column Chart'}
-                >
-                  <ChartBarIcon className="w-3.5 h-3.5" />
-                  <span>{language === 'kh' ? 'ក្រាហ្វបញ្ឈរ' : 'Vertical'}</span>
-                </button>
+              <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto">
+                {/* Compare Mode Selector: Count vs Hours */}
+                <div className="flex items-center gap-1 bg-slate-950 p-1 rounded-xl border border-white/10 shadow-inner">
+                  <button
+                    type="button"
+                    onClick={() => setCompareMode('count')}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all font-khmer cursor-pointer ${
+                      compareMode === 'count'
+                        ? 'bg-indigo-600 text-white shadow-md shadow-indigo-500/30'
+                        : 'text-slate-400 hover:text-slate-200 hover:bg-white/5'
+                    }`}
+                    title={language === 'kh' ? 'ប្រៀបធៀបតាមចំនួនដង (Count)' : 'Compare by Count (Times)'}
+                  >
+                    <span>🔢</span>
+                    <span>{language === 'kh' ? 'ចំនួនដង (Count)' : 'By Count'}</span>
+                  </button>
 
-                <button
-                  type="button"
-                  onClick={() => setChartOrientation('horizontal')}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all font-khmer cursor-pointer ${
-                    chartOrientation === 'horizontal'
-                      ? 'bg-indigo-600 text-white shadow-md shadow-indigo-500/30'
-                      : 'text-slate-400 hover:text-slate-200 hover:bg-white/5'
-                  }`}
-                  title={language === 'kh' ? 'បង្ហាញជាក្រាហ្វផ្ដេក' : 'Switch to Horizontal Bars'}
-                >
-                  <Bars3BottomLeftIcon className="w-3.5 h-3.5" />
-                  <span>{language === 'kh' ? 'ក្រាហ្វផ្ដេក' : 'Horizontal'}</span>
-                </button>
+                  <button
+                    type="button"
+                    onClick={() => setCompareMode('hours')}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all font-khmer cursor-pointer ${
+                      compareMode === 'hours'
+                        ? 'bg-gradient-to-r from-amber-500 to-rose-500 text-white shadow-md shadow-amber-500/30 ring-1 ring-amber-400/40'
+                        : 'text-slate-400 hover:text-slate-200 hover:bg-white/5'
+                    }`}
+                    title={language === 'kh' ? 'ប្រៀបធៀបគិតជាម៉ោង (Duration / h:mn)' : 'Compare by Hours (Duration)'}
+                  >
+                    <ClockIcon className="w-3.5 h-3.5 text-white" />
+                    <span>{language === 'kh' ? 'គិតជាម៉ោង (Hours)' : 'By Hours'}</span>
+                  </button>
+                </div>
+
+                {/* Chart Mode Selector: Vertical (បញ្ឈរ) vs Horizontal (ផ្ដេក) */}
+                <div className="flex items-center gap-1 bg-slate-950 p-1 rounded-xl border border-white/10 shadow-inner">
+                  <button
+                    type="button"
+                    onClick={() => setChartOrientation('vertical')}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all font-khmer cursor-pointer ${
+                      chartOrientation === 'vertical'
+                        ? 'bg-indigo-600 text-white shadow-md shadow-indigo-500/30'
+                        : 'text-slate-400 hover:text-slate-200 hover:bg-white/5'
+                    }`}
+                    title={language === 'kh' ? 'បង្ហាញជាក្រាហ្វបញ្ឈរ' : 'Switch to Vertical Column Chart'}
+                  >
+                    <ChartBarIcon className="w-3.5 h-3.5" />
+                    <span>{language === 'kh' ? 'បញ្ឈរ' : 'Vertical'}</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setChartOrientation('horizontal')}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all font-khmer cursor-pointer ${
+                      chartOrientation === 'horizontal'
+                        ? 'bg-indigo-600 text-white shadow-md shadow-indigo-500/30'
+                        : 'text-slate-400 hover:text-slate-200 hover:bg-white/5'
+                    }`}
+                    title={language === 'kh' ? 'បង្ហាញជាក្រាហ្វផ្ដេក' : 'Switch to Horizontal Bars'}
+                  >
+                    <Bars3BottomLeftIcon className="w-3.5 h-3.5" />
+                    <span>{language === 'kh' ? 'ផ្ដេក' : 'Horizontal'}</span>
+                  </button>
+                </div>
               </div>
             </div>
 
             {/* View 1: ក្រាហ្វបញ្ឈរ (Vertical Column Chart) */}
             {chartOrientation === 'vertical' ? (
-              <div className="bg-slate-950/70 border border-white/5 rounded-3xl p-5 sm:p-6 space-y-3">
-                <div className="w-full overflow-x-auto pb-4 pt-2">
-                  <div className="min-w-[550px] h-84 relative flex items-end justify-around px-6 pt-10 pb-24 border-b border-l border-white/10">
+              <div className="bg-white dark:bg-slate-950/70 border border-slate-200 dark:border-white/5 rounded-3xl p-5 sm:p-6 space-y-3 shadow-xs">
+                <div className="w-full overflow-x-auto pb-8 pt-2">
+                  <div className="min-w-[550px] h-88 relative flex items-end justify-around px-6 pt-10 pb-28 mb-4 border-b border-l border-slate-300 dark:border-white/20">
                     {/* Background horizontal grid lines with values */}
-                    <div className="absolute inset-0 pointer-events-none flex flex-col justify-between pl-6 pr-2 pb-24 pt-10">
+                    <div className="absolute inset-0 pointer-events-none flex flex-col justify-between pl-6 pr-2 pb-28 pt-10">
                       {gridTicks.map((val, idx) => (
-                        <div key={idx} className="w-full flex items-center gap-2 text-[10px] text-slate-500 font-mono">
-                          <span className="w-6 text-right font-bold">{val}</span>
-                          <div className="flex-1 h-px bg-white/5"></div>
+                        <div key={idx} className="w-full flex items-center gap-2 text-[11px] font-mono font-bold" style={{ color: 'var(--text-secondary)' }}>
+                          <span className="w-14 text-right font-bold truncate">
+                            {compareMode === 'hours' ? formatHMn(val) : val}
+                          </span>
+                          <div className="flex-1 h-px bg-slate-200 dark:bg-white/15"></div>
                         </div>
                       ))}
                     </div>
@@ -1025,27 +1401,27 @@ const Reports = () => {
                     {sortedBySelectedMetric.map((dept, index) => {
                       const count = dept[currentMetricConfig.key] || 0;
                       const heightPercent = chartMax > 0 ? (count / chartMax) * 100 : 0;
-                      const totalPct = currentMetricConfig.totalCount > 0 ? Math.round((count / currentMetricConfig.totalCount) * 100) : 0;
+                      const totalPct = currentMetricConfig.totalValue > 0 ? Math.round((count / currentMetricConfig.totalValue) * 100) : 0;
 
                       let tierBadge = {
                         labelKh: 'កម្រិតទាប (Low)',
                         labelEn: 'Low',
-                        badgeBg: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                        badgeBg: 'bg-emerald-100 dark:bg-emerald-500/20 text-emerald-800 dark:text-emerald-300 border-emerald-400 dark:border-emerald-500/30'
                       };
-                      let rankColor = 'bg-slate-800 text-slate-300';
+                      let rankColor = 'bg-slate-300 dark:bg-slate-800 text-slate-900 dark:text-slate-200';
 
                       if (index === 0) {
                         tierBadge = {
                           labelKh: 'ច្រើនជាងគេ (Highest)',
                           labelEn: 'Highest',
-                          badgeBg: 'bg-rose-500/20 text-rose-300 border-rose-500/30'
+                          badgeBg: 'bg-rose-100 dark:bg-rose-500/25 text-rose-800 dark:text-rose-300 border-rose-400 dark:border-rose-500/30'
                         };
                         rankColor = 'bg-rose-500 text-white shadow-sm shadow-rose-500/40';
                       } else if (index === 1 || (index > 0 && index < sortedBySelectedMetric.length - 1)) {
                         tierBadge = {
                           labelKh: 'កម្រិតមធ្យម (Medium)',
                           labelEn: 'Medium',
-                          badgeBg: 'bg-amber-500/20 text-amber-300 border-amber-500/30'
+                          badgeBg: 'bg-amber-100 dark:bg-amber-500/25 text-amber-900 dark:text-amber-300 border-amber-400 dark:border-amber-500/30'
                         };
                         rankColor = 'bg-amber-500 text-slate-950 font-bold shadow-sm shadow-amber-500/30';
                       }
@@ -1057,10 +1433,10 @@ const Reports = () => {
                             <span className={`w-5 h-5 rounded-full flex items-center justify-center font-mono font-bold text-[10px] mb-1 ${rankColor}`}>
                               {index + 1}
                             </span>
-                            <span className={`text-base font-black font-mono leading-none ${currentMetricConfig.text}`}>
-                              {count}
+                            <span className={`text-sm sm:text-base font-black font-mono leading-none ${currentMetricConfig.text}`}>
+                              {currentMetricConfig.formatValue(count)}
                             </span>
-                            <span className="text-[10px] text-slate-400 font-mono mt-0.5">
+                            <span className="text-[11px] font-bold font-mono mt-0.5" style={{ color: 'var(--text-secondary)' }}>
                               ({totalPct}%)
                             </span>
                           </div>
@@ -1076,14 +1452,21 @@ const Reports = () => {
                           </div>
 
                           {/* Bottom Labeling: Name, Staff Count, and Tier */}
-                          <div className="absolute -bottom-22 left-0 right-0 text-center flex flex-col items-center">
-                            <p className="text-xs font-bold text-slate-200 truncate max-w-[130px] font-khmer" title={dept.displayName}>
+                          <div className="absolute top-full left-0 right-0 pt-2 text-center flex flex-col items-center px-1">
+                            <p 
+                              className="text-xs sm:text-sm font-black font-khmer line-clamp-2 leading-snug tracking-tight" 
+                              title={dept.displayName}
+                              style={{ color: 'var(--text-primary)' }}
+                            >
                               {dept.displayName}
                             </p>
-                            <p className="text-[10px] text-slate-400 font-mono mt-0.5">
+                            <p 
+                              className="text-[11px] font-bold font-mono mt-1"
+                              style={{ color: 'var(--text-secondary)' }}
+                            >
                               {dept.employeeCount} {language === 'kh' ? 'បុគ្គលិក' : 'Staff'}
                             </p>
-                            <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold border font-khmer mt-1 inline-block ${tierBadge.badgeBg}`}>
+                            <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold border font-khmer mt-1 inline-block ${tierBadge.badgeBg}`}>
                               {language === 'kh' ? tierBadge.labelKh : tierBadge.labelEn}
                             </span>
                           </div>
@@ -1099,43 +1482,53 @@ const Reports = () => {
                 {sortedBySelectedMetric.map((dept, index) => {
                   const count = dept[currentMetricConfig.key] || 0;
                   const percentage = maxSelectedValue > 0 ? (count / maxSelectedValue) * 100 : 0;
-                  const totalPct = currentMetricConfig.totalCount > 0 ? Math.round((count / currentMetricConfig.totalCount) * 100) : 0;
+                  const totalPct = currentMetricConfig.totalValue > 0 ? Math.round((count / currentMetricConfig.totalValue) * 100) : 0;
 
                   let tierBadge = {
                     labelKh: 'កម្រិតទាប (Low)',
                     labelEn: 'Low',
-                    badgeBg: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                    badgeBg: 'bg-emerald-100 dark:bg-emerald-500/20 text-emerald-800 dark:text-emerald-300 border-emerald-400 dark:border-emerald-500/30'
                   };
 
                   if (index === 0) {
                     tierBadge = {
                       labelKh: 'ច្រើនជាងគេ (Highest)',
                       labelEn: 'Highest',
-                      badgeBg: 'bg-rose-500/20 text-rose-300 border-rose-500/30'
+                      badgeBg: 'bg-rose-100 dark:bg-rose-500/25 text-rose-800 dark:text-rose-300 border-rose-400 dark:border-rose-500/30'
                     };
                   } else if (index === 1 || (index > 0 && index < sortedBySelectedMetric.length - 1)) {
                     tierBadge = {
                       labelKh: 'កម្រិតមធ្យម (Medium)',
                       labelEn: 'Medium',
-                      badgeBg: 'bg-amber-500/20 text-amber-300 border-amber-500/30'
+                      badgeBg: 'bg-amber-100 dark:bg-amber-500/25 text-amber-900 dark:text-amber-300 border-amber-400 dark:border-amber-500/30'
                     };
                   }
 
                   return (
                     <div
                       key={dept.id || index}
-                      className="bg-slate-900/60 hover:bg-slate-900 border border-white/5 hover:border-white/15 rounded-2xl p-4 transition-all duration-200"
+                      className="bg-white dark:bg-slate-900/60 hover:bg-slate-50 dark:hover:bg-slate-900 border border-slate-200 dark:border-white/5 hover:border-slate-300 dark:hover:border-white/15 rounded-2xl p-4 transition-all duration-200 shadow-xs"
                     >
                       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-2">
                         <div className="flex items-center gap-2.5">
                           <span className={`w-6 h-6 rounded-full flex items-center justify-center font-mono font-bold text-xs ${
-                            index === 0 ? 'bg-rose-500 text-white shadow-sm shadow-rose-500/40' : (index === 1 ? 'bg-amber-500 text-slate-950 font-bold' : 'bg-slate-800 text-slate-300')
+                            index === 0 ? 'bg-rose-500 text-white shadow-sm shadow-rose-500/40' : (index === 1 ? 'bg-amber-500 text-slate-950 font-bold' : 'bg-slate-300 dark:bg-slate-800 text-slate-900 dark:text-slate-200')
                           }`}>
                             {index + 1}
                           </span>
                           <div>
-                            <span className="font-bold text-white font-khmer text-sm">{dept.displayName}</span>
-                            <span className="text-slate-400 text-xs font-mono ml-2">({dept.employeeCount} Staff)</span>
+                            <span 
+                              className="font-black font-khmer text-sm"
+                              style={{ color: 'var(--text-primary)' }}
+                            >
+                              {dept.displayName}
+                            </span>
+                            <span 
+                              className="text-xs font-mono ml-2 font-semibold"
+                              style={{ color: 'var(--text-secondary)' }}
+                            >
+                              ({dept.employeeCount} Staff)
+                            </span>
                           </div>
                         </div>
 
@@ -1145,10 +1538,14 @@ const Reports = () => {
                           </span>
                           <div className="text-right">
                             <span className={`text-base font-black font-mono ${currentMetricConfig.text}`}>
-                              {count}
+                              {currentMetricConfig.formatValue(count)}
                             </span>
-                            <span className="text-slate-400 text-xs font-khmer ml-1">{currentMetricConfig.unit}</span>
-                            <span className="text-slate-500 text-xs font-mono ml-1.5">({totalPct}%)</span>
+                            <span 
+                              className="text-xs font-mono ml-1.5 font-bold"
+                              style={{ color: 'var(--text-secondary)' }}
+                            >
+                              ({totalPct}%)
+                            </span>
                           </div>
                         </div>
                       </div>
@@ -1230,6 +1627,114 @@ const Reports = () => {
         )}
       </div>
 
+      {/* Department Metrics Breakdown Table */}
+      <div className="glass-card rounded-2xl overflow-hidden print-card">
+        <div className="p-4 bg-slate-950/80 border-b border-white/10 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-2">
+            <span className="h-2 w-2 rounded-full bg-indigo-500"></span>
+            <h3 className="text-sm font-bold text-white font-khmer">
+              {language === 'kh' ? 'តារាងស្ថិតិលម្អិតតាមដេប៉ាតឺម៉ង់ (Department Metrics Breakdown Table)' : 'Department Metrics Breakdown Table'}
+            </h3>
+          </div>
+          <span className="text-xs text-slate-400 font-mono font-khmer">
+            Total : <span className="text-white font-bold">{departmentStats.length}</span> departments
+          </span>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-sm text-slate-300 print:text-xs">
+            <thead className="bg-slate-950/80 text-xs text-slate-300 uppercase border-b border-white/10 print:bg-slate-100">
+              <tr>
+                <th className="py-3.5 px-4 font-khmer w-12 text-center">NO.</th>
+                <th className="py-3.5 px-6 font-khmer">{t('departments')}</th>
+                <th className="py-3.5 px-4 font-khmer text-center">{language === 'kh' ? 'ចំនួនបុគ្គលិក' : 'STAFF COUNT'}</th>
+                <th className="py-3.5 px-4 font-khmer text-center text-amber-400">LATE (មកយឺត)</th>
+                <th className="py-3.5 px-4 font-khmer text-center text-rose-400">EARLY OUT (ចេញមុន)</th>
+                <th className="py-3.5 px-4 font-khmer text-center text-emerald-400">EARLY IN (មកមុន)</th>
+                <th className="py-3.5 px-4 font-khmer text-center text-purple-400">INCOMPLETE (មិនគ្រប់)</th>
+                <th className="py-3.5 px-4 font-khmer text-center font-bold text-white">{language === 'kh' ? 'សរុបទាំងអស់' : 'TOTAL INCIDENTS'}</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-white/5">
+              {departmentStats.map((dept, index) => (
+                <tr key={dept.id || index} className="hover:bg-slate-900/40 transition-colors">
+                  <td className="py-3.5 px-4 text-center font-mono text-xs text-slate-500">{index + 1}</td>
+                  <td className="py-3.5 px-6 font-bold text-white font-khmer">{dept.displayName}</td>
+                  <td className="py-3.5 px-4 text-center font-mono">{dept.employeeCount}</td>
+                  <td className="py-3.5 px-4 text-center font-mono font-bold text-amber-400">{dept.lateCount}</td>
+                  <td className="py-3.5 px-4 text-center font-mono font-bold text-rose-400">{dept.earlyOutCount}</td>
+                  <td className="py-3.5 px-4 text-center font-mono font-bold text-emerald-400">{dept.earlyInCount}</td>
+                  <td className="py-3.5 px-4 text-center font-mono font-bold text-purple-400">{dept.incompleteScanCount}</td>
+                  <td className="py-3.5 px-4 text-center font-mono font-black text-indigo-400">{dept.totalIncidents}</td>
+                </tr>
+              ))}
+            </tbody>
+            <tfoot className="bg-slate-950/90 font-bold border-t-2 border-white/10 text-xs text-slate-200">
+              <tr>
+                <td colSpan="2" className="py-3.5 px-6 font-khmer text-right uppercase tracking-wider">{language === 'kh' ? 'សរុបរួម (TOTAL)' : 'TOTAL'}</td>
+                <td className="py-3.5 px-4 text-center font-mono text-white">{departmentStats.reduce((acc, d) => acc + (d.employeeCount || 0), 0)}</td>
+                <td className="py-3.5 px-4 text-center font-mono text-amber-400 font-black">{totals.totalLate}</td>
+                <td className="py-3.5 px-4 text-center font-mono text-rose-400 font-black">{totals.totalEarlyOut}</td>
+                <td className="py-3.5 px-4 text-center font-mono text-emerald-400 font-black">{totals.totalEarlyIn}</td>
+                <td className="py-3.5 px-4 text-center font-mono text-purple-400 font-black">{totals.totalIncomplete}</td>
+                <td className="py-3.5 px-4 text-center font-mono text-indigo-400 font-black">{totals.totalLate + totals.totalEarlyOut + totals.totalEarlyIn + totals.totalIncomplete}</td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      </div>
+
+      {/* Department Metrics Duration Breakdown Table (h:mn) */}
+      <div className="glass-card rounded-2xl overflow-hidden print-card">
+        <div className="p-4 bg-slate-950/80 border-b border-white/10 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-2">
+            <span className="h-2 w-2 rounded-full bg-amber-500"></span>
+            <h3 className="text-sm font-bold text-white font-khmer">
+              {language === 'kh' ? 'តារាងរយៈពេលស្ថិតិតាមដេប៉ាតឺម៉ង់ (Department Metrics Duration Table - h:mn)' : 'Department Metrics Duration Table (h:mn)'}
+            </h3>
+          </div>
+          <span className="text-xs text-slate-400 font-mono font-khmer">
+            Total : <span className="text-white font-bold">{departmentStats.length}</span> departments
+          </span>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-sm text-slate-300 print:text-xs">
+            <thead className="bg-slate-950/80 text-xs text-slate-300 uppercase border-b border-white/10 print:bg-slate-100">
+              <tr>
+                <th className="py-3.5 px-4 font-khmer w-12 text-center">NO.</th>
+                <th className="py-3.5 px-6 font-khmer">{t('departments')}</th>
+                <th className="py-3.5 px-4 font-khmer text-center">{language === 'kh' ? 'ចំនួនបុគ្គលិក' : 'STAFF COUNT'}</th>
+                <th className="py-3.5 px-4 font-khmer text-center text-amber-400">LATE (មកយឺត)</th>
+                <th className="py-3.5 px-4 font-khmer text-center text-rose-400">EARLY OUT (ចេញមុន)</th>
+                <th className="py-3.5 px-4 font-khmer text-center text-emerald-400">EARLY IN (មកមុន)</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-white/5">
+              {departmentStats.map((dept, index) => (
+                <tr key={`dur-${dept.id || index}`} className="hover:bg-slate-900/40 transition-colors">
+                  <td className="py-3.5 px-4 text-center font-mono text-xs text-slate-500">{index + 1}</td>
+                  <td className="py-3.5 px-6 font-bold text-white font-khmer">{dept.displayName}</td>
+                  <td className="py-3.5 px-4 text-center font-mono">{dept.employeeCount}</td>
+                  <td className="py-3.5 px-4 text-center font-mono font-bold text-amber-400">{formatHMn(dept.lateMinutes)}</td>
+                  <td className="py-3.5 px-4 text-center font-mono font-bold text-rose-400">{formatHMn(dept.earlyOutMinutes)}</td>
+                  <td className="py-3.5 px-4 text-center font-mono font-bold text-emerald-400">{formatHMn(dept.earlyInMinutes)}</td>
+                </tr>
+              ))}
+            </tbody>
+            <tfoot className="bg-slate-950/90 font-bold border-t-2 border-white/10 text-xs text-slate-200">
+              <tr>
+                <td colSpan="2" className="py-3.5 px-6 font-khmer text-right uppercase tracking-wider">{language === 'kh' ? 'សរុបរួម (TOTAL)' : 'TOTAL'}</td>
+                <td className="py-3.5 px-4 text-center font-mono text-white">{departmentStats.reduce((acc, d) => acc + (d.employeeCount || 0), 0)}</td>
+                <td className="py-3.5 px-4 text-center font-mono text-amber-400 font-black">{formatHMn(totals.totalLateMinutes)}</td>
+                <td className="py-3.5 px-4 text-center font-mono text-rose-400 font-black">{formatHMn(totals.totalEarlyOutMinutes)}</td>
+                <td className="py-3.5 px-4 text-center font-mono text-emerald-400 font-black">{formatHMn(totals.totalEarlyInMinutes)}</td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      </div>
+
       {/* 3. Detailed Attendance Logs Table */}
       <div className="glass-card rounded-2xl overflow-hidden print-card">
         <div className="p-4 bg-slate-950/80 border-b border-white/10 flex items-center justify-between gap-4">
@@ -1284,7 +1789,7 @@ const Reports = () => {
                           {rowNumber}
                         </td>
                         <td className="py-4 px-6 font-semibold text-white whitespace-nowrap font-mono">
-                          {log.attendanceDate ? new Date(log.attendanceDate).toLocaleDateString() : '-'}
+                          {formatDateDDMMYYYY(log.attendanceDate)}
                         </td>
                         <td className="py-4 px-6 min-w-[220px]">
                           <div className="flex items-center gap-3">
@@ -1320,22 +1825,32 @@ const Reports = () => {
                         <td className="py-4 px-6 whitespace-nowrap font-mono">{log.checkin2 ? formatTime12Hour(log.checkin2) : '-'}</td>
                         <td className="py-4 px-6 whitespace-nowrap font-mono">{log.checkout2 ? formatTime12Hour(log.checkout2) : '-'}</td>
                         <td className="py-4 px-6 space-y-1 whitespace-nowrap">
-                          {log.isLate && (
+                          {log._isLate && (
                             <span className="inline-flex items-center rounded-full bg-amber-500/10 px-2.5 py-0.5 text-xs font-medium text-amber-300 ring-1 ring-inset ring-amber-500/20 font-khmer">
                               {t('late')}
                             </span>
                           )}
-                          {log.isEarlyLeave && (
+                          {log._isEarlyOut && (
                             <span className="inline-flex items-center rounded-full bg-rose-500/10 px-2.5 py-0.5 text-xs font-medium text-rose-300 ring-1 ring-inset ring-rose-500/20 font-khmer ml-1">
                               {t('earlyLeave')}
                             </span>
                           )}
-                          {!log.isLate && !log.isEarlyLeave && (log.checkin1 || log.checkin2 || log.checkout1 || log.checkout2) && (
+                          {log._isEarlyIn && (
+                            <span className="inline-flex items-center rounded-full bg-emerald-500/10 px-2.5 py-0.5 text-xs font-medium text-emerald-400 ring-1 ring-inset ring-emerald-500/20 font-khmer ml-1">
+                              {language === 'kh' ? 'មកមុន' : 'Early In'}
+                            </span>
+                          )}
+                          {log._isIncomplete && (
+                            <span className="inline-flex items-center rounded-full bg-purple-500/10 px-2.5 py-0.5 text-xs font-medium text-purple-300 ring-1 ring-inset ring-purple-500/20 font-khmer ml-1">
+                              {language === 'kh' ? 'ស្កេនមិនគ្រប់' : 'Incomplete'}
+                            </span>
+                          )}
+                          {log._isOnTime && (
                             <span className="inline-flex items-center rounded-full bg-emerald-500/10 px-2.5 py-0.5 text-xs font-medium text-emerald-300 ring-1 ring-inset ring-emerald-500/20 font-khmer">
                               {t('normal')}
                             </span>
                           )}
-                          {!(log.checkin1 || log.checkin2 || log.checkout1 || log.checkout2) && (
+                          {!log._isLate && !log._isEarlyOut && !log._isEarlyIn && !log._isIncomplete && !log._isOnTime && (
                             <span className="inline-flex items-center rounded-full bg-slate-500/10 px-2.5 py-0.5 text-xs font-medium text-slate-400 ring-1 ring-inset ring-slate-500/20 font-khmer">
                               -
                             </span>

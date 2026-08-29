@@ -190,13 +190,13 @@ public class LeaveApprovalController {
             List<String> skippedIds = new ArrayList<>();
 
             for (String tId : staffIds) {
-                boolean exists = ruleRepository.findAll().stream().anyMatch(r ->
-                        request.getApproverId().equalsIgnoreCase(r.getApproverId()) &&
-                                "Employee".equalsIgnoreCase(r.getScope()) &&
+                // An employee can only have ONE approver rule
+                boolean alreadyHasApprover = ruleRepository.findAll().stream().anyMatch(r ->
+                        "Employee".equalsIgnoreCase(r.getScope()) &&
                                 tId.equalsIgnoreCase(r.getTargetStaffId())
                 );
 
-                if (exists) {
+                if (alreadyHasApprover) {
                     skippedIds.add(tId);
                     continue;
                 }
@@ -211,7 +211,7 @@ public class LeaveApprovalController {
             }
 
             if (createdRules.isEmpty() && !skippedIds.isEmpty()) {
-                return ResponseEntity.badRequest().body(Map.of("message", "All selected employees already have this approval rule set."));
+                return ResponseEntity.badRequest().body(Map.of("message", "Selected employee(s) already have an approver assigned. Each employee can only have one approver. (បុគ្គលិកម្នាក់មាន approver តែម្នាក់ប៉ុណ្ណោះ)"));
             }
 
             return ResponseEntity.status(HttpStatus.CREATED).body(Map.of(
@@ -276,15 +276,15 @@ public class LeaveApprovalController {
                     ? request.getTargetStaffId()
                     : request.getTargetStaffIds().get(0);
 
-            boolean exists = ruleRepository.findAll().stream().anyMatch(r ->
+            // An employee can only have ONE approver rule
+            boolean alreadyHasApprover = ruleRepository.findAll().stream().anyMatch(r ->
                     !id.equals(r.getId()) &&
-                            request.getApproverId().equalsIgnoreCase(r.getApproverId()) &&
                             "Employee".equalsIgnoreCase(r.getScope()) &&
                             targetStaffId.equalsIgnoreCase(r.getTargetStaffId())
             );
 
-            if (exists) {
-                return ResponseEntity.badRequest().body(Map.of("message", "This approval rule already exists for this employee"));
+            if (alreadyHasApprover) {
+                return ResponseEntity.badRequest().body(Map.of("message", "This employee already has an approver assigned. Each employee can only have one approver. (បុគ្គលិកម្នាក់មាន approver តែម្នាក់ប៉ុណ្ណោះ)"));
             }
 
             rule.setApproverId(request.getApproverId());

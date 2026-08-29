@@ -20,7 +20,7 @@ import appIcon from '../assets/app_icon.png';
 const Sidebar = ({ isOpen, toggleSidebar }) => {
   const { user, hasPermission } = useAuth();
   const { t } = useLanguage();
-  const [openMenus, setOpenMenus] = useState({ Attendance: true, Leave: true, Setup: true, WebManage: true });
+  const [openMenus, setOpenMenus] = useState({ Attendance: true, Leave: true, Setup: true, WebManage: true, Reports: true });
 
   const menuItems = [
     {
@@ -111,10 +111,22 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
       ]
     },
     {
-      path: "/reports",
+      key: "Reports",
       name: t("reports"),
       icon: DocumentChartBarIcon,
       resource: "reports",
+      subItems: [
+        {
+          path: "/reports",
+          name: t("attendanceReportMenu") || "Attendance Report",
+          resource: "reports",
+        },
+        {
+          path: "/reports/leave",
+          name: t("leaveReport") || "Leave Report",
+          resource: "reports",
+        },
+      ]
     },
     {
       path: "/kiosk",
@@ -242,6 +254,7 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
                       <NavLink
                         key={sub.path}
                         to={sub.path}
+                        end
                         onClick={() => isOpen && toggleSidebar()}
                         className={({ isActive }) =>
                           `flex items-center gap-3 px-4 py-2 text-xs font-medium rounded-lg transition-all duration-200 ${
@@ -264,6 +277,7 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
             <NavLink
               key={item.path}
               to={item.path}
+              end={item.path === '/'}
               onClick={() => isOpen && toggleSidebar()}
               className={({ isActive }) =>
                 `flex items-center gap-3 px-6 py-3.5 text-sm font-medium transition-all duration-200 relative border-none bg-transparent ${

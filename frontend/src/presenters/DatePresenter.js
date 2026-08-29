@@ -16,20 +16,39 @@ export class DatePresenter {
   }
 
   /**
-   * Format date for localized display
+   * Format date to DD/MM/YYYY
    * @param {Date|string|null} date
-   * @param {string} [locale='en-US']
    * @returns {string}
    */
-  static toDisplay(date, locale = 'en-US') {
+  static toDDMMYYYY(date) {
     if (!date) return '-';
-    const d = date instanceof Date ? date : new Date(date);
-    if (isNaN(d.getTime())) return '-';
-    return d.toLocaleDateString(locale, {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-    });
+    try {
+      if (typeof date === 'string') {
+        const clean = date.trim();
+        const datePart = clean.split('T')[0];
+        if (/^\d{4}-\d{2}-\d{2}$/.test(datePart)) {
+          const [y, m, d] = datePart.split('-');
+          return `${d}/${m}/${y}`;
+        }
+      }
+      const d = date instanceof Date ? date : new Date(date);
+      if (isNaN(d.getTime())) return String(date);
+      const day = String(d.getDate()).padStart(2, '0');
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const year = d.getFullYear();
+      return `${day}/${month}/${year}`;
+    } catch {
+      return String(date);
+    }
+  }
+
+  /**
+   * Format date for localized display in DD/MM/YYYY
+   * @param {Date|string|null} date
+   * @returns {string}
+   */
+  static toDisplay(date) {
+    return DatePresenter.toDDMMYYYY(date);
   }
 
   /**

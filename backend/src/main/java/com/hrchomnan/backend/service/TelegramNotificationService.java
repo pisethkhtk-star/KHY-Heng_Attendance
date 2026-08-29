@@ -57,8 +57,12 @@ public class TelegramNotificationService {
                 if (setting.getBotToken() == null || setting.getBotToken().isBlank()) return;
                 if (setting.getChatId() == null || setting.getChatId().isBlank()) return;
 
-                boolean isCheckin = action != null && action.startsWith("checkin");
-                boolean isCheckout = action != null && action.startsWith("checkout");
+                if (action == null || "completed".equalsIgnoreCase(action)) {
+                    return;
+                }
+
+                boolean isCheckin = action.startsWith("checkin");
+                boolean isCheckout = action.startsWith("checkout");
 
                 if (isCheckin && setting.getSendOnCheckin() != null && !setting.getSendOnCheckin()) {
                     return;

@@ -20,21 +20,11 @@ import {
   XCircleIcon,
 } from '@heroicons/react/24/outline';
 
-// Helper to format Date into localized display string e.g. "28 August 2026 (Friday)"
-const formatDisplayDate = (dateString, locale) => {
-  if (!dateString) return '-';
-  try {
-    const d = new Date(dateString);
-    if (isNaN(d.getTime())) return dateString;
-    return d.toLocaleDateString(locale === 'kh' ? 'km-KH' : 'en-US', {
-      weekday: 'short',
-      day: '2-digit',
-      month: 'short',
-      year: 'numeric',
-    });
-  } catch (e) {
-    return dateString;
-  }
+import { formatDateDDMMYYYY, formatDateWithMonth } from '../utils/dateUtils';
+
+// Helper to format Date into DD MMMM YYYY (e.g. "01 August 2026")
+const formatDisplayDate = (dateString, locale = 'en') => {
+  return formatDateWithMonth(dateString, locale);
 };
 
 const getEmpPhoto = (emp) => {
@@ -183,11 +173,18 @@ const AttendanceIncomplete = () => {
       }
     });
 
-    // 2. Approved leaves map: key = `${staffId}_${dateString}` -> list of leave records
+    // 2. Approved and Pending leaves map: key = `${staffId}_${dateString}` -> list of leave records
     const leavesMap = new Map();
     leaves.forEach(lv => {
-      if (lv.status === 'Approved' || lv.status === 'Pending') {
-        const dateStr = lv.leaveDate ? new Date(lv.leaveDate).toISOString().split('T')[0] : '';
+      const st = (lv.status || '').toLowerCase();
+      if (st === 'approved' || st === 'pending') {
+        const rawDate = lv.leaveDate || lv.startDate || '';
+        let dateStr = '';
+        if (typeof rawDate === 'string') {
+          dateStr = rawDate.split('T')[0];
+        } else if (rawDate) {
+          dateStr = new Date(rawDate).toISOString().split('T')[0];
+        }
         if (lv.staffId && dateStr) {
           const key = `${lv.staffId}_${dateStr}`;
           if (!leavesMap.has(key)) {
@@ -197,6 +194,10 @@ const AttendanceIncomplete = () => {
         }
       }
     });
+
+    // Local today string (YYYY-MM-DD)
+    const now = new Date();
+    const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
 
     // Generate list of dates between startDate and endDate
     const dateList = [];
@@ -233,12 +234,6 @@ const AttendanceIncomplete = () => {
         } catch (e) {}
       }
 
-      // Check if employee has Shift 2 enabled
-      const hasShift2 = Boolean(
-        emp.shift2Start && emp.shift2End &&
-        emp.shift2Start.trim() !== '' && emp.shift2End.trim() !== ''
-      );
-
       dateList.forEach(dateStr => {
         // Check join date
         if (emp.joinDate && dateStr < emp.joinDate) return;
@@ -258,11 +253,34 @@ const AttendanceIncomplete = () => {
           }
         }
 
-        // If not a scheduled working day, skip!
-        if (!isWorkingDay) return;
+        // Retrieve existing attendance log
+        const log = logsMap.get(`${emp.staffId}_${dateStr}`);
+        const c1 = log?.checkin1 && log.checkin1 !== '-' && log.checkin1 !== '--:--' && log.checkin1.trim() !== '' ? log.checkin1 : null;
+        const o1 = log?.checkout1 && log.checkout1 !== '-' && log.checkout1 !== '--:--' && log.checkout1.trim() !== '' ? log.checkout1 : null;
+        const c2 = log?.checkin2 && log.checkin2 !== '-' && log.checkin2 !== '--:--' && log.checkin2.trim() !== '' ? log.checkin2 : null;
+        const o2 = log?.checkout2 && log.checkout2 !== '-' && log.checkout2 !== '--:--' && log.checkout2.trim() !== '' ? log.checkout2 : null;
+        const hasAnyScan = Boolean(c1 || o1 || c2 || o2);
+
+        // Check if employee has Shift 2 enabled (check employee, companyWorkHours, or actual shift 2 scans)
+        const s2Start = emp.shift2Start || companyWorkHours?.shift2Start;
+        const s2End = emp.shift2End || companyWorkHours?.shift2End;
+        const hasShift2 = Boolean(
+          (s2Start && s2End && s2Start.trim() !== '' && s2End.trim() !== '') ||
+          c2 || o2
+        );
+
+        // If not a scheduled working day AND employee has no scans at all, skip!
+        // But if employee clocked in on a day off/weekend, evaluate their scans!
+        if (!isWorkingDay && !hasAnyScan) return;
 
         // Check Leaves on this date for this employee
         const empLeaves = leavesMap.get(`${emp.staffId}_${dateStr}`) || [];
+        const isToday = dateStr === todayStr;
+        const hasLeaveRecord = empLeaves.length > 0 || (log?.note && log.note.toLowerCase().includes('leave'));
+
+        // If employee took leave on today, do NOT count into incomplete!
+        if (isToday && hasLeaveRecord) return;
+
         let hasFullDayLeave = false;
         let hasMorningLeave = false;
         let hasAfternoonLeave = false;
@@ -284,25 +302,18 @@ const AttendanceIncomplete = () => {
             hasAfternoonLeave = true;
             leaveNote = `${typeName} (Afternoon Shift)`;
           } else if (days <= 0.5) {
-            // Default half-day without explicit shift -> treats as Morning leave or half-day excused
             hasMorningLeave = true;
             leaveNote = `${typeName} (Half Day)`;
           }
         });
 
-        // If employee took full day leave, do NOT show this date at all!
-        if (hasFullDayLeave) return;
+        // If employee took full day leave AND has NO scans at all, skip!
+        // But if employee has leave yet showed up and has scans, evaluate missing scans!
+        if (hasFullDayLeave && !hasAnyScan) return;
 
-        // Retrieve existing attendance log
-        const log = logsMap.get(`${emp.staffId}_${dateStr}`);
-        const c1 = log?.checkin1 && log.checkin1 !== '-' && log.checkin1 !== '--:--' ? log.checkin1 : null;
-        const o1 = log?.checkout1 && log.checkout1 !== '-' && log.checkout1 !== '--:--' ? log.checkout1 : null;
-        const c2 = log?.checkin2 && log.checkin2 !== '-' && log.checkin2 !== '--:--' ? log.checkin2 : null;
-        const o2 = log?.checkout2 && log.checkout2 !== '-' && log.checkout2 !== '--:--' ? log.checkout2 : null;
-
-        // Evaluate Missing Shifts
-        const shift1Required = !hasMorningLeave;
-        const shift2Required = hasShift2 && !hasAfternoonLeave;
+        // Evaluate Missing Shifts (even 1 missing scan counts as incomplete)
+        const shift1Required = (!hasMorningLeave) || Boolean(c1 || o1);
+        const shift2Required = (hasShift2 && !hasAfternoonLeave) || Boolean(c2 || o2);
 
         const missingCheckin1 = shift1Required && !c1;
         const missingCheckout1 = shift1Required && !o1;
@@ -312,7 +323,7 @@ const AttendanceIncomplete = () => {
         const isShift1Incomplete = missingCheckin1 || missingCheckout1;
         const isShift2Incomplete = missingCheckin2 || missingCheckout2;
 
-        // If there are any missing scans
+        // If there is even 1 missing scan, count in incomplete!
         if (isShift1Incomplete || isShift2Incomplete) {
           const missingDetails = [];
           if (missingCheckin1 && missingCheckout1 && (!shift2Required || (missingCheckin2 && missingCheckout2))) {
@@ -471,8 +482,8 @@ const AttendanceIncomplete = () => {
   const handleExportCSV = () => {
     if (filteredRecords.length === 0) return;
 
-    const startDisplay = startDate ? new Date(startDate).toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' }) : 'Start';
-    const endDisplay = endDate ? new Date(endDate).toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' }) : 'End';
+    const startDisplay = startDate ? formatDateDDMMYYYY(startDate) : 'Start';
+    const endDisplay = endDate ? formatDateDDMMYYYY(endDate) : 'End';
     const title = `Incomplete Shift Attendance Report (${startDisplay} to ${endDisplay})`;
 
     let excelHTML = `
@@ -572,7 +583,7 @@ const AttendanceIncomplete = () => {
       excelHTML += `
         <tr>
           <td style="text-align:center;">${idx + 1}</td>
-          <td>${rec.attendanceDate ? new Date(rec.attendanceDate).toLocaleDateString() : '-'}</td>
+          <td>${formatDateDDMMYYYY(rec.attendanceDate)}</td>
           <td style="font-weight:bold;">${rec.staffId}</td>
           <td>${emp.nameEn || ''}</td>
           <td>${emp.nameKh || ''}</td>

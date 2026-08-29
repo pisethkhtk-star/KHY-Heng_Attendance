@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
 import { MagnifyingGlassIcon, PencilIcon, PlusIcon, TrashIcon, ArrowDownTrayIcon, ChevronDownIcon, ChevronUpIcon, XMarkIcon } from '@heroicons/react/24/outline';
 
-import { formatTime12Hour } from '../utils/dateUtils';
+import { formatTime12Hour, formatDateDDMMYYYY } from '../utils/dateUtils';
 
 const TimePicker12Hour = ({ label, value, onChange }) => {
   const parseTimeTo12Hour = (time24) => {
@@ -462,8 +462,8 @@ const Attendance = () => {
   const handleExportCSV = () => {
     if (displayLogs.length === 0) return;
 
-    const startDisplay = startDate ? new Date(startDate).toLocaleDateString('en-US', { day: '2-digit', month: 'short', year: 'numeric' }) : 'Start';
-    const endDisplay = endDate ? new Date(endDate).toLocaleDateString('en-US', { day: '2-digit', month: 'short', year: 'numeric' }) : 'End';
+    const startDisplay = startDate ? formatDateDDMMYYYY(startDate) : 'Start';
+    const endDisplay = endDate ? formatDateDDMMYYYY(endDate) : 'End';
     const title = `All Attendance History Logs (${startDisplay} to ${endDisplay})`;
 
     const totalLogs = displayLogs.length;
@@ -568,7 +568,7 @@ const Attendance = () => {
       excelHTML += `
         <tr>
           <td style="text-align:center;">${idx + 1}</td>
-          <td>${log.attendanceDate ? new Date(log.attendanceDate).toLocaleDateString() : '-'}</td>
+          <td>${formatDateDDMMYYYY(log.attendanceDate)}</td>
           <td style="font-weight:bold;">${targetStaffId || '-'}</td>
           <td>${nameEn}</td>
           <td>${nameKh}</td>
@@ -843,7 +843,7 @@ const Attendance = () => {
                           {rowNumber}
                         </td>
                         <td className="py-4 px-6 font-semibold text-white whitespace-nowrap">
-                          {log.attendanceDate ? new Date(log.attendanceDate).toLocaleDateString() : '-'}
+                          {formatDateDDMMYYYY(log.attendanceDate)}
                         </td>
                         {user.role !== 'Employee' && (
                           <td className="py-4 px-6 whitespace-nowrap">
@@ -1025,7 +1025,7 @@ const Attendance = () => {
                     <div>
                       <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider font-khmer">Date</p>
                       <p className="text-white font-bold mt-1">
-                        {new Date(selectedLog.attendanceDate).toLocaleDateString()}
+                        {formatDateDDMMYYYY(selectedLog.attendanceDate)}
                       </p>
                     </div>
                   </div>

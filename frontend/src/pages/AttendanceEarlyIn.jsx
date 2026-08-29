@@ -39,20 +39,11 @@ const formatDuration = (totalMinutes) => {
   return `${mins}m`;
 };
 
-// Helper to format Date into "01 August 2026"
-const formatDisplayDate = (dateString, locale) => {
-  if (!dateString) return '-';
-  try {
-    const d = new Date(dateString);
-    if (isNaN(d.getTime())) return dateString;
-    return d.toLocaleDateString(locale === 'kh' ? 'km-KH' : 'en-US', {
-      day: '2-digit',
-      month: 'long',
-      year: 'numeric',
-    });
-  } catch (e) {
-    return dateString;
-  }
+import { formatDateDDMMYYYY, formatDateWithMonth } from '../utils/dateUtils';
+
+// Helper to format Date into DD MMMM YYYY (e.g. "01 August 2026")
+const formatDisplayDate = (dateString, locale = 'en') => {
+  return formatDateWithMonth(dateString, locale);
 };
 
 const AttendanceEarlyIn = () => {

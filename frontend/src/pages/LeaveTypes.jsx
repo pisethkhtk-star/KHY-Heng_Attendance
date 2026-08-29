@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import api from '../utils/api';
-
+import { useLanguage } from '../context/LanguageContext';
 import { Cog6ToothIcon, PlusIcon, PencilSquareIcon, TrashIcon, ArrowPathIcon } from '@heroicons/react/24/outline';
 
 const LeaveTypes = () => {
+  const { t, locale } = useLanguage();
+  const isKh = locale === 'kh';
 
   const [leaveTypes, setLeaveTypes] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -92,7 +94,7 @@ const LeaveTypes = () => {
   const handleSave = async (e) => {
     e.preventDefault();
     if (!code.trim() || !nameEn.trim() || !nameKh.trim() || !maxDays) {
-      setErrorMsg('Code, English Name, Khmer Name, and Max Days are required.');
+      setErrorMsg(isKh ? 'សូមបំពេញ កូដ, ឈ្មោះជាភាសាខ្មែរ, ឈ្មោះជាភាសាអង់គ្លេស និងចំនួនថ្ងៃអតិបរមា។' : 'Code, English Name, Khmer Name, and Max Days are required.');
       return;
     }
 
@@ -111,10 +113,10 @@ const LeaveTypes = () => {
     try {
       if (editId) {
         await api.put(`/leave-types/${editId}`, payload);
-        setSuccessMsg('Leave type updated successfully!');
+        setSuccessMsg(isKh ? 'ប្រភេទច្បាប់ត្រូវបានកែប្រែដោយជោគជ័យ!' : 'Leave type updated successfully!');
       } else {
         await api.post('/leave-types', payload);
-        setSuccessMsg('Leave type created successfully!');
+        setSuccessMsg(isKh ? 'ប្រភេទច្បាប់ថ្មីត្រូវបានបង្កើតដោយជោគជ័យ!' : 'Leave type created successfully!');
       }
       playSound('success');
       setShowModal(false);
@@ -122,7 +124,7 @@ const LeaveTypes = () => {
       setTimeout(() => setSuccessMsg(''), 4000);
     } catch (err) {
       console.error('Error saving leave type:', err);
-      setErrorMsg(err.response?.data?.message || 'Failed to save leave type.');
+      setErrorMsg(err.response?.data?.message || (isKh ? 'មិនអាចរក្សាទុកប្រភេទច្បាប់បានទេ។' : 'Failed to save leave type.'));
       playSound('error');
     } finally {
       setSaving(false);
@@ -130,7 +132,7 @@ const LeaveTypes = () => {
   };
 
   const handleDelete = async (id) => {
-    if (!window.confirm('Are you sure you want to delete this leave type? This might affect leaves showing this type code.')) {
+    if (!window.confirm(isKh ? 'តើអ្នកប្រាកដជាចង់លុបប្រភេទច្បាប់នេះមែនទេ? សកម្មភាពនេះអាចប៉ះពាល់ដល់សំណើសុំច្បាប់ដែលប្រើប្រាស់ប្រភេទនេះ។' : 'Are you sure you want to delete this leave type? This might affect leaves showing this type code.')) {
       return;
     }
 
@@ -140,13 +142,13 @@ const LeaveTypes = () => {
 
     try {
       await api.delete(`/leave-types/${id}`);
-      setSuccessMsg('Leave type deleted successfully!');
+      setSuccessMsg(isKh ? 'ប្រភេទច្បាប់ត្រូវបានលុបដោយជោគជ័យ!' : 'Leave type deleted successfully!');
       playSound('success');
       fetchLeaveTypes();
       setTimeout(() => setSuccessMsg(''), 4000);
     } catch (err) {
       console.error('Error deleting leave type:', err);
-      setErrorMsg('Failed to delete leave type.');
+      setErrorMsg(err.response?.data?.message || (isKh ? 'មិនអាចលុបប្រភេទច្បាប់បានទេ។' : 'Failed to delete leave type.'));
       playSound('error');
     } finally {
       setDeletingId(null);
@@ -170,8 +172,9 @@ const LeaveTypes = () => {
             <Cog6ToothIcon className="h-6 w-6 text-indigo-400" />
           </div>
           <div>
-            <h1 className="text-xl font-bold text-white font-khmer">Leav Types</h1>
-
+            <h1 className="text-xl font-bold text-white font-khmer">
+              {isKh ? 'ប្រភេទច្បាប់ឈប់សម្រាក' : 'Leave Types'}
+            </h1>
           </div>
         </div>
 
@@ -180,7 +183,7 @@ const LeaveTypes = () => {
           className="flex items-center gap-2 px-4 py-2.5 text-xs font-bold text-white bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 shadow-md shadow-indigo-500/20 rounded-xl cursor-pointer transition-all border-none outline-none font-khmer"
         >
           <PlusIcon className="h-4 w-4" />
-          <span>Add Type</span>
+          <span>{isKh ? 'បន្ថែមប្រភេទច្បាប់' : 'Add Type'}</span>
         </button>
       </div>
 
@@ -203,22 +206,22 @@ const LeaveTypes = () => {
             <thead>
               <tr className="bg-slate-950/20">
                 <th className="py-4 px-6 text-xs font-bold text-slate-400 uppercase tracking-wider font-khmer w-24">
-                  Code
+                  {isKh ? 'កូដ' : 'Code'}
                 </th>
                 <th className="py-4 px-6 text-xs font-bold text-slate-400 uppercase tracking-wider font-khmer">
-                  Khmer Name
+                  {isKh ? 'ឈ្មោះជាភាសាខ្មែរ' : 'Khmer Name'}
                 </th>
                 <th className="py-4 px-6 text-xs font-bold text-slate-400 uppercase tracking-wider font-khmer">
-                  English Name
+                  {isKh ? 'ឈ្មោះជាភាសាអង់គ្លេស' : 'English Name'}
                 </th>
                 <th className="py-4 px-6 text-xs font-bold text-slate-400 uppercase tracking-wider font-khmer text-center w-36">
-                  Max Days
+                  {isKh ? 'ចំនួនថ្ងៃអតិបរមា' : 'Max Days'}
                 </th>
                 <th className="py-4 px-6 text-xs font-bold text-slate-400 uppercase tracking-wider font-khmer">
-                  Description
+                  {isKh ? 'សេចក្តីពិពណ៌នា' : 'Description'}
                 </th>
                 <th className="py-4 px-6 text-xs font-bold text-slate-400 uppercase tracking-wider font-khmer text-center w-28">
-                  Action
+                  {isKh ? 'សកម្មភាព' : 'Action'}
                 </th>
               </tr>
             </thead>
@@ -235,7 +238,7 @@ const LeaveTypes = () => {
                     {type.nameEn}
                   </td>
                   <td className="py-4 px-6 text-center text-indigo-300 text-sm font-bold font-mono">
-                    {parseFloat(type.maxDays).toFixed(1)} day
+                    {parseFloat(type.maxDays).toFixed(1)} {isKh ? 'ថ្ងៃ' : 'day'}
                   </td>
                   <td className="py-4 px-6 text-slate-400 text-xs max-w-sm truncate font-khmer">
                     {type.description || '-'}
@@ -245,7 +248,7 @@ const LeaveTypes = () => {
                       <button
                         onClick={() => handleOpenEditModal(type)}
                         className="p-1.5 rounded-lg text-slate-400 hover:text-indigo-400 hover:bg-indigo-500/10 transition-all cursor-pointer border-none bg-transparent outline-none"
-                        title="Edit Leave Type"
+                        title={isKh ? 'កែប្រែប្រភេទច្បាប់' : 'Edit Leave Type'}
                       >
                         <PencilSquareIcon className="h-4 w-4" />
                       </button>
@@ -253,7 +256,7 @@ const LeaveTypes = () => {
                         onClick={() => handleDelete(type.id)}
                         disabled={deletingId === type.id}
                         className="p-1.5 rounded-lg text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 transition-all cursor-pointer border-none bg-transparent outline-none disabled:opacity-50"
-                        title="Delete Leave Type"
+                        title={isKh ? 'លុបប្រភេទច្បាប់' : 'Delete Leave Type'}
                       >
                         {deletingId === type.id ? (
                           <ArrowPathIcon className="h-4 w-4 animate-spin" />
@@ -267,8 +270,8 @@ const LeaveTypes = () => {
               ))}
               {leaveTypes.length === 0 && (
                 <tr>
-                  <td colSpan="5" className="py-8 text-center text-slate-500 text-xs font-khmer">
-                    គ្មានទិន្នន័យប្រភេទច្បាប់ទេ (No leave types found).
+                  <td colSpan="6" className="py-8 text-center text-slate-500 text-xs font-khmer">
+                    {isKh ? 'គ្មានទិន្នន័យប្រភេទច្បាប់ទេ' : 'No leave types found.'}
                   </td>
                 </tr>
               )}
@@ -282,7 +285,9 @@ const LeaveTypes = () => {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-fade-in">
           <div className="w-full max-w-md bg-slate-900 border border-white/10 rounded-2xl overflow-hidden shadow-2xl p-6 relative">
             <h3 className="text-base font-bold text-white font-khmer border-b border-white/5 pb-2 mb-4">
-              {editId ? '📝 កែប្រែប្រភេទច្បាប់' : '➕ បន្ថែមប្រភេទច្បាប់ថ្មី'}
+              {editId 
+                ? (isKh ? '📝 កែប្រែប្រភេទច្បាប់' : '📝 Edit Leave Type') 
+                : (isKh ? '➕ បន្ថែមប្រភេទច្បាប់ថ្មី' : '➕ Add New Leave Type')}
             </h3>
 
             {errorMsg && (
@@ -295,7 +300,7 @@ const LeaveTypes = () => {
               <div className="grid grid-cols-3 gap-3">
                 <div className="col-span-1">
                   <label className="block text-[10px] font-semibold text-slate-400 uppercase mb-1.5 font-khmer">
-                    Code *
+                    {isKh ? 'កូដសម្គាល់ *' : 'Code *'}
                   </label>
                   <input
                     type="text"
@@ -310,12 +315,12 @@ const LeaveTypes = () => {
                 </div>
                 <div className="col-span-2">
                   <label className="block text-[10px] font-semibold text-slate-400 uppercase mb-1.5 font-khmer">
-                    ឈ្មោះជាខ្មែរ (Khmer Name) *
+                    {isKh ? 'ឈ្មោះជាភាសាខ្មែរ *' : 'Khmer Name *'}
                   </label>
                   <input
                     type="text"
                     required
-                    placeholder="ឧទាហរណ៍៖ ច្បាប់លំហែកូន"
+                    placeholder={isKh ? 'ឧទាហរណ៍៖ ច្បាប់សំរាលកូន' : 'e.g. Maternity Leave in Khmer'}
                     value={nameKh}
                     onChange={(e) => setNameKh(e.target.value)}
                     className="w-full py-2 px-3 bg-slate-950/60 border border-white/10 text-white rounded-xl text-xs focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/20 outline-none transition-all font-khmer font-medium"
@@ -326,7 +331,7 @@ const LeaveTypes = () => {
               <div className="grid grid-cols-3 gap-3">
                 <div className="col-span-2">
                   <label className="block text-[10px] font-semibold text-slate-400 uppercase mb-1.5 font-khmer">
-                    English Name *
+                    {isKh ? 'ឈ្មោះជាភាសាអង់គ្លេស *' : 'English Name *'}
                   </label>
                   <input
                     type="text"
@@ -339,7 +344,7 @@ const LeaveTypes = () => {
                 </div>
                 <div className="col-span-1">
                   <label className="block text-[10px] font-semibold text-slate-400 uppercase mb-1.5 font-khmer">
-                    Max Days *
+                    {isKh ? 'ចំនួនថ្ងៃអតិបរមា *' : 'Max Days *'}
                   </label>
                   <input
                     type="number"
@@ -356,10 +361,10 @@ const LeaveTypes = () => {
 
               <div>
                 <label className="block text-[10px] font-semibold text-slate-400 uppercase mb-1.5 font-khmer">
-                  សេចក្តីពណ៌នា (Description)
+                  {isKh ? 'សេចក្តីពិពណ៌នា (Description)' : 'Description'}
                 </label>
                 <textarea
-                  placeholder="លក្ខខណ្ឌ ឬសេចក្ដីលម្អិត..."
+                  placeholder={isKh ? 'លក្ខខណ្ឌ ឬសេចក្ដីលម្អិត...' : 'Conditions or details...'}
                   rows="3"
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
@@ -373,7 +378,7 @@ const LeaveTypes = () => {
                   onClick={() => setShowModal(false)}
                   className="px-4 py-2 text-xs font-semibold rounded-xl border border-white/10 hover:bg-white/5 text-slate-300 transition-all cursor-pointer outline-none bg-transparent font-khmer"
                 >
-                  Cancel
+                  {t('cancel') || (isKh ? 'បោះបង់' : 'Cancel')}
                 </button>
                 <button
                   type="submit"
@@ -383,10 +388,10 @@ const LeaveTypes = () => {
                   {saving ? (
                     <>
                       <span className="animate-spin rounded-full h-3 w-3 border border-white border-t-transparent"></span>
-                      <span>Saving...</span>
+                      <span>{isKh ? 'កំពុងរក្សាទុក...' : 'Saving...'}</span>
                     </>
                   ) : (
-                    <span>Save</span>
+                    <span>{t('save') || (isKh ? 'រក្សាទុក' : 'Save')}</span>
                   )}
                 </button>
               </div>

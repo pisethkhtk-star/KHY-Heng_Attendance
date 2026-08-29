@@ -23,6 +23,7 @@ import AttendanceIncomplete from './pages/AttendanceIncomplete';
 import Leaves from './pages/Leaves';
 import Overtime from './pages/Overtime';
 import Reports from './pages/Reports';
+import LeaveReport from './pages/LeaveReport';
 import Kiosk from './pages/Kiosk';
 import KioskSettings from './pages/KioskSettings';
 import Permissions from './pages/Permissions';
@@ -144,6 +145,22 @@ function App() {
                 element={
                   <ProtectedRoute resource="reports">
                     <Reports />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="reports/attendance"
+                element={
+                  <ProtectedRoute resource="reports">
+                    <Reports />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="reports/leave"
+                element={
+                  <ProtectedRoute resource="reports">
+                    <LeaveReport />
                   </ProtectedRoute>
                 }
               />

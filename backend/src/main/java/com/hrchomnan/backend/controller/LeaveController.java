@@ -39,7 +39,10 @@ public class LeaveController {
     public ResponseEntity<List<Map<String, Object>>> getAllLeaves(
             @RequestParam(required = false) String status,
             @RequestParam(required = false) String search,
-            @RequestParam(required = false) String departmentId
+            @RequestParam(required = false) String departmentId,
+            @RequestParam(required = false) String startDate,
+            @RequestParam(required = false) String endDate,
+            @RequestParam(required = false) String dateType
     ) {
         List<Leave> list = leaveRepository.findAll();
 
@@ -70,6 +73,30 @@ public class LeaveController {
             } catch (Exception ignored) {}
         }
 
+        if (startDate != null && !startDate.isBlank()) {
+            try {
+                LocalDate start = LocalDate.parse(startDate.trim());
+                list = list.stream().filter(l -> {
+                    LocalDate target = "leaveDate".equalsIgnoreCase(dateType)
+                            ? l.getLeaveDate()
+                            : (l.getRequestedAt() != null ? l.getRequestedAt().toLocalDate() : (l.getCreatedAt() != null ? l.getCreatedAt().toLocalDate() : l.getLeaveDate()));
+                    return target != null && !target.isBefore(start);
+                }).collect(Collectors.toList());
+            } catch (Exception ignored) {}
+        }
+
+        if (endDate != null && !endDate.isBlank()) {
+            try {
+                LocalDate end = LocalDate.parse(endDate.trim());
+                list = list.stream().filter(l -> {
+                    LocalDate target = "leaveDate".equalsIgnoreCase(dateType)
+                            ? l.getLeaveDate()
+                            : (l.getRequestedAt() != null ? l.getRequestedAt().toLocalDate() : (l.getCreatedAt() != null ? l.getCreatedAt().toLocalDate() : l.getLeaveDate()));
+                    return target != null && !target.isAfter(end);
+                }).collect(Collectors.toList());
+            } catch (Exception ignored) {}
+        }
+
         if (search != null && !search.isBlank()) {
             final String query = search.trim().toLowerCase();
             list = list.stream().filter(l -> {
@@ -77,11 +104,15 @@ public class LeaveController {
                 boolean sMatch = l.getStaffId() != null && l.getStaffId().toLowerCase().contains(query);
                 boolean nEnMatch = e != null && e.getNameEn() != null && e.getNameEn().toLowerCase().contains(query);
                 boolean nKhMatch = e != null && e.getNameKh() != null && e.getNameKh().toLowerCase().contains(query);
-                return sMatch || nEnMatch || nKhMatch;
+                boolean rMatch = l.getReason() != null && l.getReason().toLowerCase().contains(query);
+                boolean ldMatch = l.getLeaveDate() != null && l.getLeaveDate().toString().contains(query);
+                boolean reqMatch = l.getRequestedAt() != null && l.getRequestedAt().toString().contains(query);
+                return sMatch || nEnMatch || nKhMatch || rMatch || ldMatch || reqMatch;
             }).collect(Collectors.toList());
         }
 
-        list.sort(Comparator.comparing(Leave::getRequestedAt, Comparator.nullsLast(Comparator.reverseOrder())));
+        list.sort(Comparator.comparing(Leave::getLeaveDate, Comparator.nullsLast(Comparator.reverseOrder()))
+                .thenComparing(Leave::getRequestedAt, Comparator.nullsLast(Comparator.reverseOrder())));
 
         List<Map<String, Object>> response = list.stream()
                 .map(l -> enrichLeave(l, empMap, deptMap, posMap, faceDataMap))

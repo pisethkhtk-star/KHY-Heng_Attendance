@@ -154,6 +154,14 @@ const translations = {
     annualLeave: "Annual Leave",
     sickLeave: "Sick Leave",
     personalLeave: "Personal Leave",
+    leaveTypesTitle: "Leave Types",
+    addLeaveType: "Add Leave Type",
+    editLeaveType: "Edit Leave Type",
+    leaveCode: "Code",
+    khmerName: "Khmer Name",
+    englishName: "English Name",
+    maxDays: "Max Days",
+    leaveDescription: "Description",
 
     // Overtime
     overtime: "Overtime",
@@ -192,6 +200,10 @@ const translations = {
 
     // Reports
     attendanceReport: "Attendance & Leaflet Report",
+    attendanceReportMenu: "Attendance Report",
+    departmentComparison: "Department Comparison",
+    departmentComparisonReport: "Department Metric Comparison & Ranking",
+    leaveReport: "Leave Report",
     startDate: "Start Date",
     endDate: "End Date",
     exportExcel: "Export Excel",
@@ -350,6 +362,14 @@ const translations = {
     annualLeave: "ច្បាប់សម្រាកប្រចាំឆ្នាំ",
     sickLeave: "ច្បាប់ឈឺ",
     personalLeave: "ច្បាប់ផ្ទាល់ខ្លួន",
+    leaveTypesTitle: "ប្រភេទច្បាប់ឈប់សម្រាក",
+    addLeaveType: "បន្ថែមប្រភេទច្បាប់ថ្មី",
+    editLeaveType: "កែប្រែប្រភេទច្បាប់",
+    leaveCode: "កូដសម្គាល់",
+    khmerName: "ឈ្មោះជាភាសាខ្មែរ",
+    englishName: "ឈ្មោះជាភាសាអង់គ្លេស",
+    maxDays: "ចំនួនថ្ងៃអតិបរមា",
+    leaveDescription: "សេចក្តីពិពណ៌នា",
 
     // Overtime
     overtime: "ថែមម៉ោង",
@@ -388,6 +408,10 @@ const translations = {
 
     // Reports
     attendanceReport: "របាយការណ៍វត្តមាន និងការសុំច្បាប់",
+    attendanceReportMenu: "របាយការណ៍វត្តមាន",
+    departmentComparison: "ការប្រៀបធៀបដេប៉ាតឺម៉ង់",
+    departmentComparisonReport: "ការប្រៀបធៀបដេប៉ាតឺម៉ង់តាមកម្រិត",
+    leaveReport: "របាយការណ៍សុំច្បាប់",
     startDate: "ថ្ងៃចាប់ផ្តើម",
     endDate: "ថ្ងៃបញ្ចប់",
     exportExcel: "ទាញយកជា Excel",
@@ -416,7 +440,7 @@ export const LanguageProvider = ({ children }) => {
   };
 
   return (
-    <LanguageContext.Provider value={{ locale, setLocale, t, getLocalizedName }}>
+    <LanguageContext.Provider value={{ locale, language: locale, setLocale, t, getLocalizedName }}>
       {children}
     </LanguageContext.Provider>
   );

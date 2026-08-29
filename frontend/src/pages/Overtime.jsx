@@ -17,6 +17,7 @@ import {
   CalendarDaysIcon,
   ArrowDownTrayIcon,
 } from '@heroicons/react/24/outline';
+import { formatDateDDMMYYYY } from '../utils/dateUtils';
 
 const Overtime = () => {
   const { user, hasPermission } = useAuth();
@@ -256,13 +257,7 @@ const Overtime = () => {
 
   // Helper date formatter
   const formatDate = (dateStr) => {
-    if (!dateStr) return '-';
-    try {
-      const d = new Date(dateStr);
-      return isNaN(d.getTime()) ? dateStr : d.toISOString().split('T')[0];
-    } catch {
-      return dateStr;
-    }
+    return formatDateDDMMYYYY(dateStr);
   };
 
   const formatDateTime = (dateStr) => {
@@ -270,7 +265,7 @@ const Overtime = () => {
     try {
       const d = new Date(dateStr);
       if (isNaN(d.getTime())) return dateStr;
-      return `${d.toISOString().split('T')[0]} ${d.toTimeString().split(' ')[0].substring(0, 5)}`;
+      return `${formatDateDDMMYYYY(d)} ${d.toTimeString().split(' ')[0].substring(0, 5)}`;
     } catch {
       return dateStr;
     }
@@ -295,11 +290,7 @@ const Overtime = () => {
       return;
     }
 
-    const todayStr = new Date().toLocaleDateString('en-US', {
-      day: '2-digit',
-      month: 'long',
-      year: 'numeric',
-    });
+    const todayStr = formatDateDDMMYYYY(new Date());
     const title = `Overtime Requests Report (${todayStr})`;
 
     let excelHTML = `
