@@ -316,9 +316,13 @@ public class FaceDataController {
             if (dOpt.isPresent()) deptName = dOpt.get().getNameEn();
         }
 
+        String statusMessage = "completed".equalsIgnoreCase(result.getAction())
+                ? "អ្នកបានស្កេនគ្រប់វេនសម្រាប់ថ្ងៃនេះរួចរាល់ហើយ! (Completed all shifts for today)"
+                : "Recognized! Scanned: " + result.getAction();
+
         return ResponseEntity.ok(Map.of(
                 "success", true,
-                "message", "Recognized! Scanned: " + result.getAction(),
+                "message", statusMessage,
                 "employee", Map.of(
                         "staffId", employee.getStaffId(),
                         "nameEn", employee.getNameEn(),

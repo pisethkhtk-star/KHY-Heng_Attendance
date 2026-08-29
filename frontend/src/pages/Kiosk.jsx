@@ -43,12 +43,10 @@ const Kiosk = () => {
   const [verifyError, setVerifyError] = useState('');
   const [matchedEmployee, setMatchedEmployee] = useState(null);
 
-  // Kiosk Verification and Locked Camera States
-  const [isUnlocked, setIsUnlocked] = useState(false);
-  const [nextAction, setNextAction] = useState('checkin_1');
+  // Kiosk Verification and Auto-Scan States
+  const [isUnlocked, setIsUnlocked] = useState(true);
+  const [nextAction, setNextAction] = useState(null);
   const [earlyCheckoutReason, setEarlyCheckoutReason] = useState('');
-  const [showReasonModal, setShowReasonModal] = useState(false);
-  const [reasonModalType, setReasonModalType] = useState(''); // 'late' or 'early'
 
   // Behalf scan States
   const [scanOnBehalf, setScanOnBehalf] = useState(false);
@@ -96,174 +94,15 @@ const Kiosk = () => {
     scanLockRef.current = scanLock;
   }, [scanLock]);
 
-  const verifyEmployeeDirectly = async (staffId) => {
-    setVerifying(true);
-    setVerifyError('');
-    try {
-      let matched = null;
-      if (user && user.staffId && user.staffId.toLowerCase() === staffId.toLowerCase()) {
-        matched = user;
-      } else {
-        const empRes = await api.get(`/employees?search=${staffId}`);
-        matched = empRes.data.find(emp => emp.staffId.toLowerCase() === staffId.toLowerCase());
-      }
-
-      if (!matched) {
-        alert('រកមិនឃើញព័ត៌មានគណនីបុគ្គលិកឡើយ! (Employee account details not found)');
-        setVerifying(false);
-        return;
-      }
-
-      setMatchedEmployee(matched);
-
-      const today = new Date();
-      const formatter = new Intl.DateTimeFormat('en-US', {
-        timeZone: 'Asia/Phnom_Penh',
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit'
-      });
-      const parts = formatter.formatToParts(today);
-      const month = parts.find(p => p.type === 'month').value;
-      const day = parts.find(p => p.type === 'day').value;
-      const year = parts.find(p => p.type === 'year').value;
-      const todayDateStr = `${year}-${month}-${day}`;
-
-      const logsRes = await api.get(`/attendances/history?staffId=${matched.staffId}`);
-      const todayRec = (logsRes.data || []).find(item => {
-        if (!item.attendanceDate) return false;
-        const logDate = new Date(item.attendanceDate);
-        const logParts = formatter.formatToParts(logDate);
-        const lMonth = logParts.find(p => p.type === 'month').value;
-        const lDay = logParts.find(p => p.type === 'day').value;
-        const lYear = logParts.find(p => p.type === 'year').value;
-        const logDateStr = `${lYear}-${lMonth}-${lDay}`;
-        return logDateStr === todayDateStr;
-      });
-
-      const timeToMinutes = (timeStr) => {
-        if (!timeStr) return 0;
-        const [h, m] = timeStr.split(':').map(Number);
-        return (h || 0) * 60 + (m || 0);
-      };
-
-      const now = new Date();
-      const timeOptions = { timeZone: 'Asia/Phnom_Penh', hour: '2-digit', minute: '2-digit', hour12: false };
-      const currentTimeStr = now.toLocaleTimeString('en-US', timeOptions);
-      const currentMinutes = timeToMinutes(currentTimeStr);
-
-      const s1EndMinutes = timeToMinutes(matched.shift1End) || (12 * 60);
-      const s2StartMinutes = timeToMinutes(matched.shift2Start) || (13 * 60);
-
-      const checkin1 = todayRec?.checkin1;
-      const checkout1 = todayRec?.checkout1;
-      const checkin2 = todayRec?.checkin2;
-      const checkout2 = todayRec?.checkout2;
-
-      let determinedAction = 'checkin_1';
-
-      if (checkin2 && !checkout2) {
-        determinedAction = 'checkout_2';
-      } else if (checkout1 || (currentMinutes >= s1EndMinutes && !checkin1)) {
-        if (!checkin2) {
-          determinedAction = 'checkin_2';
-        } else {
-          determinedAction = 'completed';
-        }
-      } else if (checkin1 && !checkout1) {
-        const midpoint = s1EndMinutes + (s2StartMinutes - s1EndMinutes) / 2;
-        if (currentMinutes < midpoint) {
-          determinedAction = 'checkout_1';
-        } else {
-          if (!checkin2) {
-            determinedAction = 'checkin_2';
-          } else {
-            determinedAction = 'completed';
-          }
-        }
-      } else if (!checkin1 && currentMinutes < s1EndMinutes) {
-        determinedAction = 'checkin_1';
-      } else {
-        // Fallback sequential checks
-        if (!checkin1) determinedAction = 'checkin_1';
-        else if (!checkout1) determinedAction = 'checkout_1';
-        else if (!checkin2) determinedAction = 'checkin_2';
-        else if (!checkout2) determinedAction = 'checkout_2';
-        else determinedAction = 'completed';
-      }
-
-      if (determinedAction === 'completed') {
-        alert('អ្នកធ្លាប់បាន check រួចហើយ (You have already checked in/out today)');
-        setVerifying(false);
-        return;
-      }
-
-      setNextAction(determinedAction);
-
-
-      const compareTime = (t1, t2) => {
-        if (!t1 || !t2) return 0;
-        const [h1, m1] = t1.split(':').map(Number);
-        const [h2, m2] = t2.split(':').map(Number);
-        return (h1 * 60 + m1) - (h2 * 60 + m2);
-      };
-
-      let isLate = false;
-      if (determinedAction === 'checkin_1' && matched.shift1Start) {
-        if (compareTime(currentTimeStr, matched.shift1Start) > 0) {
-          isLate = true;
-        }
-      } else if (determinedAction === 'checkin_2' && matched.shift2Start) {
-        if (compareTime(currentTimeStr, matched.shift2Start) > 0) {
-          isLate = true;
-        }
-      }
-
-      let isEarly = false;
-      if (determinedAction === 'checkout_1' && matched.shift1End) {
-        if (compareTime(currentTimeStr, matched.shift1End) < 0) {
-          isEarly = true;
-        }
-      } else if (determinedAction === 'checkout_2' && matched.shift2End) {
-        if (compareTime(currentTimeStr, matched.shift2End) < 0) {
-          isEarly = true;
-        }
-      }
-
-      if (isLate) {
-        setReasonModalType('late');
-        setEarlyCheckoutReason('');
-        setShowReasonModal(true);
-      } else if (isEarly) {
-        setReasonModalType('early');
-        setEarlyCheckoutReason('');
-        setShowReasonModal(true);
-      } else {
-        setEarlyCheckoutReason('');
-        setIsUnlocked(true);
-        alert(`ផ្ទៀងផ្ទាត់ជោគជ័យ! បើកកាមេរ៉ាស្កេន (សកម្មភាព៖ ${determinedAction === 'checkin_1' ? 'Check In 1' : determinedAction === 'checkout_1' ? 'Check Out 1' : determinedAction === 'checkin_2' ? 'Check In 2' : 'Check Out 2'})`);
-      }
-    } catch (err) {
-      console.error(err);
-      alert('មានបញ្ហាក្នុងការផ្ទៀងផ្ទាត់វត្តមានគណនី!');
-    } finally {
-      setVerifying(false);
-    }
-  };
-
-  const handleCheckPress = () => {
-    const isBehalfAllowed = activeTab === 'face' ? hasPermission('scan_behalf_face') : hasPermission('scan_behalf_qr');
-    if (scanOnBehalf && isBehalfAllowed) {
-      setBehalfStaffId('');
-      setBehalfError('');
-      setShowBehalfModal(true);
-    } else {
-      if (user && user.staffId) {
-        verifyEmployeeDirectly(user.staffId);
-      } else {
-        alert("រកមិនឃើញព័ត៌មានគណនីរបស់អ្នកឡើយ! (User session not found)");
-      }
-    }
+  const formatActionLabel = (action) => {
+    if (!action) return 'Check In/Out';
+    const lower = String(action).toLowerCase();
+    if (lower === 'checkin_1') return 'ចូលវេនទី ១ (Check In 1)';
+    if (lower === 'checkout_1') return 'ចេញវេនទី ១ (Check Out 1)';
+    if (lower === 'checkin_2') return 'ចូលវេនទី ២ (Check In 2)';
+    if (lower === 'checkout_2') return 'ចេញវេនទី ២ (Check Out 2)';
+    if (lower === 'completed') return 'បានចុះវត្តមានគ្រប់វេនហើយ (All Shifts Completed)';
+    return action;
   };
 
   const handleBehalfVerifySubmit = async (e) => {
@@ -284,24 +123,15 @@ const Kiosk = () => {
       }
 
       setShowBehalfModal(false);
-      verifyEmployeeDirectly(matched.staffId);
+      setBehalfStaffId('');
+      // Directly check in for this employee without asking for late/early reasons
+      await handleFaceCheckIn(null, matched.staffId);
     } catch (err) {
       console.error(err);
       setBehalfError('មានបញ្ហាក្នុងការទាក់ទងទៅកាន់ម៉ាស៊ីនបម្រើ (Network error)');
     } finally {
       setVerifying(false);
     }
-  };
-
-  const handleSubmitReason = (e) => {
-    e.preventDefault();
-    if (!earlyCheckoutReason.trim()) {
-      alert(reasonModalType === 'late' ? 'សូមបញ្ចូលមូលហេតុនៃការមកយឺតកំណត់ (Please input your reason for being late)' : 'សូមបញ្ចូលមូលហេតុនៃការចាកចេញមុនម៉ោងកំណត់ (Please input your reason for early check-out)');
-      return;
-    }
-    setShowReasonModal(false);
-    setIsUnlocked(true);
-    alert(`រក្សាទុកមូលហេតុរួចរាល់! បើកកាមេរ៉ាស្កេន (សកម្មភាព៖ ${nextAction === 'checkin_1' ? 'Check In 1' : nextAction === 'checkout_1' ? 'Check Out 1' : nextAction === 'checkin_2' ? 'Check In 2' : 'Check Out 2'})`);
   };
 
   // Geolocation tracker with fallback for low accuracy (crucial for desktops without GPS cards)
@@ -417,21 +247,15 @@ const Kiosk = () => {
     playSound('success');
     setSuccessResult(result);
     setScanLock(true);
+    scanLockRef.current = true;
     setScanError('');
 
-    // Lock camera again immediately
-    setIsUnlocked(false);
-
-    // Stop scanners temporarily while success modal is open
-    stopFaceRecognition();
-    if (qrScannerRef.current && qrScannerRef.current.isScanning) {
-      qrScannerRef.current.pause();
-    }
-
+    // Keep camera active and smoothly scan next employee after 3 seconds
     setTimeout(() => {
       setSuccessResult(null);
+      scanLockRef.current = false;
       setScanLock(false);
-    }, 3500);
+    }, 3000);
   };
 
   // Process QR Code Scans
@@ -463,8 +287,7 @@ const Kiosk = () => {
         qrToken: decodedText,
         latitude: coords.latitude,
         longitude: coords.longitude,
-        note: earlyCheckoutReason,
-        action: nextAction
+        note: 'Auto scan: QR Code'
       });
       if (response.data.success) {
         triggerSuccessModal(response.data);
@@ -515,8 +338,7 @@ const Kiosk = () => {
         faceDescriptor: descriptorArray,
         latitude: currentCoords.latitude,
         longitude: currentCoords.longitude,
-        note: earlyCheckoutReason,
-        action: nextAction
+        note: 'Auto scan: Face Recognition'
       });
       if (response.data.success) {
         triggerSuccessModal(response.data);
@@ -841,7 +663,7 @@ const Kiosk = () => {
               </div>
               <div className="flex justify-between text-xs text-slate-300">
                 <span className="font-khmer">សកម្មភាព (Action):</span>
-                <span className="font-semibold text-emerald-300 uppercase">{successResult.action}</span>
+                <span className="font-semibold text-emerald-300">{formatActionLabel(successResult.action)}</span>
               </div>
               <div className="flex justify-between text-xs text-slate-300">
                 <span className="font-khmer">ម៉ោងស្កេន (Time):</span>
@@ -884,21 +706,10 @@ const Kiosk = () => {
         {/* Scanning Window Frame */}
         <div className="p-6 w-full flex flex-col items-center">
           <div className="relative w-full aspect-video md:aspect-[4/3] rounded-2xl border border-white/10 bg-slate-950 overflow-hidden shadow-inner flex items-center justify-center">
-            {/* Locked screen overlay */}
-            {!isUnlocked && (
-              <div className="absolute inset-0 bg-slate-950 flex flex-col items-center justify-center gap-3 text-slate-500 z-30">
-                <div className="p-4 bg-slate-900/60 rounded-full border border-white/5">
-                  <LockClosedIcon className="h-10 w-10 text-slate-600 animate-pulse" />
-                </div>
-                <p className="font-khmer text-xs font-semibold text-slate-400">Camera Locked</p>
-                <p className="font-khmer text-[10px] text-slate-600">Please Click Button "Check Attendance" to Open Camera</p>
-              </div>
-            )}
-
-            {/* Overlay indicators */}
+            {/* Overlay target indicator */}
             <div className="absolute inset-0 pointer-events-none border-2 border-dashed border-indigo-500/20 m-6 rounded-xl flex items-center justify-center">
-              {activeTab === 'face' && isUnlocked && (
-                <div className="w-40 h-40 rounded-full border border-indigo-500/30 animate-pulse"></div>
+              {activeTab === 'face' && (
+                <div className="w-40 h-40 rounded-full border-2 border-indigo-400/40 animate-pulse"></div>
               )}
             </div>
 
@@ -927,41 +738,39 @@ const Kiosk = () => {
             )}
           </div>
 
-          {/* Check Button */}
-          {!isUnlocked ? (
-            <div className="w-full flex flex-col items-center">
-              <button
-                onClick={handleCheckPress}
-                className="mt-6 w-full max-w-xs py-3 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white font-bold rounded-xl shadow-lg shadow-indigo-500/20 transition-all font-khmer cursor-pointer border-none outline-none text-center text-sm"
-              >
-                Check
-              </button>
-
-              {(activeTab === 'face' ? hasPermission('scan_behalf_face') : hasPermission('scan_behalf_qr')) && (
-                <label className="inline-flex items-center gap-2 text-xs font-semibold text-indigo-400 cursor-pointer mt-4 font-khmer select-none">
-                  <input
-                    type="checkbox"
-                    checked={scanOnBehalf}
-                    onChange={(e) => setScanOnBehalf(e.target.checked)}
-                    className="w-4 h-4 border border-white/10 rounded-md bg-slate-950 focus:ring-indigo-500 focus:ring-2 cursor-pointer"
-                  />
-                  <span>ចុះវត្តមានជំនួសអ្នកដទៃ (Scan on Behalf)</span>
-                </label>
-              )}
-            </div>
-          ) : (
-            <div className="mt-4 flex flex-col items-center gap-2">
-              <span className="text-xs font-bold text-indigo-400 font-khmer uppercase tracking-widest bg-indigo-500/10 px-3.5 py-1.5 rounded-lg border border-indigo-500/20">
-                សកម្មភាព៖ {nextAction === 'checkin_1' ? 'Check In 1' : nextAction === 'checkout_1' ? 'Check Out 1' : nextAction === 'checkin_2' ? 'Check In 2' : 'Check Out 2'}
+          {/* Active Auto-Recognition Status Badge & Behalf Option */}
+          <div className="w-full flex flex-col items-center mt-5 space-y-2">
+            <div className="flex items-center gap-2.5 px-4 py-2 bg-emerald-500/10 border border-emerald-500/20 rounded-2xl text-emerald-400 text-xs font-bold font-khmer shadow-sm">
+              <span className="relative flex h-2.5 w-2.5">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
               </span>
-              <button
-                onClick={() => setIsUnlocked(false)}
-                className="text-[10px] font-semibold text-slate-400 hover:text-slate-200 underline cursor-pointer bg-transparent border-none outline-none mt-1"
-              >
-                ចាក់សោឡើងវិញ (Lock Camera)
-              </button>
+              <span>
+                {activeTab === 'face'
+                  ? 'ស្កេនផ្ទៃមុខស្វ័យប្រវត្តិ (Auto Face Recognition Active)'
+                  : 'ស្កេន QR Code កំពុងដំណើរការ (QR Scanner Active)'}
+              </span>
             </div>
-          )}
+            <p className="text-[11px] text-slate-400 font-khmer text-center">
+              {activeTab === 'face'
+                ? 'សូមសម្លឹងមើលកាមេរ៉ា — ប្រព័ន្ធនឹងស្គាល់គ្រប់បុគ្គលិក និងចុះវត្តមាន Check In/Out ដោយស្វ័យប្រវត្តិ'
+                : 'សូមបង្ហាញកាត QR Code របស់អ្នកទៅកាន់កាមេរ៉ា'}
+            </p>
+
+            {(activeTab === 'face' ? hasPermission('scan_behalf_face') : hasPermission('scan_behalf_qr')) && (
+              <button
+                type="button"
+                onClick={() => {
+                  setBehalfStaffId('');
+                  setBehalfError('');
+                  setShowBehalfModal(true);
+                }}
+                className="text-xs text-indigo-400 hover:text-indigo-300 underline font-khmer cursor-pointer bg-transparent border-none outline-none mt-2 transition-colors"
+              >
+                ចុះវត្តមានជំនួសអ្នកដទៃ (Scan on Behalf)
+              </button>
+            )}
+          </div>
 
           {/* Error Message display block */}
           {scanError && (
@@ -969,71 +778,13 @@ const Kiosk = () => {
               ⚠️ {scanError}
             </div>
           )}
-
-          {/* Status indicators */}
-          <div className="mt-4 text-xs font-semibold text-slate-400 font-khmer flex gap-2 items-center">
-            {isUnlocked ? (
-              <>
-                <span className="inline-block w-2.5 h-2.5 rounded-full bg-emerald-500 animate-ping"></span>
-                {activeTab === 'face' ? "កំពុងស្កេនផ្ទៃមុខស្វ័យប្រវត្តិ (Scanning faces auto)..." : "សូមបង្ហាញកូដ QR របស់លោកអ្នក (Show QR code badge)"}
-              </>
-            ) : (
-              <>
-
-              </>
-            )}
-          </div>
         </div>
       </div>
 
 
 
 
-      {/* Reason Description Modal (Late / Early Out) */}
-      {showReasonModal && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4 text-left">
-          <form onSubmit={handleSubmitReason} className="bg-slate-900 border border-white/10 rounded-2xl p-6 max-w-md w-full shadow-2xl space-y-4 animate-fade-in">
-            {reasonModalType === 'late' ? (
-              <>
-                <h3 className="text-lg font-bold text-rose-400 font-khmer">⚠️ មកយឺតជាងម៉ោងកំណត់ (Late Check-in)</h3>
-                <p className="text-xs text-slate-300 font-khmer leading-relaxed">
-                  ម៉ោងចូលរបស់អ្នកគឺយឺតជាងម៉ោងកំណត់។ សូមបំពេញមូលហេតុនៃការមកយឺត៖
-                </p>
-              </>
-            ) : (
-              <>
-                <h3 className="text-lg font-bold text-amber-400 font-khmer">⚠️ ចាកចេញមុនម៉ោងកំណត់ (Early Check-out)</h3>
-                <p className="text-xs text-slate-300 font-khmer leading-relaxed">
-                  ម៉ោងចាកចេញរបស់អ្នកគឺលឿនជាងម៉ោងកំណត់។ សូមបំពេញមូលហេតុនៃការចាកចេញមុនម៉ោងកំណត់៖
-                </p>
-              </>
-            )}
-            <textarea
-              rows="3"
-              className="w-full bg-slate-950 border border-white/10 rounded-xl p-3 text-xs text-white focus:outline-none focus:border-indigo-500 font-khmer"
-              placeholder="សរសេរមូលហេតុនៅទីនេះ..."
-              value={earlyCheckoutReason}
-              onChange={(e) => setEarlyCheckoutReason(e.target.value)}
-              autoFocus
-            ></textarea>
-            <div className="flex gap-3 justify-end text-xs font-semibold font-khmer">
-              <button
-                type="button"
-                onClick={() => setShowReasonModal(false)}
-                className="px-4 py-2 border border-white/10 rounded-lg text-slate-400 hover:text-white transition-colors cursor-pointer bg-transparent"
-              >
-                បោះបង់ (Cancel)
-              </button>
-              <button
-                type="submit"
-                className="px-4 py-2 bg-indigo-650 hover:bg-indigo-600 rounded-lg text-white transition-colors cursor-pointer border-none"
-              >
-                យល់ព្រម (Submit)
-              </button>
-            </div>
-          </form>
-        </div>
-      )}
+
       {/* Behalf Verification Modal */}
       {showBehalfModal && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4">

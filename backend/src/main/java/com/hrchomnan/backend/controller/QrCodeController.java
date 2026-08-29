@@ -237,9 +237,13 @@ public class QrCodeController {
             if (dOpt.isPresent()) deptName = dOpt.get().getNameEn();
         }
 
+        String statusMessage = "completed".equalsIgnoreCase(result.getAction())
+                ? "អ្នកបានស្កេនគ្រប់វេនសម្រាប់ថ្ងៃនេះរួចរាល់ហើយ! (Completed all shifts for today)"
+                : "QR Scan Success! Action: " + result.getAction();
+
         return ResponseEntity.ok(Map.of(
                 "success", true,
-                "message", "Checked in Sok! Action: " + result.getAction(),
+                "message", statusMessage,
                 "employee", Map.of(
                         "staffId", employee.getStaffId(),
                         "nameEn", employee.getNameEn(),
