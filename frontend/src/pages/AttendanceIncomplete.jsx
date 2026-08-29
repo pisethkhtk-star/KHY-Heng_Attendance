@@ -633,10 +633,12 @@ const AttendanceIncomplete = () => {
         {/* Action Buttons */}
         <div className="flex items-center gap-2">
           <button
+            type="button"
             onClick={handleExportCSV}
-            className="py-2.5 px-4 text-xs font-semibold bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 border border-emerald-500/20 rounded-xl transition-all shadow-sm font-khmer flex items-center gap-2 cursor-pointer"
+            disabled={filteredRecords.length === 0}
+            className="flex items-center gap-2 px-4 py-2 bg-[#d1fae5] hover:bg-[#a7f3d0] border border-[#6ee7b7] text-[#059669] rounded-2xl font-bold text-sm transition-all shadow-sm hover:shadow cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed font-khmer"
           >
-            <ArrowDownTrayIcon className="h-4 w-4" />
+            <ArrowDownTrayIcon className="h-4 w-4 stroke-[2.5]" />
             <span>{t('exportExcel')}</span>
           </button>
           <button

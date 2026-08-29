@@ -159,11 +159,10 @@ const WorkHours = () => {
         {/* Top Mode Header with Master Switch for Flexible Hours */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-2xl bg-slate-950/60 border border-indigo-500/20">
           <div className="flex items-center gap-3">
-            <div className={`p-2.5 rounded-xl border transition-all ${
-              isFlexible
+            <div className={`p-2.5 rounded-xl border transition-all ${isFlexible
                 ? 'bg-purple-500/20 border-purple-500/40 text-purple-300'
                 : 'bg-indigo-500/10 border-indigo-500/20 text-indigo-400'
-            }`}>
+              }`}>
               {isFlexible ? (
                 <CalendarDaysIcon className="h-6 w-6 text-purple-400" />
               ) : (
@@ -197,14 +196,12 @@ const WorkHours = () => {
               role="switch"
               aria-checked={isFlexible}
               onClick={() => setIsFlexible(!isFlexible)}
-              className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
-                isFlexible ? 'bg-purple-600 shadow-lg shadow-purple-600/40' : 'bg-slate-700'
-              }`}
+              className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${isFlexible ? 'bg-purple-600 shadow-lg shadow-purple-600/40' : 'bg-slate-700'
+                }`}
             >
               <span
-                className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-lg ring-0 transition duration-200 ease-in-out ${
-                  isFlexible ? 'translate-x-5' : 'translate-x-0'
-                }`}
+                className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-lg ring-0 transition duration-200 ease-in-out ${isFlexible ? 'translate-x-5' : 'translate-x-0'
+                  }`}
               />
             </button>
           </div>
@@ -263,22 +260,19 @@ const WorkHours = () => {
                     role="switch"
                     aria-checked={enableShift2}
                     onClick={() => setEnableShift2(!enableShift2)}
-                    className={`relative inline-flex h-5 w-10 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
-                      enableShift2 ? 'bg-indigo-600' : 'bg-slate-700'
-                    }`}
+                    className={`relative inline-flex h-5 w-10 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${enableShift2 ? 'bg-indigo-600' : 'bg-slate-700'
+                      }`}
                   >
                     <span
-                      className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow-lg ring-0 transition duration-200 ease-in-out ${
-                        enableShift2 ? 'translate-x-5' : 'translate-x-0'
-                      }`}
+                      className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow-lg ring-0 transition duration-200 ease-in-out ${enableShift2 ? 'translate-x-5' : 'translate-x-0'
+                        }`}
                     />
                   </button>
                 </div>
               </div>
 
-              <div className={`grid gap-6 transition-all duration-300 ${
-                enableShift2 ? 'grid-cols-1 md:grid-cols-2' : 'grid-cols-1'
-              }`}>
+              <div className={`grid gap-6 transition-all duration-300 ${enableShift2 ? 'grid-cols-1 md:grid-cols-2' : 'grid-cols-1'
+                }`}>
                 {/* Shift 1 */}
                 <div className="p-4 rounded-xl bg-slate-950/40 border border-white/5 space-y-4">
                   <div className="flex items-center justify-between">
@@ -428,11 +422,10 @@ const WorkHours = () => {
                       key={mins}
                       type="button"
                       onClick={() => setLateGraceMinutes(mins)}
-                      className={`px-2.5 py-1.5 text-xs rounded-lg font-bold transition-all cursor-pointer font-mono ${
-                        lateGraceMinutes === mins
+                      className={`px-2.5 py-1.5 text-xs rounded-lg font-bold transition-all cursor-pointer font-mono ${lateGraceMinutes === mins
                           ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
                           : 'bg-slate-900/60 hover:bg-slate-900 text-slate-300 border border-white/10'
-                      }`}
+                        }`}
                     >
                       {mins === 0 ? '0m (Off)' : `${mins}mn`}
                     </button>
@@ -450,12 +443,12 @@ const WorkHours = () => {
           </div>
 
           {/* Alert Note info */}
-          <div className="p-3.5 rounded-xl bg-indigo-500/5 border border-indigo-500/10 flex items-start gap-2.5">
+          {/* <div className="p-3.5 rounded-xl bg-indigo-500/5 border border-indigo-500/10 flex items-start gap-2.5">
             <ShieldCheckIcon className="h-5 w-5 text-indigo-400 flex-shrink-0 mt-0.5" />
             <p className="text-[10px] text-slate-400 font-khmer leading-relaxed">
               <strong>បញ្ជាក់៖</strong> ម៉ោងការងារខាងលើនេះគឺជាតម្លៃលំនាំដើមរបស់ក្រុមហ៊ុន។ នៅពេលដែលបងបង្កើតគណនីបុគ្គលិកថ្មី វានឹងយកតម្លៃលំនាំដើមទាំងនេះទៅបំពេញឱ្យដោយស្វ័យប្រវត្ត ដើម្បីកាត់បន្ថយពេលវេលាវាយបញ្ចូល។ ប៉ុន្តែ បងក៏នៅតែអាចកែសម្រួលម៉ោងការងារដោយឡែកផ្សេងគ្នាសម្រាប់បុគ្គលិកម្នាក់ៗបានធម្មតា ទៅតាមស្ថានភាពជាក់ស្ដែង។
             </p>
-          </div>
+          </div> */}
 
           {/* Action button */}
           <div className="flex justify-end pt-2">

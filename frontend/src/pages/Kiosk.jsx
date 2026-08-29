@@ -1,9 +1,12 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../utils/api';
 import { useAuth } from '../context/AuthContext';
 import { QrCodeIcon, CameraIcon, ClockIcon, MapPinIcon, Cog6ToothIcon, LockClosedIcon, ShieldCheckIcon } from '@heroicons/react/24/outline';
 import { Html5Qrcode } from 'html5-qrcode';
+import { faceDataService, branchLocationService } from '../services';
+import { faceStore, branchLocationStore } from '../models';
+import { registerCameraStream, stopAllCameraStreams } from '../utils/cameraManager';
 
 // Helper: display Khmer name if available, otherwise English
 const getLocalizedName = (nameEn, nameKh) => {
@@ -58,11 +61,30 @@ const Kiosk = () => {
   const coordsRef = useRef(null); // ref mirror so interval always reads latest coords
   const [locationError, setLocationError] = useState('');
 
+  // Client-side geofence evaluation using preloaded branchLocationStore
+  const geofenceStatus = useMemo(() => {
+    if (!coords) return null;
+    if (!branchLocationStore.hasBranches()) return null;
+    return branchLocationService.checkGeofence(coords.latitude, coords.longitude, user?.branch);
+  }, [coords, user?.branch]);
+
   // References for Media and HTML5 QR
   const videoRef = useRef(null);
   const faceStreamRef = useRef(null);
   const faceIntervalRef = useRef(null);
   const qrScannerRef = useRef(null);
+  const isMountedRef = useRef(true);
+
+  // Ensure camera streams are automatically closed when navigating to any other page
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+      stopFaceRecognition();
+      stopQrScanner();
+      stopAllCameraStreams();
+    };
+  }, []);
 
   // Keep coordsRef in sync with state so setInterval closures always read latest coords
   useEffect(() => {
@@ -423,6 +445,19 @@ const Kiosk = () => {
       requestLocation(true);
       return;
     }
+
+    // Client-side geofence pre-check using preloaded branchLocationStore
+    if (geofenceStatus && !geofenceStatus.isInside) {
+      playSound('error');
+      const branchName = geofenceStatus.closestBranch?.name || 'សាខាអនុញ្ញាត';
+      setScanError(`ក្រៅទីតាំងអនុញ្ញាត! (Out of zone). សាខា "${branchName}" នៅចម្ងាយ ${geofenceStatus.closestDistance}m (កម្រិតអនុញ្ញាតត្រឹម ${geofenceStatus.closestRadius}m)។`);
+      setTimeout(() => {
+        scanLockRef.current = false;
+        setScanLock(false);
+      }, 2500);
+      return;
+    }
+
     try {
       const response = await api.post('/qrcode/scan', {
         qrToken: decodedText,
@@ -440,11 +475,15 @@ const Kiosk = () => {
       console.error('QR Scan API error:', error);
       playSound('error');
       setScanError(error.response?.data?.message || error.message || 'Invalid or expired QR code badge');
+      setTimeout(() => {
+        scanLockRef.current = false;
+        setScanLock(false);
+      }, 2500);
     }
   };
 
   // Process Face Recognition embedding check
-  const handleFaceCheckIn = async (descriptorArray) => {
+  const handleFaceCheckIn = async (descriptorArray, matchedStaffId = null) => {
     // Use ref to avoid stale closure
     if (scanLockRef.current) return;
     const currentCoords = coordsRef.current;
@@ -454,8 +493,25 @@ const Kiosk = () => {
       requestLocation(true);
       return;
     }
+
+    // Client-side geofence pre-check using preloaded branchLocationStore
+    if (geofenceStatus && !geofenceStatus.isInside) {
+      playSound('error');
+      const branchName = geofenceStatus.closestBranch?.name || 'សាខាអនុញ្ញាត';
+      setScanError(`ក្រៅទីតាំងអនុញ្ញាត! (Out of zone). សាខា "${branchName}" នៅចម្ងាយ ${geofenceStatus.closestDistance}m (កម្រិតអនុញ្ញាតត្រឹម ${geofenceStatus.closestRadius}m)។`);
+      setTimeout(() => {
+        scanLockRef.current = false;
+        setScanLock(false);
+      }, 2500);
+      return;
+    }
+
+    scanLockRef.current = true;
+    setScanLock(true);
+
     try {
       const response = await api.post('/face/checkin', {
+        staffId: matchedStaffId, // Pre-matched locally from preloaded face model store!
         faceDescriptor: descriptorArray,
         latitude: currentCoords.latitude,
         longitude: currentCoords.longitude,
@@ -471,6 +527,10 @@ const Kiosk = () => {
       console.error('Face Check-in API error:', error);
       playSound('error');
       setScanError(error.response?.data?.message || error.message || 'Face scan verification failed');
+      setTimeout(() => {
+        scanLockRef.current = false;
+        setScanLock(false);
+      }, 2500);
     }
   };
 
@@ -479,6 +539,13 @@ const Kiosk = () => {
     try {
       setFaceStatus('loading_models');
       setScanError('');
+
+      // Ensure face embedding models, neural net models & branch locations are preloaded
+      await Promise.all([
+        faceDataService.preloadFaceData(),
+        faceDataService.preloadModels(),
+        branchLocationService.preloadBranchLocations()
+      ]);
 
       // Wait up to 10s for CDN script to finish loading (defer attribute causes timing issues)
       let waited = 0;
@@ -512,35 +579,64 @@ const Kiosk = () => {
       };
       await loadModels();
 
+      if (!isMountedRef.current || !isUnlocked) return;
+
       setFaceStatus('scanning');
       const stream = await navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480 } });
+      registerCameraStream(stream);
+
+      // Guard: if user navigated away while waiting for camera access
+      if (!isMountedRef.current || !isUnlocked) {
+        stream.getTracks().forEach(track => {
+          try { track.stop(); } catch (e) {}
+        });
+        return;
+      }
+
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
-        videoRef.current.play();
+        videoRef.current.play().catch(() => {});
       }
       faceStreamRef.current = stream;
 
-      // Scan every 1.5 seconds — use refs to avoid stale closure
+      // Scan every 1.2 seconds — with client-side face recognition comparison
       faceIntervalRef.current = setInterval(async () => {
-        if (!videoRef.current || scanLockRef.current) return;
+        if (!videoRef.current || scanLockRef.current || !isMountedRef.current) return;
         try {
           const detection = await window.faceapi.detectSingleFace(
             videoRef.current,
             new window.faceapi.TinyFaceDetectorOptions()
           ).withFaceLandmarks().withFaceDescriptor();
 
-          if (detection) {
+          if (detection && detection.descriptor) {
             const descriptorArray = Array.from(detection.descriptor);
-            await handleFaceCheckIn(descriptorArray);
+
+            // 1. Client-side FaceDataModel store match
+            if (faceStore.hasEnrolledFaces()) {
+              const matchResult = faceDataService.matchFace(detection.descriptor, 0.52);
+
+              if (matchResult && matchResult.match) {
+                console.log(`[Face Scan] Locally recognized: ${matchResult.match.nameEn} (${matchResult.match.staffId}), dist: ${matchResult.distance.toFixed(3)}, conf: ${matchResult.confidence}%`);
+                await handleFaceCheckIn(descriptorArray, matchResult.match.staffId);
+              } else {
+                // Face detected in camera frame, but no registered employee matched locally.
+                // Do NOT send request to backend — prevents network spam and server lag!
+              }
+            } else {
+              // Fallback to backend matching if faceStore is not yet populated
+              await handleFaceCheckIn(descriptorArray, null);
+            }
           }
         } catch (err) {
           console.error(err);
         }
-      }, 1500);
+      }, 1200);
     } catch (err) {
       console.error(err);
-      setFaceStatus('error');
-      setScanError(err.message || 'Camera hardware authorization or loading models failed');
+      if (isMountedRef.current) {
+        setFaceStatus('error');
+        setScanError(err.message || 'Camera hardware authorization or loading models failed');
+      }
     }
   };
 
@@ -550,13 +646,27 @@ const Kiosk = () => {
       faceIntervalRef.current = null;
     }
     if (faceStreamRef.current) {
-      faceStreamRef.current.getTracks().forEach(track => track.stop());
+      faceStreamRef.current.getTracks().forEach(track => {
+        try { track.stop(); } catch (e) {}
+      });
       faceStreamRef.current = null;
+    }
+    if (videoRef.current && videoRef.current.srcObject) {
+      try {
+        const s = videoRef.current.srcObject;
+        if (s && typeof s.getTracks === 'function') {
+          s.getTracks().forEach(t => {
+            try { t.stop(); } catch (e) {}
+          });
+        }
+      } catch (e) {}
+      videoRef.current.srcObject = null;
     }
   };
 
   // QR scanner engine handlers
   const startQrScanner = () => {
+    if (!isMountedRef.current || !isUnlocked) return;
     setScanError('');
     const html5Qrcode = new Html5Qrcode("qr-reader");
     qrScannerRef.current = html5Qrcode;
@@ -571,9 +681,16 @@ const Kiosk = () => {
       () => {
         // Quiet mode
       }
-    ).catch(err => {
+    ).then(() => {
+      // If user navigated away while camera was initializing
+      if (!isMountedRef.current || !isUnlocked) {
+        stopQrScanner();
+      }
+    }).catch(err => {
       console.error("QR scanner start error:", err);
-      setScanError("Failed to access camera for QR Code Scanner");
+      if (isMountedRef.current) {
+        setScanError("Failed to access camera for QR Code Scanner");
+      }
     });
   };
 
@@ -584,8 +701,11 @@ const Kiosk = () => {
           await qrScannerRef.current.stop();
         }
       } catch (err) {
-        console.error(err);
+        console.warn('QR scanner stop error:', err);
       }
+      try {
+        qrScannerRef.current.clear();
+      } catch (e) {}
       qrScannerRef.current = null;
     }
   };
@@ -647,18 +767,43 @@ const Kiosk = () => {
             <span>KIOSK ACTIVE scan mode</span>
           </div>
 
-          {/* Geolocation Status Badge */}
-          {coords ? (
-            <div className="inline-flex items-center gap-1.5 bg-emerald-500/10 px-3.5 py-1 rounded-full border border-emerald-500/20 text-emerald-300 font-khmer text-[11px]">
-              <MapPinIcon className="h-3.5 w-3.5 text-emerald-400" />
-              <span>📍 GPS Active ({coords.latitude.toFixed(4)}, {coords.longitude.toFixed(4)})</span>
-            </div>
-          ) : (
-            <div className="inline-flex items-center gap-1.5 bg-rose-500/10 px-3.5 py-1 rounded-full border border-rose-500/20 text-rose-300 font-khmer text-[11px] animate-pulse">
-              <MapPinIcon className="h-3.5 w-3.5 text-rose-400" />
-              <span>⚠️ GPS Offline — {locationError || 'Acquiring location...'}</span>
-            </div>
-          )}
+          {/* Geolocation Status Badge & Preloaded Branch Geofence Badge */}
+          <div className="flex flex-wrap items-center justify-center gap-2">
+            {coords ? (
+              <div className="inline-flex items-center gap-1.5 bg-emerald-500/10 px-3.5 py-1 rounded-full border border-emerald-500/20 text-emerald-300 font-khmer text-[11px]">
+                <MapPinIcon className="h-3.5 w-3.5 text-emerald-400" />
+                <span>📍 GPS Active ({coords.latitude.toFixed(4)}, {coords.longitude.toFixed(4)})</span>
+              </div>
+            ) : (
+              <div className="inline-flex items-center gap-1.5 bg-rose-500/10 px-3.5 py-1 rounded-full border border-rose-500/20 text-rose-300 font-khmer text-[11px] animate-pulse">
+                <MapPinIcon className="h-3.5 w-3.5 text-rose-400" />
+                <span>⚠️ GPS Offline — {locationError || 'Acquiring location...'}</span>
+              </div>
+            )}
+
+            {/* Client-side Branch Geofence evaluation badge */}
+            {geofenceStatus && (
+              <div
+                className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full border text-[11px] font-khmer font-bold transition-all ${
+                  geofenceStatus.isInside
+                    ? 'bg-emerald-500/15 border-emerald-500/30 text-emerald-300 shadow-sm shadow-emerald-500/10'
+                    : 'bg-rose-500/15 border-rose-500/30 text-rose-300 animate-pulse shadow-sm shadow-rose-500/10'
+                }`}
+                title={
+                  geofenceStatus.isInside
+                    ? `Inside allowed zone: ${geofenceStatus.activeBranch?.name}`
+                    : `Outside zone: closest branch is ${geofenceStatus.closestBranch?.name} (${geofenceStatus.closestDistance}m away)`
+                }
+              >
+                <span>{geofenceStatus.isInside ? '🟢' : '🔴'}</span>
+                <span>
+                  {geofenceStatus.isInside
+                    ? `ក្នុងទីតាំង: ${geofenceStatus.activeBranch?.name} (${geofenceStatus.closestDistance}m)`
+                    : `ក្រៅទីតាំង: ${geofenceStatus.closestBranch?.name || 'សាខា'} (${geofenceStatus.closestDistance}m / limit ${geofenceStatus.closestRadius}m)`}
+                </span>
+              </div>
+            )}
+          </div>
         </div>
 
         <h1 className="text-4xl font-extrabold text-white tracking-widest tabular-nums mt-2">

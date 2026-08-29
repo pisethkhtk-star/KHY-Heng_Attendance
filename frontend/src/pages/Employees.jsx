@@ -5,6 +5,7 @@ import { useLanguage } from '../context/LanguageContext';
 import { PlusIcon, PencilIcon, TrashIcon, MagnifyingGlassIcon, QrCodeIcon, CameraIcon, CalendarDaysIcon, ClockIcon, ArrowDownTrayIcon } from '@heroicons/react/24/outline';
 import FlexibleSchedulePicker from '../components/FlexibleSchedulePicker';
 import { WEEKDAYS } from '../utils/constants';
+import { registerCameraStream } from '../utils/cameraManager';
 
 const Employees = () => {
   const { user } = useAuth();
@@ -265,6 +266,7 @@ const Employees = () => {
 
       setFaceStatus('camera_ready');
       const stream = await navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480 } });
+      registerCameraStream(stream);
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
         videoRef.current.play();
@@ -789,10 +791,10 @@ const Employees = () => {
             type="button"
             onClick={handleExportExcel}
             disabled={employees.length === 0}
-            className="flex items-center gap-2 px-4 py-2 bg-[#d1fae5] hover:bg-[#a7f3d0] border border-[#6ee7b7] text-[#059669] rounded-2xl font-bold text-sm transition-all shadow-sm hover:shadow cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex items-center gap-2 px-4 py-2 bg-[#d1fae5] hover:bg-[#a7f3d0] border border-[#6ee7b7] text-[#059669] rounded-2xl font-bold text-sm transition-all shadow-sm hover:shadow cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed font-khmer"
           >
             <ArrowDownTrayIcon className="h-4 w-4 stroke-[2.5]" />
-            <span>Export Excel</span>
+            <span>{t('exportExcel')}</span>
           </button>
           {!isReadOnly && (
             <button

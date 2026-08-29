@@ -47,6 +47,7 @@ const Navbar = ({ toggleSidebar }) => {
     if (cleanPath === 'attendance-early-out') return t('earlyDepartures') || 'Early Out';
     if (cleanPath === 'attendance-incomplete') return t('incompleteShifts') || 'Incomplete Shifts';
     if (cleanPath === 'leaves') return t('leaves') || 'Leaves';
+    if (cleanPath === 'overtime') return t('overtime') || 'Overtime';
     if (cleanPath === 'reports') return t('reports') || 'Reports';
     if (cleanPath === 'kiosk') return t('facescan') || 'Kiosk';
     if (cleanPath === 'kiosk-settings') return t('branchSetting') || 'Kiosk Settings';

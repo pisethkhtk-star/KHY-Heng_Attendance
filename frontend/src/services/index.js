@@ -6,3 +6,5 @@ export { overtimeService, default as OvertimeService } from './OvertimeService';
 export { departmentService, default as DepartmentService } from './DepartmentService';
 export { positionService, default as PositionService } from './PositionService';
 export { authService, default as AuthService } from './AuthService';
+export { faceDataService, default as FaceDataService } from './FaceDataService';
+export { branchLocationService, default as BranchLocationService } from './BranchLocationService';

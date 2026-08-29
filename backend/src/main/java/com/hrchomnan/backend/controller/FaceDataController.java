@@ -92,6 +92,39 @@ public class FaceDataController {
         }
     }
 
+    @GetMapping("/all")
+    public ResponseEntity<?> getAllFaceData() {
+        List<EmployeeFaceData> list = faceDataRepository.findAll();
+        Map<String, Employee> empMap = new HashMap<>();
+        for (Employee emp : employeeRepository.findAll()) {
+            if (emp.getStaffId() != null && emp.getStatus() == Status.Active) {
+                empMap.put(emp.getStaffId(), emp);
+            }
+        }
+
+        List<Map<String, Object>> result = new ArrayList<>();
+        for (EmployeeFaceData f : list) {
+            if (f.getStaffId() == null || f.getFaceDescriptor() == null) continue;
+            Employee emp = empMap.get(f.getStaffId());
+            if (emp == null) continue; // Only return active employees
+
+            Map<String, Object> item = new HashMap<>();
+            item.put("staffId", f.getStaffId());
+            item.put("nameEn", emp.getNameEn());
+            item.put("nameKh", emp.getNameKh());
+            item.put("photoUrl", f.getPhotoUrl());
+            try {
+                List<Double> desc = objectMapper.readValue(f.getFaceDescriptor(), new TypeReference<List<Double>>() {});
+                item.put("descriptor", desc);
+            } catch (Exception e) {
+                item.put("descriptor", f.getFaceDescriptor());
+            }
+            result.add(item);
+        }
+
+        return ResponseEntity.ok(result);
+    }
+
     @GetMapping("/{staffId}")
     public ResponseEntity<?> getFaceData(@PathVariable String staffId) {
         List<EmployeeFaceData> list = faceDataRepository.findAllByStaffId(staffId);
@@ -113,77 +146,93 @@ public class FaceDataController {
 
     @Data
     public static class FaceCheckInRequest {
+        private String staffId;
         private Object faceDescriptor;
         private String deviceInfo;
         private String location;
         private Double latitude;
         private Double longitude;
+        private String note;
+        private String action;
     }
 
     @PostMapping("/checkin")
     public ResponseEntity<?> verifyAndCheckInFace(@RequestBody FaceCheckInRequest request) {
-        if (request.getFaceDescriptor() == null) {
-            return ResponseEntity.badRequest().body(Map.of("message", "Valid face descriptor array is required"));
-        }
+        Employee employee = null;
 
-        List<Double> inputDescriptor;
-        try {
-            if (request.getFaceDescriptor() instanceof List<?> list) {
-                inputDescriptor = new ArrayList<>();
-                for (Object item : list) {
-                    if (item instanceof Number n) {
-                        inputDescriptor.add(n.doubleValue());
-                    }
-                }
-            } else if (request.getFaceDescriptor() instanceof String str) {
-                inputDescriptor = objectMapper.readValue(str, new TypeReference<List<Double>>() {});
+        // 1. If client already matched the face locally using preloaded descriptors:
+        if (request.getStaffId() != null && !request.getStaffId().isBlank()) {
+            Optional<Employee> empOpt = employeeRepository.findByStaffId(request.getStaffId().trim());
+            if (empOpt.isPresent() && empOpt.get().getStatus() == Status.Active) {
+                employee = empOpt.get();
             } else {
+                return ResponseEntity.badRequest().body(Map.of("success", false, "message", "Employee not found or inactive"));
+            }
+        } else {
+            // Fallback to server-side descriptor comparison
+            if (request.getFaceDescriptor() == null) {
+                return ResponseEntity.badRequest().body(Map.of("message", "Staff ID or valid face descriptor array is required"));
+            }
+
+            List<Double> inputDescriptor;
+            try {
+                if (request.getFaceDescriptor() instanceof List<?> list) {
+                    inputDescriptor = new ArrayList<>();
+                    for (Object item : list) {
+                        if (item instanceof Number n) {
+                            inputDescriptor.add(n.doubleValue());
+                        }
+                    }
+                } else if (request.getFaceDescriptor() instanceof String str) {
+                    inputDescriptor = objectMapper.readValue(str, new TypeReference<List<Double>>() {});
+                } else {
+                    return ResponseEntity.badRequest().body(Map.of("message", "Valid face descriptor array is required"));
+                }
+            } catch (Exception e) {
                 return ResponseEntity.badRequest().body(Map.of("message", "Valid face descriptor array is required"));
             }
-        } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of("message", "Valid face descriptor array is required"));
+
+            List<EmployeeFaceData> enrolledFaces = faceDataRepository.findAll();
+            EmployeeFaceData bestMatch = null;
+            double minDistance = 1.0;
+
+            for (EmployeeFaceData record : enrolledFaces) {
+                Optional<Employee> empOpt = employeeRepository.findByStaffId(record.getStaffId());
+                if (empOpt.isEmpty() || empOpt.get().getStatus() != Status.Active) continue;
+
+                try {
+                    List<Double> enrolledDescriptor = objectMapper.readValue(record.getFaceDescriptor(), new TypeReference<List<Double>>() {});
+                    double dist = getEuclideanDistance(inputDescriptor, enrolledDescriptor);
+                    if (dist < minDistance) {
+                        minDistance = dist;
+                        bestMatch = record;
+                    }
+                } catch (Exception ignored) {}
+            }
+
+            double RECOGNITION_THRESHOLD = 0.55;
+            if (bestMatch == null || minDistance > RECOGNITION_THRESHOLD) {
+                attendanceLogRepository.save(AttendanceLog.builder()
+                        .method("face")
+                        .action("UNKNOWN")
+                        .status("failed")
+                        .deviceInfo(request.getDeviceInfo() != null ? request.getDeviceInfo() : "Kiosk Camera")
+                        .location(request.getLocation() != null ? request.getLocation() : "HQ Entrance")
+                        .build());
+
+                return ResponseEntity.badRequest().body(Map.of(
+                        "success", false,
+                        "message", "Face not recognized",
+                        "distance", minDistance
+                ));
+            }
+
+            Optional<Employee> empOpt = employeeRepository.findByStaffId(bestMatch.getStaffId());
+            if (empOpt.isEmpty()) {
+                return ResponseEntity.badRequest().body(Map.of("success", false, "message", "Employee not found"));
+            }
+            employee = empOpt.get();
         }
-
-        List<EmployeeFaceData> enrolledFaces = faceDataRepository.findAll();
-        EmployeeFaceData bestMatch = null;
-        double minDistance = 1.0;
-
-        for (EmployeeFaceData record : enrolledFaces) {
-            Optional<Employee> empOpt = employeeRepository.findByStaffId(record.getStaffId());
-            if (empOpt.isEmpty() || empOpt.get().getStatus() != Status.Active) continue;
-
-            try {
-                List<Double> enrolledDescriptor = objectMapper.readValue(record.getFaceDescriptor(), new TypeReference<List<Double>>() {});
-                double dist = getEuclideanDistance(inputDescriptor, enrolledDescriptor);
-                if (dist < minDistance) {
-                    minDistance = dist;
-                    bestMatch = record;
-                }
-            } catch (Exception ignored) {}
-        }
-
-        double RECOGNITION_THRESHOLD = 0.55;
-        if (bestMatch == null || minDistance > RECOGNITION_THRESHOLD) {
-            attendanceLogRepository.save(AttendanceLog.builder()
-                    .method("face")
-                    .action("UNKNOWN")
-                    .status("failed")
-                    .deviceInfo(request.getDeviceInfo() != null ? request.getDeviceInfo() : "Kiosk Camera")
-                    .location(request.getLocation() != null ? request.getLocation() : "HQ Entrance")
-                    .build());
-
-            return ResponseEntity.badRequest().body(Map.of(
-                    "success", false,
-                    "message", "Face not recognized",
-                    "distance", minDistance
-            ));
-        }
-
-        Optional<Employee> empOpt = employeeRepository.findByStaffId(bestMatch.getStaffId());
-        if (empOpt.isEmpty()) {
-            return ResponseEntity.badRequest().body(Map.of("success", false, "message", "Employee not found"));
-        }
-        Employee employee = empOpt.get();
 
         // Geofence check
         List<KioskSetting> settingsList = kioskSettingRepository.findAll();
@@ -245,10 +294,10 @@ public class FaceDataController {
         // 2. Perform attendance scanning update via AttendanceHelper
         AttendanceHelper.ScanResult result = attendanceHelper.processAttendanceScan(
                 employee.getStaffId(),
+                request.getAction(),
                 null,
                 null,
-                null,
-                "Auto scan: Face Recognition"
+                request.getNote() != null && !request.getNote().isBlank() ? request.getNote() : "Auto scan: Face Recognition"
         );
 
         // 3. Create successful audit trail log

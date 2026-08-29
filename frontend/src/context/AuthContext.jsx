@@ -1,5 +1,9 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import api from '../utils/api';
+import { faceDataService } from '../services/FaceDataService';
+import { faceStore } from '../models/FaceDataModel';
+import { branchLocationService } from '../services/BranchLocationService';
+import { branchLocationStore } from '../models/BranchLocationModel';
 
 const AuthContext = createContext();
 
@@ -18,6 +22,13 @@ export const AuthProvider = ({ children }) => {
       try {
         const response = await api.get('/auth/me');
         setUser(response.data);
+        // Preload all face data and branch locations into client model store immediately upon login/session restore
+        faceDataService.preloadFaceData().catch(err => {
+          console.warn('Background face data preloading error:', err);
+        });
+        branchLocationService.preloadBranchLocations().catch(err => {
+          console.warn('Background branch location preloading error:', err);
+        });
       } catch (error) {
         console.error('Fetch current user failed:', error);
         localStorage.removeItem('token');
@@ -40,6 +51,15 @@ export const AuthProvider = ({ children }) => {
       localStorage.setItem('token', receivedToken);
       setToken(receivedToken);
       setUser(receivedUser);
+
+      // Preload all face data and branch locations into client model store immediately upon login
+      faceDataService.preloadFaceData().catch(err => {
+        console.warn('Background face data preloading error:', err);
+      });
+      branchLocationService.preloadBranchLocations().catch(err => {
+        console.warn('Background branch location preloading error:', err);
+      });
+
       return { success: true };
     } catch (error) {
       console.error('Login request failed:', error);
@@ -59,6 +79,15 @@ export const AuthProvider = ({ children }) => {
       localStorage.setItem('token', receivedToken);
       setToken(receivedToken);
       setUser(receivedUser);
+
+      // Preload all face data and branch locations into client model store immediately upon login
+      faceDataService.preloadFaceData().catch(err => {
+        console.warn('Background face data preloading error:', err);
+      });
+      branchLocationService.preloadBranchLocations().catch(err => {
+        console.warn('Background branch location preloading error:', err);
+      });
+
       return { success: true };
     } catch (error) {
       console.error('QR Login request failed:', error);
@@ -71,6 +100,12 @@ export const AuthProvider = ({ children }) => {
 
   const logout = () => {
     localStorage.removeItem('token');
+    localStorage.removeItem('cached_face_descriptors_v1');
+    localStorage.removeItem('cached_face_descriptors_ts');
+    localStorage.removeItem('cached_branch_locations_v1');
+    localStorage.removeItem('cached_branch_locations_ts');
+    faceStore.clear();
+    branchLocationStore.clear();
     setToken(null);
     setUser(null);
   };

@@ -15,11 +15,12 @@ import {
   UserCircleIcon,
   ChatBubbleLeftEllipsisIcon,
   CalendarDaysIcon,
+  ArrowDownTrayIcon,
 } from '@heroicons/react/24/outline';
 
 const Overtime = () => {
   const { user, hasPermission } = useAuth();
-  const { t, getLocalizedName } = useLanguage();
+  const { t, getLocalizedName, locale } = useLanguage();
   const canApprove = ['Admin', 'HR', 'Manager'].includes(user?.role) || hasPermission('overtime');
 
   // State
@@ -288,6 +289,142 @@ const Overtime = () => {
     return creatorVal;
   };
 
+  const handleExportExcel = () => {
+    if (overtimes.length === 0) {
+      alert(locale === 'kh' ? 'មិនមានទិន្នន័យថែមម៉ោងសម្រាប់ Export ឡើយ!' : 'No overtime records to export!');
+      return;
+    }
+
+    const todayStr = new Date().toLocaleDateString('en-US', {
+      day: '2-digit',
+      month: 'long',
+      year: 'numeric',
+    });
+    const title = `Overtime Requests Report (${todayStr})`;
+
+    let excelHTML = `
+      <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
+      <head>
+        <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+        <!--[if gte mso 9]>
+        <xml>
+          <x:ExcelWorkbook>
+            <x:ExcelWorksheets>
+              <x:ExcelWorksheet>
+                <x:Name>Overtime</x:Name>
+                <x:WorksheetOptions>
+                  <x:DisplayGridlines/>
+                </x:WorksheetOptions>
+              </x:ExcelWorksheet>
+            </x:ExcelWorksheets>
+          </x:ExcelWorkbook>
+        </xml>
+        <![endif]-->
+        <style>
+          body { font-family: Calibri, 'Segoe UI', Tahoma, sans-serif; }
+          .title-row { font-size: 14pt; font-weight: bold; text-align: center; height: 35px; }
+          table.report-table { border-collapse: collapse; width: 100%; border: 1px solid #000000; }
+          table.report-table th { border: 1px solid #000000; background-color: #1e293b; color: #ffffff; font-weight: bold; text-align: left; padding: 6px 10px; font-size: 10pt; }
+          table.report-table td { border: 1px solid #000000; padding: 6px 10px; font-size: 10pt; }
+        </style>
+      </head>
+      <body>
+        <table style="width:100%; border-collapse:collapse; margin-bottom:15px;">
+          <tr>
+            <td colspan="16" class="title-row" style="font-size:14pt; font-weight:bold; text-align:center; height:35px;">
+              ${title}
+            </td>
+          </tr>
+          <tr>
+            <td colspan="16" style="text-align:center; font-size:9pt; color:#64748b; height:20px;">
+              Exported: ${new Date().toLocaleString()} | Filter Status: ${filterStatus || 'All'} | Total Records: ${overtimes.length}
+            </td>
+          </tr>
+        </table>
+
+        <table class="report-table" border="1" style="border-collapse:collapse; width:100%; border:1px solid #000000;">
+          <thead>
+            <tr style="background-color:#1e293b; color:#ffffff;">
+              <th style="border:1px solid #000000; padding:6px 10px; font-weight:bold; width:45px; text-align:center;">No</th>
+              <th style="border:1px solid #000000; padding:6px 10px; font-weight:bold; width:100px;">Staff ID</th>
+              <th style="border:1px solid #000000; padding:6px 10px; font-weight:bold; width:160px;">Name (EN)</th>
+              <th style="border:1px solid #000000; padding:6px 10px; font-weight:bold; width:160px;">Name (KH)</th>
+              <th style="border:1px solid #000000; padding:6px 10px; font-weight:bold; width:160px;">Department</th>
+              <th style="border:1px solid #000000; padding:6px 10px; font-weight:bold; width:140px;">Position</th>
+              <th style="border:1px solid #000000; padding:6px 10px; font-weight:bold; width:130px;">Branch</th>
+              <th style="border:1px solid #000000; padding:6px 10px; font-weight:bold; width:110px; text-align:center;">From Date</th>
+              <th style="border:1px solid #000000; padding:6px 10px; font-weight:bold; width:110px; text-align:center;">To Date</th>
+              <th style="border:1px solid #000000; padding:6px 10px; font-weight:bold; width:80px; text-align:center;">Start Time</th>
+              <th style="border:1px solid #000000; padding:6px 10px; font-weight:bold; width:80px; text-align:center;">End Time</th>
+              <th style="border:1px solid #000000; padding:6px 10px; font-weight:bold; width:80px; text-align:center;">Days</th>
+              <th style="border:1px solid #000000; padding:6px 10px; font-weight:bold; width:220px;">Reason</th>
+              <th style="border:1px solid #000000; padding:6px 10px; font-weight:bold; width:100px; text-align:center;">Status</th>
+              <th style="border:1px solid #000000; padding:6px 10px; font-weight:bold; width:140px;">Manager</th>
+              <th style="border:1px solid #000000; padding:6px 10px; font-weight:bold; width:160px;">Manager Comment</th>
+            </tr>
+          </thead>
+          <tbody>
+    `;
+
+    overtimes.forEach((item, idx) => {
+      const emp = employees.find(e => e.staffId === item.staffId) || item.employee || {};
+      const deptName = emp.department ? (emp.department.nameEn || '') : '';
+      const posTitle = emp.position ? (emp.position.titleEn || '') : '';
+      const branchDisplay = item.branchLocation?.name || item.branch || emp?.branch || '-';
+      const managerDisplay = item.manager
+        ? (item.manager.nameEn || item.manager.nameKh || '')
+        : (item.managerName || '-');
+
+      let statusBg = '#fef3c7';
+      let statusColor = '#b45309';
+      if (item.status === 'Approved') {
+        statusBg = '#d1fae5';
+        statusColor = '#047857';
+      } else if (item.status === 'Rejected') {
+        statusBg = '#ffe4e6';
+        statusColor = '#be123c';
+      }
+
+      excelHTML += `
+        <tr>
+          <td style="border:1px solid #000000; text-align:center;">${idx + 1}</td>
+          <td style="border:1px solid #000000; font-weight:bold;">${item.staffId || emp.staffId || '-'}</td>
+          <td style="border:1px solid #000000;">${emp.nameEn || ''}</td>
+          <td style="border:1px solid #000000;">${emp.nameKh || ''}</td>
+          <td style="border:1px solid #000000;">${deptName}</td>
+          <td style="border:1px solid #000000;">${posTitle}</td>
+          <td style="border:1px solid #000000;">${branchDisplay}</td>
+          <td style="border:1px solid #000000; text-align:center;">${formatDate(item.fromDate)}</td>
+          <td style="border:1px solid #000000; text-align:center;">${formatDate(item.toDate)}</td>
+          <td style="border:1px solid #000000; text-align:center;">${item.startTime || '-'}</td>
+          <td style="border:1px solid #000000; text-align:center;">${item.endTime || '-'}</td>
+          <td style="border:1px solid #000000; text-align:center; font-weight:bold;">${item.amountDay || '1'}</td>
+          <td style="border:1px solid #000000;">${item.reason || '-'}</td>
+          <td style="border:1px solid #000000; text-align:center; font-weight:bold; background-color:${statusBg}; color:${statusColor};">${item.status || 'Pending'}</td>
+          <td style="border:1px solid #000000;">${managerDisplay}</td>
+          <td style="border:1px solid #000000;">${item.comment || '-'}</td>
+        </tr>
+      `;
+    });
+
+    excelHTML += `
+          </tbody>
+        </table>
+      </body>
+      </html>
+    `;
+
+    const blob = new Blob(['\uFEFF' + excelHTML], { type: 'application/vnd.ms-excel;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    const filterTag = filterStatus ? `_${filterStatus}` : '';
+    link.setAttribute('download', `Overtime_Requests${filterTag}_${new Date().toISOString().slice(0, 10)}.xls`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   return (
     <div className="space-y-6 text-slate-100">
       {/* Title block */}
@@ -302,13 +439,25 @@ const Overtime = () => {
           </p>
         </div>
 
-        <button
-          onClick={handleOpenRequestModal}
-          className="flex items-center gap-2 bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white px-4 py-2.5 rounded-xl font-semibold text-sm transition-all shadow-md shadow-indigo-500/25 font-khmer cursor-pointer border-none outline-none w-full sm:w-auto justify-center"
-        >
-          <PlusIcon className="h-5 w-5" />
-          <span>{t('requestOvertime')}</span>
-        </button>
+        <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
+          <button
+            type="button"
+            onClick={handleExportExcel}
+            disabled={overtimes.length === 0}
+            className="flex items-center gap-2 px-4 py-2 bg-[#d1fae5] hover:bg-[#a7f3d0] border border-[#6ee7b7] text-[#059669] rounded-2xl font-bold text-sm transition-all shadow-sm hover:shadow cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed font-khmer"
+            title="Export overtime requests to Excel"
+          >
+            <ArrowDownTrayIcon className="h-4 w-4 stroke-[2.5]" />
+            <span>{t('exportExcel')}</span>
+          </button>
+          <button
+            onClick={handleOpenRequestModal}
+            className="flex items-center gap-2 bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white px-4 py-2.5 rounded-xl font-semibold text-sm transition-all shadow-md shadow-indigo-500/25 font-khmer cursor-pointer border-none outline-none flex-1 sm:flex-initial justify-center"
+          >
+            <PlusIcon className="h-5 w-5" />
+            <span>{t('requestOvertime')}</span>
+          </button>
+        </div>
       </div>
 
       {/* Summary Stat Cards */}

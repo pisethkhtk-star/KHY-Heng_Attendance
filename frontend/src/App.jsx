@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate, Outlet } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate, Outlet, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { LanguageProvider } from './context/LanguageContext';
+import { stopAllCameraStreams } from './utils/cameraManager';
 
 // Components
 import ProtectedRoute from './components/ProtectedRoute';
@@ -33,6 +34,12 @@ import TelegramSettings from './pages/TelegramSettings';
 
 const AppLayout = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const location = useLocation();
+
+  // Automatically shut down any active camera/mic streams whenever navigating to another page
+  useEffect(() => {
+    stopAllCameraStreams();
+  }, [location.pathname]);
 
   const toggleSidebar = () => {
     setSidebarOpen(!sidebarOpen);
