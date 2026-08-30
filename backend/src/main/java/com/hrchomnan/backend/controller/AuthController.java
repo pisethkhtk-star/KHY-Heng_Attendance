@@ -8,6 +8,7 @@ import com.hrchomnan.backend.model.EmployeeQRCode;
 import com.hrchomnan.backend.model.Position;
 import com.hrchomnan.backend.model.RolePermission;
 import com.hrchomnan.backend.repository.DepartmentRepository;
+import com.hrchomnan.backend.repository.EmployeeFaceDataRepository;
 import com.hrchomnan.backend.repository.EmployeeQRCodeRepository;
 import com.hrchomnan.backend.repository.EmployeeRepository;
 import com.hrchomnan.backend.repository.PositionRepository;
@@ -18,8 +19,10 @@ import lombok.Data;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.*;
@@ -27,6 +30,7 @@ import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/auth")
+@Transactional
 @RequiredArgsConstructor
 public class AuthController {
 
@@ -35,6 +39,7 @@ public class AuthController {
     private final DepartmentRepository departmentRepository;
     private final PositionRepository positionRepository;
     private final EmployeeQRCodeRepository employeeQRCodeRepository;
+    private final EmployeeFaceDataRepository employeeFaceDataRepository;
     private final QrCodeHelper qrCodeHelper;
     private final JwtUtil jwtUtil;
     private final PasswordEncoder passwordEncoder;
@@ -97,6 +102,7 @@ public class AuthController {
     }
 
     @GetMapping("/me")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<?> getMe(Authentication authentication) {
         if (authentication == null || !(authentication.getPrincipal() instanceof Employee employee)) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("message", "Unauthorized"));
@@ -221,7 +227,13 @@ public class AuthController {
         map.put("flexibleSchedule", employee.getFlexibleSchedule() != null ? employee.getFlexibleSchedule() : "{}");
         map.put("address", employee.getAddress());
         map.put("idCardPassport", employee.getIdCardPassport());
-        map.put("photoUrl", employee.getPhotoUrl());
+        String userPhoto = employee.getPhotoUrl();
+        if ((userPhoto == null || userPhoto.isBlank()) && employee.getStaffId() != null) {
+            userPhoto = employeeFaceDataRepository.findByStaffId(employee.getStaffId())
+                    .map(com.hrchomnan.backend.model.EmployeeFaceData::getPhotoUrl)
+                    .orElse(null);
+        }
+        map.put("photoUrl", userPhoto);
 
         if (employee.getDepartmentId() != null) {
             departmentRepository.findById(employee.getDepartmentId()).ifPresent(d -> {

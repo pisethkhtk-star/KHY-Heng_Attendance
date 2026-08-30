@@ -10,7 +10,9 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
@@ -19,6 +21,7 @@ import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/employee-leave-limits")
+@Transactional
 @RequiredArgsConstructor
 @Slf4j
 public class LeaveLimitController {
@@ -32,6 +35,7 @@ public class LeaveLimitController {
     private final com.hrchomnan.backend.repository.EmployeeFaceDataRepository employeeFaceDataRepository;
 
     @GetMapping
+    @PreAuthorize("@perm.has('leave_allowances') or (authentication != null and @perm.isSelfOrAdmin(#staffId))")
     public ResponseEntity<?> getEmployeeLeaveLimits(
             @RequestParam(required = false) String staffId,
             Authentication authentication
@@ -156,6 +160,7 @@ public class LeaveLimitController {
     }
 
     @PostMapping
+    @PreAuthorize("@perm.has('leave_allowances') or hasAnyRole('Admin', 'HR')")
     public ResponseEntity<?> upsertEmployeeLeaveLimit(@RequestBody UpsertLimitRequest request) {
         if (request.getStaffId() == null || request.getLeaveCode() == null) {
             return ResponseEntity.badRequest().body(Map.of("message", "staffId and leaveCode are required"));
@@ -198,6 +203,7 @@ public class LeaveLimitController {
     }
 
     @DeleteMapping("/{staffId}")
+    @PreAuthorize("@perm.has('leave_allowances') or hasAnyRole('Admin', 'HR')")
     public ResponseEntity<?> deleteEmployeeLeaveLimits(@PathVariable String staffId) {
         if (staffId == null || staffId.isBlank()) {
             return ResponseEntity.badRequest().body(Map.of("message", "staffId is required"));

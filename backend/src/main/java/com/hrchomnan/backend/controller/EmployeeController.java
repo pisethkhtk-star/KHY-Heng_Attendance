@@ -14,7 +14,9 @@ import lombok.Data;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
@@ -23,6 +25,7 @@ import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/employees")
+@Transactional
 @RequiredArgsConstructor
 public class EmployeeController {
 
@@ -33,6 +36,7 @@ public class EmployeeController {
     private final PasswordEncoder passwordEncoder;
 
     @GetMapping
+    @PreAuthorize("@perm.has('employees')")
     public ResponseEntity<List<Map<String, Object>>> getAllEmployees(
             @RequestParam(required = false) String search,
             @RequestParam(required = false) String departmentId,
@@ -88,6 +92,7 @@ public class EmployeeController {
     }
 
     @GetMapping("/{id}")
+    @PreAuthorize("@perm.has('employees')")
     public ResponseEntity<?> getEmployeeById(@PathVariable UUID id) {
         Optional<Employee> empOpt = employeeRepository.findById(id);
         if (empOpt.isEmpty()) {
@@ -106,6 +111,7 @@ public class EmployeeController {
     }
 
     @GetMapping("/staff/{staffId}")
+    @PreAuthorize("@perm.has('employees') or @perm.isSelfOrAdmin(#staffId)")
     public ResponseEntity<?> getEmployeeByStaffId(@PathVariable String staffId) {
         Optional<Employee> empOpt = employeeRepository.findByStaffId(staffId);
         if (empOpt.isEmpty()) {
@@ -151,6 +157,7 @@ public class EmployeeController {
     }
 
     @PostMapping
+    @PreAuthorize("@perm.has('add_employee')")
     public ResponseEntity<?> createEmployee(@RequestBody EmployeeCreateDto dto) {
         if (dto.getStaffId() == null || dto.getNameEn() == null || dto.getNameKh() == null ||
                 dto.getEmail() == null || dto.getPassword() == null || dto.getPositionId() == null || dto.getDepartmentId() == null) {
@@ -228,6 +235,7 @@ public class EmployeeController {
     }
 
     @PutMapping("/{id}")
+    @PreAuthorize("@perm.has('edit_employee')")
     public ResponseEntity<?> updateEmployee(@PathVariable UUID id, @RequestBody EmployeeCreateDto dto) {
         Optional<Employee> empOpt = employeeRepository.findById(id);
         if (empOpt.isEmpty()) {
@@ -309,6 +317,7 @@ public class EmployeeController {
     }
 
     @DeleteMapping("/{id}")
+    @PreAuthorize("@perm.has('delete_employee')")
     public ResponseEntity<?> deleteEmployee(@PathVariable UUID id) {
         if (employeeRepository.existsById(id)) {
             employeeRepository.deleteById(id);
@@ -342,7 +351,9 @@ public class EmployeeController {
         map.put("flexibleSchedule", e.getFlexibleSchedule() != null ? e.getFlexibleSchedule() : "{}");
         map.put("address", e.getAddress());
         map.put("idCardPassport", e.getIdCardPassport());
-        map.put("photoUrl", e.getPhotoUrl());
+        String facePhoto = faceDataMap.get(e.getStaffId());
+        String effectivePhoto = (e.getPhotoUrl() != null && !e.getPhotoUrl().isBlank()) ? e.getPhotoUrl() : facePhoto;
+        map.put("photoUrl", effectivePhoto);
         map.put("email", e.getEmail());
         map.put("role", e.getRole());
         map.put("createdAt", e.getCreatedAt());
@@ -362,7 +373,6 @@ public class EmployeeController {
             map.put("position", null);
         }
 
-        String facePhoto = faceDataMap.get(e.getStaffId());
         if (facePhoto != null) {
             map.put("faceData", Map.of("photoUrl", facePhoto));
         } else {

@@ -8,6 +8,8 @@ import com.hrchomnan.backend.repository.DepartmentRepository;
 import com.hrchomnan.backend.repository.EmployeeRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
@@ -18,6 +20,7 @@ import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/attendance-logs")
+@Transactional
 @RequiredArgsConstructor
 public class AttendanceLogController {
 
@@ -26,6 +29,7 @@ public class AttendanceLogController {
     private final DepartmentRepository departmentRepository;
 
     @GetMapping
+    @PreAuthorize("@perm.has('attendance') or (authentication != null and @perm.isSelfOrAdmin(#staffId))")
     public ResponseEntity<List<Map<String, Object>>> getAllLogs(
             @RequestParam(required = false) String staffId,
             @RequestParam(required = false) String method,

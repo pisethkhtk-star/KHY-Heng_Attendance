@@ -9,6 +9,8 @@ import com.hrchomnan.backend.repository.PositionRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.*;
@@ -16,6 +18,7 @@ import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/positions")
+@Transactional
 @RequiredArgsConstructor
 public class PositionController {
 
@@ -24,6 +27,7 @@ public class PositionController {
     private final EmployeeRepository employeeRepository;
 
     @GetMapping
+    @PreAuthorize("@perm.has('positions')")
     public ResponseEntity<List<Map<String, Object>>> getAllPositions() {
         List<Position> list = positionRepository.findAll();
         list.sort(Comparator.comparing(Position::getTitleEn, Comparator.nullsLast(String::compareToIgnoreCase)));
@@ -59,6 +63,7 @@ public class PositionController {
     }
 
     @GetMapping("/{id}")
+    @PreAuthorize("@perm.has('positions')")
     public ResponseEntity<?> getPositionById(@PathVariable UUID id) {
         Optional<Position> posOpt = positionRepository.findById(id);
         if (posOpt.isEmpty()) {
@@ -89,6 +94,7 @@ public class PositionController {
     }
 
     @PostMapping
+    @PreAuthorize("@perm.has('add_position')")
     public ResponseEntity<?> createPosition(@RequestBody Position position) {
         if (position.getTitleEn() == null || position.getTitleKh() == null || position.getDepartmentId() == null) {
             return ResponseEntity.badRequest().body(Map.of("message", "English title, Khmer title, and Department ID are required"));
@@ -98,6 +104,7 @@ public class PositionController {
     }
 
     @PutMapping("/{id}")
+    @PreAuthorize("@perm.has('edit_position')")
     public ResponseEntity<?> updatePosition(@PathVariable UUID id, @RequestBody Position updated) {
         return positionRepository.findById(id)
                 .map(existing -> {
@@ -110,6 +117,7 @@ public class PositionController {
     }
 
     @DeleteMapping("/{id}")
+    @PreAuthorize("@perm.has('delete_position')")
     public ResponseEntity<?> deletePosition(@PathVariable UUID id) {
         if (positionRepository.existsById(id)) {
             positionRepository.deleteById(id);

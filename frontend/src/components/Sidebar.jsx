@@ -63,22 +63,27 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
         {
           path: "/attendance",
           name: t("allAttendanceLogs"),
+          resource: "attendance",
         },
         {
           path: "/attendance-early-in",
           name: t("earlyArrivals"),
+          resource: "attendance_early_in",
         },
         {
           path: "/attendance-late",
           name: t("lateArrivals"),
+          resource: "attendance_late",
         },
         {
           path: "/attendance-early-out",
           name: t("earlyDepartures"),
+          resource: "attendance_early_out",
         },
         {
           path: "/attendance-incomplete",
           name: t("incompleteShifts"),
+          resource: "attendance_incomplete",
         },
       ]
     },
@@ -124,7 +129,7 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
         {
           path: "/reports/leave",
           name: t("leaveReport") || "Leave Report",
-          resource: "reports",
+          resource: "leave_reports",
         },
       ]
     },
@@ -148,7 +153,7 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
         {
           path: "/telegram-settings",
           name: t("telegramGroup"),
-          resource: "work_hours",
+          resource: "telegram_settings",
         },
         {
           path: "/approval-manage",

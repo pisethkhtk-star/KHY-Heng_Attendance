@@ -4,6 +4,8 @@ import com.hrchomnan.backend.model.CompanyWorkHour;
 import com.hrchomnan.backend.repository.CompanyWorkHourRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -11,12 +13,14 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/company-work-hours")
+@Transactional
 @RequiredArgsConstructor
 public class WorkHourController {
 
     private final CompanyWorkHourRepository workHourRepository;
 
     @GetMapping
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<CompanyWorkHour> getCompanyWorkHours() {
         List<CompanyWorkHour> list = workHourRepository.findAll();
         if (list.isEmpty()) {
@@ -32,11 +36,13 @@ public class WorkHourController {
     }
 
     @PostMapping
+    @PreAuthorize("@perm.has('work_hours') or hasRole('Admin')")
     public ResponseEntity<?> saveCompanyWorkHours(@RequestBody CompanyWorkHour request) {
         return upsertWorkHour(request);
     }
 
     @PutMapping
+    @PreAuthorize("@perm.has('work_hours') or hasRole('Admin')")
     public ResponseEntity<?> updateCompanyWorkHours(@RequestBody CompanyWorkHour request) {
         return upsertWorkHour(request);
     }

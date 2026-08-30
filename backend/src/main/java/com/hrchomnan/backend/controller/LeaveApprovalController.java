@@ -12,6 +12,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.*;
@@ -19,7 +21,9 @@ import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/leave-approvals")
+@Transactional
 @RequiredArgsConstructor
+@PreAuthorize("@perm.has('leave_approvals') or hasAnyRole('Admin', 'HR')")
 @Slf4j
 public class LeaveApprovalController {
 

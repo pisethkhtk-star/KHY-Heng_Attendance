@@ -17,7 +17,9 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
@@ -30,6 +32,7 @@ import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/overtimes")
+@Transactional
 @RequiredArgsConstructor
 @Slf4j
 public class OvertimeController {
@@ -43,6 +46,7 @@ public class OvertimeController {
     private final com.hrchomnan.backend.repository.LeaveApprovalRuleRepository leaveApprovalRuleRepository;
 
     @GetMapping
+    @PreAuthorize("@perm.has('overtime')")
     public ResponseEntity<List<Map<String, Object>>> getAllOvertimes(
             @RequestParam(required = false) String status,
             @RequestParam(required = false) String search,
@@ -126,15 +130,8 @@ public class OvertimeController {
     }
 
     @GetMapping("/employee/{staffId}")
-    public ResponseEntity<?> getByEmployee(
-            @PathVariable String staffId,
-            Authentication authentication
-    ) {
-        Employee currentUser = (authentication != null && authentication.getPrincipal() instanceof Employee emp) ? emp : null;
-        if (currentUser != null && currentUser.getRole() == Role.Employee && !currentUser.getStaffId().equalsIgnoreCase(staffId)) {
-            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("message", "Unauthorized access to employee overtime history"));
-        }
-
+    @PreAuthorize("@perm.has('overtime') or @perm.isSelfOrAdmin(#staffId)")
+    public ResponseEntity<List<Map<String, Object>>> getByStaffId(@PathVariable String staffId) {
         List<Overtime> list = overtimeRepository.findByStaffIdOrderByRequestedAtDesc(staffId);
         Map<String, Employee> employeeMap = employeeRepository.findAll().stream()
                 .collect(Collectors.toMap(Employee::getStaffId, e -> e, (a, b) -> a));
@@ -166,6 +163,7 @@ public class OvertimeController {
     }
 
     @PostMapping
+    @PreAuthorize("@perm.has('add_overtime') or @perm.isSelfOrAdmin(#request.staffId)")
     public ResponseEntity<?> createOvertime(
             @RequestBody CreateOvertimeRequest request,
             Authentication authentication
@@ -295,6 +293,7 @@ public class OvertimeController {
     }
 
     @PutMapping("/{id}/status")
+    @PreAuthorize("@perm.has('approve_overtime') or hasAnyRole('Admin', 'HR', 'Manager')")
     public ResponseEntity<?> updateStatus(
             @PathVariable UUID id,
             @RequestBody StatusUpdateRequest request,
@@ -369,6 +368,7 @@ public class OvertimeController {
     }
 
     @DeleteMapping("/{id}")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<?> deleteOvertime(
             @PathVariable UUID id,
             Authentication authentication

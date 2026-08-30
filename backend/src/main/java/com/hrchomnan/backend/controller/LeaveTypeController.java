@@ -6,6 +6,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.*;
@@ -13,6 +15,7 @@ import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/leave-types")
+@Transactional
 @RequiredArgsConstructor
 @Slf4j
 public class LeaveTypeController {
@@ -20,6 +23,7 @@ public class LeaveTypeController {
     private final LeaveTypeRepository leaveTypeRepository;
 
     @GetMapping
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<List<LeaveType>> getAllTypes() {
         List<LeaveType> list = leaveTypeRepository.findAll().stream()
                 .sorted(Comparator.comparing(LeaveType::getCode, Comparator.nullsLast(String::compareToIgnoreCase)))
@@ -28,6 +32,7 @@ public class LeaveTypeController {
     }
 
     @PostMapping
+    @PreAuthorize("@perm.has('leave_types') or hasAnyRole('Admin', 'HR')")
     public ResponseEntity<?> createType(@RequestBody LeaveType type) {
         if (type.getNameEn() == null || type.getNameKh() == null || type.getCode() == null ||
                 type.getNameEn().isBlank() || type.getNameKh().isBlank() || type.getCode().isBlank()) {
@@ -55,6 +60,7 @@ public class LeaveTypeController {
     }
 
     @PutMapping("/{id}")
+    @PreAuthorize("@perm.has('leave_types') or hasAnyRole('Admin', 'HR')")
     public ResponseEntity<?> updateType(@PathVariable UUID id, @RequestBody LeaveType updated) {
         if (updated.getNameEn() == null || updated.getNameKh() == null || updated.getCode() == null ||
                 updated.getNameEn().isBlank() || updated.getNameKh().isBlank() || updated.getCode().isBlank()) {
@@ -87,6 +93,7 @@ public class LeaveTypeController {
     }
 
     @DeleteMapping("/{id}")
+    @PreAuthorize("@perm.has('leave_types') or hasAnyRole('Admin', 'HR')")
     public ResponseEntity<?> deleteType(@PathVariable UUID id) {
         if (leaveTypeRepository.existsById(id)) {
             leaveTypeRepository.deleteById(id);

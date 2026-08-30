@@ -7,12 +7,15 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.*;
 
 @RestController
 @RequestMapping("/kiosk-settings")
+@Transactional
 @RequiredArgsConstructor
 @Slf4j
 public class KioskSettingsController {
@@ -21,11 +24,13 @@ public class KioskSettingsController {
     private final QrCodeHelper qrCodeHelper;
 
     @GetMapping
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<List<KioskSetting>> getAllSettings() {
         return ResponseEntity.ok(kioskSettingRepository.findAll());
     }
 
     @PostMapping
+    @PreAuthorize("@perm.has('kiosk_settings') or hasAnyRole('Admin', 'HR')")
     public ResponseEntity<?> createSetting(@RequestBody KioskSetting setting) {
         if (setting.getName() == null || setting.getLatitude() == null || setting.getLongitude() == null) {
             return ResponseEntity.badRequest().body(Map.of("message", "Name, latitude, and longitude are required"));
@@ -46,6 +51,7 @@ public class KioskSettingsController {
     }
 
     @PutMapping("/{id}")
+    @PreAuthorize("@perm.has('kiosk_settings') or hasAnyRole('Admin', 'HR')")
     public ResponseEntity<?> updateSetting(@PathVariable UUID id, @RequestBody KioskSetting setting) {
         Optional<KioskSetting> existingOpt = kioskSettingRepository.findById(id);
         if (existingOpt.isEmpty()) {
@@ -74,6 +80,7 @@ public class KioskSettingsController {
     }
 
     @DeleteMapping("/{id}")
+    @PreAuthorize("@perm.has('kiosk_settings') or hasAnyRole('Admin', 'HR')")
     public ResponseEntity<?> deleteSetting(@PathVariable UUID id) {
         if (kioskSettingRepository.existsById(id)) {
             kioskSettingRepository.deleteById(id);
@@ -83,6 +90,7 @@ public class KioskSettingsController {
     }
 
     @GetMapping("/{id}/qrcode")
+    @PreAuthorize("@perm.has('kiosk_settings') or hasAnyRole('Admin', 'HR')")
     public ResponseEntity<?> getBranchQrCode(@PathVariable UUID id) {
         Optional<KioskSetting> branchOpt = kioskSettingRepository.findById(id);
         if (branchOpt.isEmpty()) {

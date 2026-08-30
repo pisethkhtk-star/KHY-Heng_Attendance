@@ -6,6 +6,8 @@ import com.hrchomnan.backend.service.TelegramNotificationService;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -13,7 +15,9 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/telegram-settings")
+@Transactional
 @RequiredArgsConstructor
+@PreAuthorize("@perm.has('telegram_settings') or hasRole('Admin')")
 public class TelegramSettingController {
 
     private final TelegramSettingRepository telegramSettingRepository;

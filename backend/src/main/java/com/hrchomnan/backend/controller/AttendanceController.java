@@ -18,6 +18,8 @@ import lombok.Data;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
@@ -26,6 +28,7 @@ import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/attendances")
+@Transactional
 @RequiredArgsConstructor
 public class AttendanceController {
 
@@ -47,6 +50,7 @@ public class AttendanceController {
     }
 
     @PostMapping("/log")
+    @PreAuthorize("@perm.has('add_attendance') or hasAnyRole('Admin', 'HR') or @perm.isSelfOrAdmin(#request.staffId)")
     public ResponseEntity<?> logCheckInOut(@RequestBody LogRequest request) {
         if (request.getStaffId() == null || request.getAction() == null) {
             return ResponseEntity.badRequest().body(Map.of("message", "Staff ID and Action are required"));
@@ -83,6 +87,7 @@ public class AttendanceController {
     }
 
     @GetMapping("/today")
+    @PreAuthorize("@perm.has('attendance')")
     public ResponseEntity<List<Map<String, Object>>> getTodayAttendance(
             @RequestParam(required = false) String departmentId,
             @RequestParam(required = false) String branch
@@ -123,6 +128,7 @@ public class AttendanceController {
     }
 
     @GetMapping("/history")
+    @PreAuthorize("@perm.has('attendance') or (authentication != null and @perm.isSelfOrAdmin(#staffId))")
     public ResponseEntity<List<Map<String, Object>>> getHistory(
             @RequestParam(required = false) String staffId,
             @RequestParam(required = false) String search,
@@ -198,6 +204,7 @@ public class AttendanceController {
     }
 
     @GetMapping("/stats-summary")
+    @PreAuthorize("@perm.has('attendance')")
     public ResponseEntity<Map<String, Object>> getStatsSummary() {
         long totalEmployees = employeeRepository.findAll().stream()
                 .filter(e -> e.getStatus() == Status.Active)
@@ -224,6 +231,7 @@ public class AttendanceController {
     }
 
     @PostMapping
+    @PreAuthorize("@perm.has('add_attendance')")
     public ResponseEntity<?> createAttendance(@RequestBody Attendance attendance) {
         if (attendance.getStaffId() == null || attendance.getAttendanceDate() == null) {
             return ResponseEntity.badRequest().body(Map.of("message", "Staff ID and Attendance Date are required"));
@@ -253,6 +261,7 @@ public class AttendanceController {
     }
 
     @PutMapping("/{id}")
+    @PreAuthorize("@perm.has('edit_attendance')")
     public ResponseEntity<?> updateAttendance(@PathVariable UUID id, @RequestBody Attendance updated) {
         Optional<Attendance> existingOpt = attendanceRepository.findById(id);
         if (existingOpt.isEmpty()) {
@@ -282,6 +291,7 @@ public class AttendanceController {
     }
 
     @DeleteMapping("/{id}")
+    @PreAuthorize("@perm.has('delete_attendance')")
     public ResponseEntity<?> deleteAttendance(@PathVariable UUID id) {
         if (attendanceRepository.existsById(id)) {
             attendanceRepository.deleteById(id);

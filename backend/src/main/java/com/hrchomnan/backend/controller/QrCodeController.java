@@ -19,13 +19,16 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.*;
 
 @RestController
 @RequestMapping("/qrcode")
+@Transactional
 @RequiredArgsConstructor
 @Slf4j
 public class QrCodeController {
@@ -40,6 +43,7 @@ public class QrCodeController {
     private final JwtUtil jwtUtil;
 
     @GetMapping("/generate/{staffId}")
+    @PreAuthorize("@perm.has('qrscan') or @perm.isSelfOrAdmin(#staffId)")
     public ResponseEntity<?> generateQRCode(@PathVariable String staffId) {
         Optional<Employee> empOpt = employeeRepository.findByStaffId(staffId);
         if (empOpt.isEmpty()) {
@@ -91,6 +95,7 @@ public class QrCodeController {
     }
 
     @PostMapping("/scan")
+    @PreAuthorize("@perm.has('qrscan') or hasRole('Admin') or isAuthenticated()")
     public ResponseEntity<?> scanQRCode(@RequestBody ScanRequest request,
                                          @RequestHeader(value = "Authorization", required = false) String authHeader) {
         if (request.getQrToken() == null || request.getQrToken().isBlank()) {
@@ -256,6 +261,7 @@ public class QrCodeController {
     }
 
     @PostMapping("/scan-branch")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<?> scanBranchQRCode(@RequestBody ScanRequest request, Authentication authentication) {
         if (authentication == null || !(authentication.getPrincipal() instanceof Employee employee)) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("message", "Authentication required"));

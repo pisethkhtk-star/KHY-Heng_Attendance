@@ -122,9 +122,9 @@ const Navbar = ({ toggleSidebar }) => {
         <div className="flex items-center gap-3">
           {user && (
             <div className="flex items-center gap-2">
-              {user.photoUrl ? (
+              {(user.photoUrl || (Array.isArray(user.faceData) ? user.faceData[0]?.photoUrl : user.faceData?.photoUrl)) ? (
                 <img
-                  src={user.photoUrl}
+                  src={user.photoUrl || (Array.isArray(user.faceData) ? user.faceData[0]?.photoUrl : user.faceData?.photoUrl)}
                   alt={user.nameEn}
                   className="h-10 w-10 rounded-full object-cover border border-[var(--border-card)] shadow-inner"
                 />

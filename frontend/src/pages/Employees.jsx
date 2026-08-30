@@ -71,6 +71,15 @@ const Employees = () => {
 
   const [profilePhoto, setProfilePhoto] = useState(''); // profile photo (simple upload, no face detect)
   const [profilePhotoLoading, setProfilePhotoLoading] = useState(false);
+
+  const getEmployeePhoto = (emp) => {
+    if (!emp) return '';
+    if (emp.photoUrl) return emp.photoUrl;
+    if (Array.isArray(emp.faceData) && emp.faceData[0]?.photoUrl) return emp.faceData[0].photoUrl;
+    if (emp.faceData?.photoUrl) return emp.faceData.photoUrl;
+    return '';
+  };
+
   const [submitting, setSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [branches, setBranches] = useState([]);
@@ -571,10 +580,11 @@ const Employees = () => {
     setRole(emp.role);
     setAddress(emp.address || '');
     setIdCardPassport(emp.idCardPassport || '');
-    setFormPhoto(emp.faceData?.[0]?.photoUrl || '');
+    const facePhotoUrl = (Array.isArray(emp.faceData) ? emp.faceData[0]?.photoUrl : emp.faceData?.photoUrl) || '';
+    setFormPhoto(facePhotoUrl);
     setFormFaceDescriptor(null);
-    setFormPhotoStatus(emp.faceData?.[0]?.photoUrl ? 'success' : 'idle');
-    setProfilePhoto(emp.photoUrl || '');
+    setFormPhotoStatus(facePhotoUrl ? 'success' : 'idle');
+    setProfilePhoto(emp.photoUrl || facePhotoUrl);
     setErrorMsg('');
     setShowModal(true);
   };
@@ -892,9 +902,9 @@ const Employees = () => {
                         <td className="py-4 px-6">
                           <div className="flex items-center gap-3">
                             {/* Profile Avatar */}
-                            {emp.photoUrl ? (
+                            {getEmployeePhoto(emp) ? (
                               <img
-                                src={emp.photoUrl}
+                                src={getEmployeePhoto(emp)}
                                 alt={emp.nameEn}
                                 className="w-10 h-10 rounded-full object-cover border-2 border-indigo-500/30 flex-shrink-0 shadow-md"
                               />
@@ -1783,21 +1793,15 @@ const Employees = () => {
               <div className="flex flex-col sm:flex-row items-center gap-6 p-4 bg-slate-950/40 border border-white/5 rounded-2xl">
                 {/* Profile Picture */}
                 <div className="relative h-24 w-24 rounded-2xl overflow-hidden bg-slate-800 border border-white/10 flex items-center justify-center shadow-inner">
-                  {profileEmp.photoUrl ? (
+                  {getEmployeePhoto(profileEmp) ? (
                     <img
-                      src={profileEmp.photoUrl}
-                      alt={profileEmp.nameEn}
-                      className="h-full w-full object-cover"
-                    />
-                  ) : profileEmp.faceData?.[0]?.photoUrl ? (
-                    <img
-                      src={profileEmp.faceData[0].photoUrl}
+                      src={getEmployeePhoto(profileEmp)}
                       alt={profileEmp.nameEn}
                       className="h-full w-full object-cover"
                     />
                   ) : (
                     <div className="text-3xl font-bold text-indigo-400 font-khmer select-none">
-                      {profileEmp.nameEn.charAt(0).toUpperCase()}
+                      {profileEmp.nameEn?.charAt(0)?.toUpperCase() || 'E'}
                     </div>
                   )}
                 </div>

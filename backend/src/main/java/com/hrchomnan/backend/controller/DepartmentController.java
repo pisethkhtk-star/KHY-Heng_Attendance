@@ -9,6 +9,8 @@ import com.hrchomnan.backend.repository.PositionRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.*;
@@ -16,6 +18,7 @@ import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/departments")
+@Transactional
 @RequiredArgsConstructor
 public class DepartmentController {
 
@@ -24,6 +27,7 @@ public class DepartmentController {
     private final EmployeeRepository employeeRepository;
 
     @GetMapping
+    @PreAuthorize("@perm.has('departments')")
     public ResponseEntity<List<Map<String, Object>>> getAllDepartments() {
         List<Department> list = departmentRepository.findAll();
         list.sort(Comparator.comparing(Department::getNameEn, Comparator.nullsLast(String::compareToIgnoreCase)));
@@ -49,6 +53,7 @@ public class DepartmentController {
     }
 
     @GetMapping("/{id}")
+    @PreAuthorize("@perm.has('departments')")
     public ResponseEntity<?> getDepartmentById(@PathVariable UUID id) {
         Optional<Department> deptOpt = departmentRepository.findById(id);
         if (deptOpt.isEmpty()) {
@@ -78,6 +83,7 @@ public class DepartmentController {
     }
 
     @PostMapping
+    @PreAuthorize("@perm.has('add_department')")
     public ResponseEntity<?> createDepartment(@RequestBody Department department) {
         if (department.getNameEn() == null || department.getNameKh() == null) {
             return ResponseEntity.badRequest().body(Map.of("message", "English and Khmer names are required"));
@@ -87,6 +93,7 @@ public class DepartmentController {
     }
 
     @PutMapping("/{id}")
+    @PreAuthorize("@perm.has('edit_department')")
     public ResponseEntity<?> updateDepartment(@PathVariable UUID id, @RequestBody Department updated) {
         return departmentRepository.findById(id)
                 .map(existing -> {
@@ -99,6 +106,7 @@ public class DepartmentController {
     }
 
     @DeleteMapping("/{id}")
+    @PreAuthorize("@perm.has('delete_department')")
     public ResponseEntity<?> deleteDepartment(@PathVariable UUID id) {
         if (departmentRepository.existsById(id)) {
             // Delete related positions first to mimic Cascade

@@ -9,7 +9,9 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
@@ -20,6 +22,7 @@ import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/leaves")
+@Transactional
 @RequiredArgsConstructor
 @Slf4j
 public class LeaveController {
@@ -36,6 +39,7 @@ public class LeaveController {
     private final com.hrchomnan.backend.service.TelegramNotificationService telegramNotificationService;
 
     @GetMapping
+    @PreAuthorize("@perm.has('leaves')")
     public ResponseEntity<List<Map<String, Object>>> getAllLeaves(
             @RequestParam(required = false) String status,
             @RequestParam(required = false) String search,
@@ -122,6 +126,7 @@ public class LeaveController {
     }
 
     @GetMapping("/employee/{staffId}")
+    @PreAuthorize("@perm.has('leaves') or @perm.isSelfOrAdmin(#staffId)")
     public ResponseEntity<List<Map<String, Object>>> getByEmployee(@PathVariable String staffId) {
         List<Leave> list = leaveRepository.findByStaffId(staffId);
         list.sort(Comparator.comparing(Leave::getLeaveDate).reversed());
@@ -157,6 +162,7 @@ public class LeaveController {
     }
 
     @PostMapping
+    @PreAuthorize("@perm.has('add_leave') or @perm.isSelfOrAdmin(#request.staffId)")
     public ResponseEntity<?> createLeave(@RequestBody CreateLeaveRequest request) {
         String resolvedStartDate = request.getStartDate() != null && !request.getStartDate().isBlank()
                 ? request.getStartDate()
@@ -331,6 +337,7 @@ public class LeaveController {
     }
 
     @PutMapping("/{id}/status")
+    @PreAuthorize("@perm.has('approve_leaves') or hasAnyRole('Admin', 'HR', 'Manager')")
     public ResponseEntity<?> updateStatus(
             @PathVariable UUID id,
             @RequestBody StatusUpdateRequest request,
@@ -440,6 +447,7 @@ public class LeaveController {
     }
 
     @DeleteMapping("/{id}")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<?> deleteLeave(@PathVariable UUID id, Authentication authentication) {
         Optional<Leave> leaveOpt = leaveRepository.findById(id);
         if (leaveOpt.isEmpty()) {

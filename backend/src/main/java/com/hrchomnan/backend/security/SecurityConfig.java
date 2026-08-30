@@ -3,6 +3,7 @@ package com.hrchomnan.backend.security;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
@@ -20,6 +21,7 @@ import java.util.List;
 
 @Configuration
 @EnableWebSecurity
+@EnableMethodSecurity(prePostEnabled = true)
 @RequiredArgsConstructor
 public class SecurityConfig {
 
@@ -31,9 +33,18 @@ public class SecurityConfig {
             .csrf(AbstractHttpConfigurer::disable)
             .cors(cors -> cors.configurationSource(corsConfigurationSource()))
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+            .exceptionHandling(ex -> ex.authenticationEntryPoint((request, response, authException) -> {
+                response.setContentType("application/json;charset=UTF-8");
+                response.setStatus(401);
+                response.getWriter().write("{\"message\":\"Unauthorized: Token is missing or invalid.\",\"code\":\"UNAUTHORIZED\"}");
+            }))
             .authorizeHttpRequests(auth -> auth
-                .requestMatchers("/auth/**", "/health", "/error").permitAll()
-                .anyRequest().permitAll() // Permit endpoints to maintain exact parity with current express backend
+                .requestMatchers(
+                    "/auth/**",
+                    "/health",
+                    "/error"
+                ).permitAll()
+                .anyRequest().authenticated()
             )
             .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);
 

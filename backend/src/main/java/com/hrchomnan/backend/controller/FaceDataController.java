@@ -19,12 +19,15 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.*;
 
 @RestController
 @RequestMapping("/face")
+@Transactional
 @RequiredArgsConstructor
 @Slf4j
 public class FaceDataController {
@@ -45,6 +48,7 @@ public class FaceDataController {
     }
 
     @PostMapping("/enroll")
+    @PreAuthorize("@perm.has('edit_employee') or @perm.has('add_employee') or @perm.isSelfOrAdmin(#request.staffId)")
     public ResponseEntity<?> enrollFace(@RequestBody EnrollRequest request) {
         if (request.getStaffId() == null || request.getFaceDescriptor() == null) {
             return ResponseEntity.badRequest().body(Map.of("message", "Staff ID and face descriptor are required"));
@@ -80,6 +84,14 @@ public class FaceDataController {
 
             EmployeeFaceData saved = faceDataRepository.save(faceData);
 
+            if (empOpt.isPresent() && request.getPhotoUrl() != null && !request.getPhotoUrl().isBlank()) {
+                Employee emp = empOpt.get();
+                if (emp.getPhotoUrl() == null || emp.getPhotoUrl().isBlank()) {
+                    emp.setPhotoUrl(request.getPhotoUrl());
+                    employeeRepository.save(emp);
+                }
+            }
+
             return ResponseEntity.status(HttpStatus.CREATED).body(Map.of(
                     "message", "Face coordinates registered successfully",
                     "data", saved
@@ -93,6 +105,7 @@ public class FaceDataController {
     }
 
     @GetMapping("/all")
+    @PreAuthorize("@perm.has('facescan') or @perm.has('attendance') or hasRole('Admin')")
     public ResponseEntity<?> getAllFaceData() {
         List<EmployeeFaceData> list = faceDataRepository.findAll();
         Map<String, Employee> empMap = new HashMap<>();
@@ -126,6 +139,7 @@ public class FaceDataController {
     }
 
     @GetMapping("/{staffId}")
+    @PreAuthorize("@perm.has('facescan') or @perm.isSelfOrAdmin(#staffId)")
     public ResponseEntity<?> getFaceData(@PathVariable String staffId) {
         List<EmployeeFaceData> list = faceDataRepository.findAllByStaffId(staffId);
         if (!list.isEmpty()) {
@@ -135,6 +149,7 @@ public class FaceDataController {
     }
 
     @DeleteMapping("/{staffId}")
+    @PreAuthorize("@perm.has('delete_employee') or @perm.has('edit_employee')")
     public ResponseEntity<?> deleteFaceData(@PathVariable String staffId) {
         List<EmployeeFaceData> list = faceDataRepository.findAllByStaffId(staffId);
         if (!list.isEmpty()) {
@@ -157,6 +172,7 @@ public class FaceDataController {
     }
 
     @PostMapping("/checkin")
+    @PreAuthorize("@perm.has('facescan') or hasRole('Admin') or isAuthenticated()")
     public ResponseEntity<?> verifyAndCheckInFace(@RequestBody FaceCheckInRequest request) {
         Employee employee = null;
 
