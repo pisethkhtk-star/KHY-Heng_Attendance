@@ -2,13 +2,14 @@ import React, { useState, useEffect, useMemo } from 'react';
 import api from '../utils/api';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
-import { PlusIcon, CheckIcon, XMarkIcon, ArrowDownTrayIcon } from '@heroicons/react/24/outline';
+import { PlusIcon, CheckIcon, XMarkIcon, ArrowDownTrayIcon, TrashIcon } from '@heroicons/react/24/outline';
 import { formatDateDDMMYYYY } from '../utils/dateUtils';
 
 const Leaves = () => {
   const { user } = useAuth();
   const { t, getLocalizedName, locale } = useLanguage();
   const canApprove = ['Admin', 'HR', 'Manager'].includes(user.role);
+  const showActions = canApprove || user.role === 'Employee';
 
   const [leaves, setLeaves] = useState([]);
   const [employees, setEmployees] = useState([]);
@@ -211,6 +212,21 @@ const Leaves = () => {
     } catch (error) {
       console.error('Error making leave decision:', error);
       alert(error.response?.data?.message || 'Error executing action');
+    }
+  };
+
+  const handleDeleteLeave = async (id) => {
+    const confirmMsg = locale === 'kh'
+      ? 'តើអ្នកប្រាកដជាចង់លុបសំណើសុំច្បាប់នេះមែនទេ? ចំនួនថ្ងៃច្បាប់នឹងត្រូវ Rollback ត្រឡប់មកវិញ។'
+      : 'Are you sure you want to delete this leave request? The leave days will be rolled back.';
+    if (!window.confirm(confirmMsg)) return;
+
+    try {
+      await api.delete(`/leaves/${id}`);
+      fetchLeaves();
+    } catch (error) {
+      console.error('Error deleting leave:', error);
+      alert(error.response?.data?.message || (locale === 'kh' ? 'មានបញ្ហាក្នុងការលុបច្បាប់' : 'Error deleting leave'));
     }
   };
 
@@ -519,13 +535,13 @@ const Leaves = () => {
                   <th className="py-4 px-6 font-khmer whitespace-nowrap">{t("status")}</th>
                   <th className="py-4 px-6 font-khmer whitespace-nowrap">{t("managerName")}</th>
                   <th className="py-4 px-6 font-khmer whitespace-nowrap">{t("createdBy")}</th>
-                  {canApprove && <th className="py-4 px-6 text-right font-khmer whitespace-nowrap min-w-[110px]">{t("actions")}</th>}
+                  {showActions && <th className="py-4 px-6 text-right font-khmer whitespace-nowrap min-w-[110px]">{t("actions")}</th>}
                 </tr>
               </thead>
               <tbody className="divide-y divide-white/5">
                 {displayLeaves.length === 0 ? (
                   <tr>
-                    <td colSpan={9 + (user.role !== 'Employee' ? 1 : 0) + (canApprove ? 1 : 0)} className="py-6 text-center text-slate-500 font-khmer">
+                    <td colSpan={9 + (user.role !== 'Employee' ? 1 : 0) + (showActions ? 1 : 0)} className="py-6 text-center text-slate-500 font-khmer">
                       {t("noData")}
                     </td>
                   </tr>
@@ -601,30 +617,43 @@ const Leaves = () => {
                         </td>
                         <td className="py-4 px-6 font-khmer text-slate-300 whitespace-nowrap">{leave.managerName || '-'}</td>
                         <td className="py-4 px-6 font-khmer text-slate-300 whitespace-nowrap">{getCreatorDisplayName(leave.createdBy || leave.staffId)}</td>
-                        {canApprove && (
+                        {showActions && (
                           <td className="py-4 px-6 text-right whitespace-nowrap">
-                            {leave.status === 'Pending' ? (
-                              <div className="inline-flex items-center justify-end gap-2">
+                            <div className="inline-flex items-center justify-end gap-2">
+                              {canApprove && leave.status === 'Pending' && (
+                                <>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleDecision(leave.id, 'Approved')}
+                                    className="inline-flex items-center justify-center p-2 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/25 rounded-xl transition-colors border border-emerald-500/20 cursor-pointer shadow-sm"
+                                    title={t("approve")}
+                                  >
+                                    <CheckIcon className="h-4 w-4" />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleDecision(leave.id, 'Rejected')}
+                                    className="inline-flex items-center justify-center p-2 bg-rose-500/10 text-rose-400 hover:bg-rose-500/25 rounded-xl transition-colors border border-rose-500/20 cursor-pointer shadow-sm"
+                                    title={t("reject")}
+                                  >
+                                    <XMarkIcon className="h-4 w-4" />
+                                  </button>
+                                </>
+                              )}
+
+                              {(canApprove || (user.role === 'Employee' && leave.status === 'Pending' && leave.staffId === user.staffId)) ? (
                                 <button
                                   type="button"
-                                  onClick={() => handleDecision(leave.id, 'Approved')}
-                                  className="inline-flex items-center justify-center p-2 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/25 rounded-xl transition-colors border border-emerald-500/20 cursor-pointer shadow-sm"
-                                  title={t("approve")}
-                                >
-                                  <CheckIcon className="h-4 w-4" />
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => handleDecision(leave.id, 'Rejected')}
+                                  onClick={() => handleDeleteLeave(leave.id)}
                                   className="inline-flex items-center justify-center p-2 bg-rose-500/10 text-rose-400 hover:bg-rose-500/25 rounded-xl transition-colors border border-rose-500/20 cursor-pointer shadow-sm"
-                                  title={t("reject")}
+                                  title={locale === 'kh' ? 'លុបច្បាប់ (Rollback)' : 'Delete Leave (Rollback)'}
                                 >
-                                  <XMarkIcon className="h-4 w-4" />
+                                  <TrashIcon className="h-4 w-4" />
                                 </button>
-                              </div>
-                            ) : (
-                              <span className="text-xs text-slate-500 italic font-khmer">-</span>
-                            )}
+                              ) : (
+                                <span className="text-xs text-slate-500 italic font-khmer">-</span>
+                              )}
+                            </div>
                           </td>
                         )}
                       </tr>

@@ -423,6 +423,8 @@ public class LeaveController {
             } catch (Exception e) {
                 log.error("Error updating attendance on leave approval:", e);
             }
+        } else if (newStatus == LeaveStatus.Rejected) {
+            cleanUpAttendanceLeave(leave.getStaffId(), leave.getLeaveDate(), leave.getId());
         }
 
         Map<String, Employee> empMap = Map.of(employee.getStaffId(), employee);
@@ -466,8 +468,49 @@ public class LeaveController {
             }
         }
 
+        cleanUpAttendanceLeave(leave.getStaffId(), leave.getLeaveDate(), leave.getId());
         leaveRepository.deleteById(id);
-        return ResponseEntity.ok(Map.of("success", true, "message", "Leave request cancelled successfully"));
+        return ResponseEntity.ok(Map.of("success", true, "message", "Leave request deleted successfully"));
+    }
+
+    private void cleanUpAttendanceLeave(String staffId, LocalDate leaveDate, UUID excludeLeaveId) {
+        if (staffId == null || leaveDate == null) return;
+        try {
+            Optional<Attendance> existingAtt = attendanceRepository.findByStaffIdAndAttendanceDate(staffId, leaveDate);
+            if (existingAtt.isPresent()) {
+                Attendance att = existingAtt.get();
+
+                // Check if any other approved leave still exists for this staff on this date
+                List<Leave> otherApproved = leaveRepository.findByStaffId(staffId).stream()
+                        .filter(l -> !l.getId().equals(excludeLeaveId) &&
+                                leaveDate.equals(l.getLeaveDate()) &&
+                                l.getStatus() == LeaveStatus.Approved)
+                        .collect(Collectors.toList());
+
+                if (otherApproved.isEmpty()) {
+                    if (att.getNote() != null) {
+                        String cleanNote = Arrays.stream(att.getNote().split("\\|"))
+                                .map(String::trim)
+                                .filter(part -> !part.toLowerCase().contains("leave"))
+                                .collect(Collectors.joining(" | "));
+
+                        boolean hasScans = (att.getCheckin1() != null && !att.getCheckin1().isBlank() && !"-".equals(att.getCheckin1())) ||
+                                (att.getCheckout1() != null && !att.getCheckout1().isBlank() && !"-".equals(att.getCheckout1())) ||
+                                (att.getCheckin2() != null && !att.getCheckin2().isBlank() && !"-".equals(att.getCheckin2())) ||
+                                (att.getCheckout2() != null && !att.getCheckout2().isBlank() && !"-".equals(att.getCheckout2()));
+
+                        if (!hasScans && cleanNote.isBlank()) {
+                            attendanceRepository.delete(att);
+                        } else {
+                            att.setNote(cleanNote.isBlank() ? null : cleanNote);
+                            attendanceRepository.save(att);
+                        }
+                    }
+                }
+            }
+        } catch (Exception e) {
+            log.error("Error cleaning up attendance for leave:", e);
+        }
     }
 
     private Map<String, Object> enrichLeave(

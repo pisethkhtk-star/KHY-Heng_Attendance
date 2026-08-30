@@ -11,7 +11,7 @@ spring:
     url: ${DATABASE_URL:jdbc:postgresql://127.0.0.1:5432/employee_attendance_db}
     driver-class-name: org.postgresql.Driver
     username: ${DB_USERNAME:postgres}
-    password: ${DB_PASSWORD:changeme_in_production}
+    password: ${DB_PASSWORD:postgres}
   jpa:
     database-platform: org.hibernate.dialect.PostgreSQLDialect
     hibernate:
