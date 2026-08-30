@@ -11,18 +11,16 @@ spring:
     url: ${DATABASE_URL:jdbc:postgresql://127.0.0.1:5432/employee_attendance_db}
     driver-class-name: org.postgresql.Driver
     username: ${DB_USERNAME:postgres}
-    password: ${DB_PASSWORD:postgres}
+    password: ${DB_PASSWORD:changeme_in_production}
   jpa:
     database-platform: org.hibernate.dialect.PostgreSQLDialect
     hibernate:
       ddl-auto: update
     show-sql: false
-    properties:
-      hibernate:
-        format_sql: true
 
 jwt:
-  secret: ${JWT_SECRET:your-super-secret-jwt-key-change-this}
+  # IMPORTANT: Set JWT_SECRET env var in production! (min 32 chars, random strong key)
+  secret: ${JWT_SECRET:hr-chomnan-dev-secret-key-please-change-32chars}
   expiration-ms: 86400000 # 24 hours
 
 logging:

@@ -54,7 +54,14 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOriginPatterns(List.of("*"));
+        // Security: Specify exact allowed origins instead of wildcard "*"
+        configuration.setAllowedOriginPatterns(List.of(
+            "http://localhost:5173",   // Vite dev server
+            "http://localhost:3000",   // React dev server
+            "http://localhost:4173",   // Vite preview
+            "http://localhost:8080",   // Same server
+            "${APP_ORIGIN:http://localhost:5173}" // Production origin from env
+        ));
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
         configuration.setAllowedHeaders(List.of("*"));
         configuration.setAllowCredentials(true);

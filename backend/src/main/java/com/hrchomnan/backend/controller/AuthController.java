@@ -26,6 +26,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
 @RestController
@@ -44,6 +45,31 @@ public class AuthController {
     private final JwtUtil jwtUtil;
     private final PasswordEncoder passwordEncoder;
 
+    // ---- Brute-force protection (in-memory, resets on restart) ----
+    private static final int MAX_FAILED_ATTEMPTS = 13;
+    private static final long LOCKOUT_DURATION_MS = 10 * 60 * 1000L; // 10 minutes
+    private final ConcurrentHashMap<String, Integer> failedAttempts = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<String, Long> lockoutUntil = new ConcurrentHashMap<>();
+
+    private boolean isLockedOut(String email) {
+        Long until = lockoutUntil.get(email);
+        if (until != null && System.currentTimeMillis() < until) return true;
+        if (until != null) { lockoutUntil.remove(email); failedAttempts.remove(email); }
+        return false;
+    }
+
+    private void recordFailure(String email) {
+        int count = failedAttempts.merge(email, 1, Integer::sum);
+        if (count >= MAX_FAILED_ATTEMPTS) {
+            lockoutUntil.put(email, System.currentTimeMillis() + LOCKOUT_DURATION_MS);
+        }
+    }
+
+    private void clearFailures(String email) {
+        failedAttempts.remove(email);
+        lockoutUntil.remove(email);
+    }
+
     @Data
     public static class LoginRequest {
         private String email;
@@ -57,7 +83,17 @@ public class AuthController {
             return ResponseEntity.badRequest().body(Map.of("message", "Please provide email and password"));
         }
 
-        Optional<Employee> employeeOpt = employeeRepository.findByEmail(request.getEmail());
+        String email = request.getEmail().trim().toLowerCase();
+
+        // Brute-force check: block if locked out
+        if (isLockedOut(email)) {
+            return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS).body(Map.of(
+                "message", "Account temporarily locked due to too many failed attempts. Try again in 10 minutes.",
+                "code", "ACCOUNT_LOCKED"
+            ));
+        }
+
+        Optional<Employee> employeeOpt = employeeRepository.findByEmail(email);
         if (employeeOpt.isEmpty()) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("message", "Invalid email or password"));
         }
@@ -79,12 +115,17 @@ public class AuthController {
             }
         }
 
-        boolean isMatch = passwordEncoder.matches(request.getPassword(), employee.getPassword())
-                || request.getPassword().equals(employee.getPassword());
+        // Only use BCrypt comparison - no plain-text fallback
+        boolean isMatch = passwordEncoder.matches(request.getPassword(), employee.getPassword());
 
         if (!isMatch) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("message", "Invalid email or password"));
+            recordFailure(email); // Track failed attempt
+            int remaining = MAX_FAILED_ATTEMPTS - failedAttempts.getOrDefault(email, 0);
+            String hint = remaining > 0 ? " (" + remaining + " attempts remaining before lockout)" : " Account is now locked for 10 min.";
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("message", "Invalid email or password" + hint));
         }
+
+        clearFailures(email); // Reset on successful login
 
         String token = jwtUtil.generateToken(
                 employee.getEmail(),
@@ -161,20 +202,8 @@ public class AuthController {
             } catch (Exception ignored) {}
         }
 
-        // Case-insensitive direct match with Staff ID or Email
-        if (staffId == null) {
-            List<Employee> allEmployees = employeeRepository.findAll();
-            for (Employee emp : allEmployees) {
-                if (emp.getStaffId() != null && emp.getStaffId().equalsIgnoreCase(cleanToken)) {
-                    staffId = emp.getStaffId();
-                    break;
-                }
-                if (emp.getEmail() != null && emp.getEmail().equalsIgnoreCase(cleanToken)) {
-                    staffId = emp.getStaffId();
-                    break;
-                }
-            }
-        }
+        // Security: Do NOT allow plain staffId or email as QR token (bypass risk)
+        // Only accept: secure signed token, registered QR token, or QR_TOKEN_ format
 
         if (staffId == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("message", "លេខកូដ QR មិនត្រឹមត្រូវ ឬអស់សុពលភាព (Invalid or expired QR code)"));
@@ -226,7 +255,7 @@ public class AuthController {
         map.put("isFlexible", employee.getIsFlexible() != null ? employee.getIsFlexible() : false);
         map.put("flexibleSchedule", employee.getFlexibleSchedule() != null ? employee.getFlexibleSchedule() : "{}");
         map.put("address", employee.getAddress());
-        map.put("idCardPassport", employee.getIdCardPassport());
+        // Note: idCardPassport removed from response for security (PII protection)
         String userPhoto = employee.getPhotoUrl();
         if ((userPhoto == null || userPhoto.isBlank()) && employee.getStaffId() != null) {
             userPhoto = employeeFaceDataRepository.findByStaffId(employee.getStaffId())
