@@ -252,6 +252,21 @@ input:focus, select:focus, textarea:focus {
   outline: none;
 }
 
+select option {
+  background-color: var(--bg-card) !important;
+  color: var(--text-primary) !important;
+}
+
+html.light select option {
+  background-color: #FFFFFF !important;
+  color: #1E293B !important;
+}
+
+html:not(.light) select option {
+  background-color: #151D30 !important;
+  color: #F3F4F6 !important;
+}
+
 /* Print Overrides */
 @media print {
   .no-print {

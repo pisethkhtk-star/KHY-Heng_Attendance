@@ -12,4 +12,7 @@ public interface LeaveApprovalRuleRepository extends JpaRepository<LeaveApproval
     List<LeaveApprovalRule> findByApproverId(String approverId);
     List<LeaveApprovalRule> findByTargetStaffId(String targetStaffId);
     List<LeaveApprovalRule> findByTargetDeptId(UUID targetDeptId);
+    List<LeaveApprovalRule> findByRuleType(String ruleType);
+    List<LeaveApprovalRule> findByTargetStaffIdAndRuleType(String targetStaffId, String ruleType);
+    List<LeaveApprovalRule> findByTargetDeptIdAndRuleType(UUID targetDeptId, String ruleType);
 }

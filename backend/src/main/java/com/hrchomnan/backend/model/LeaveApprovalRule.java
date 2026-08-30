@@ -33,6 +33,10 @@ public class LeaveApprovalRule {
     @Column(name = "target_staff_id")
     private String targetStaffId;
 
+    @Builder.Default
+    @Column(name = "rule_type")
+    private String ruleType = "LEAVE"; // "LEAVE" or "OVERTIME"
+
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;

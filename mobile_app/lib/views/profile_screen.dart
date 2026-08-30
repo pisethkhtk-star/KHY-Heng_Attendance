@@ -7,6 +7,7 @@ import '../controllers/auth_controller.dart';
 import '../controllers/theme_controller.dart';
 import '../controllers/language_controller.dart';
 import '../widgets/custom_card.dart';
+import '../widgets/face_enroll_modal_sheet.dart';
 import 'login_screen.dart';
 
 class ProfileScreen extends StatelessWidget {
@@ -71,16 +72,54 @@ class ProfileScreen extends StatelessWidget {
                     style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.w600),
                   ),
                   const SizedBox(height: 12),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: AppColors.primary.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Text(
-                      'ID: ${user?.employeeId ?? "EMP-2026"}',
-                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.primary),
-                    ),
+                  Wrap(
+                    alignment: WrapAlignment.center,
+                    spacing: 8,
+                    runSpacing: 6,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: AppColors.primary.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Text(
+                          'ID: ${user?.employeeId ?? "EMP-2026"}',
+                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.primary),
+                        ),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: (user?.isAdmin == true
+                              ? AppColors.primary
+                              : (user?.isHr == true
+                                  ? AppColors.accent
+                                  : (user?.isManager == true ? AppColors.warning : Colors.grey))).withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(
+                            color: (user?.isAdmin == true
+                                ? AppColors.primary
+                                : (user?.isHr == true
+                                    ? AppColors.accent
+                                    : (user?.isManager == true ? AppColors.warning : Colors.grey))).withValues(alpha: 0.3),
+                            width: 0.8,
+                          ),
+                        ),
+                        child: Text(
+                          'Role: ${user?.role ?? "Employee"}',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                            color: user?.isAdmin == true
+                                ? AppColors.primary
+                                : (user?.isHr == true
+                                    ? AppColors.accent
+                                    : (user?.isManager == true ? AppColors.warning : Colors.grey)),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
@@ -92,6 +131,8 @@ class ProfileScreen extends StatelessWidget {
               child: Column(
                 children: [
                   _buildInfoTile(LucideIcons.mail, langController.tr('email'), user?.email ?? 'chomnan@company.com'),
+                  const Divider(),
+                  _buildInfoTile(LucideIcons.shieldCheck, 'Role', user?.role ?? 'Employee'),
                   const Divider(),
                   _buildInfoTile(LucideIcons.building, langController.tr('department'), user?.department ?? 'Engineering'),
                   const Divider(),
@@ -138,6 +179,48 @@ class ProfileScreen extends StatelessWidget {
                 ],
               ),
             ),
+
+            // Strictly Role Admin has permission to access Admin Tools (Face Registration)
+            if (user?.isAdmin == true) ...[
+              const SizedBox(height: 20),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  langController.tr('admin_tools'),
+                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                ),
+              ),
+              const SizedBox(height: 12),
+              CustomCard(
+                child: ListTile(
+                  leading: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: AppColors.primary.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Icon(LucideIcons.scanFace, color: AppColors.primary, size: 22),
+                  ),
+                  title: Text(
+                    langController.tr('register_employee_face'),
+                    style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+                  ),
+                  subtitle: const Text(
+                    'ថត និងចុះឈ្មោះផ្ទៃមុខជីវមាត្របុគ្គលិក',
+                    style: TextStyle(fontSize: 12, color: Colors.grey),
+                  ),
+                  trailing: const Icon(LucideIcons.chevronRight, size: 18, color: Colors.grey),
+                  onTap: () {
+                    showModalBottomSheet(
+                      context: context,
+                      isScrollControlled: true,
+                      backgroundColor: Colors.transparent,
+                      builder: (_) => const FaceEnrollModalSheet(),
+                    );
+                  },
+                ),
+              ),
+            ],
             const SizedBox(height: 24),
 
             // Logout Button

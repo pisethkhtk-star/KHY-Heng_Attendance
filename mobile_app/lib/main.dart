@@ -13,6 +13,7 @@ import 'controllers/auth_controller.dart';
 import 'controllers/attendance_controller.dart';
 import 'controllers/leave_controller.dart';
 import 'controllers/overtime_controller.dart';
+import 'controllers/notification_controller.dart';
 import 'views/splash_screen.dart';
 
 void main() async {
@@ -33,6 +34,7 @@ void main() async {
   Get.put(LanguageController());
   Get.put(ThemeController());
   Get.put(AuthController());
+  Get.put(NotificationController());
   Get.put(AttendanceController());
   Get.put(LeaveController());
   Get.put(OvertimeController());

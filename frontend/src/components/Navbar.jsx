@@ -12,7 +12,8 @@ import {
 
 const Navbar = ({ toggleSidebar }) => {
   const { user, logout } = useAuth();
-  const { locale, setLocale, t, getLocalizedName } = useLanguage();
+  const { locale, language, setLocale, t, getLocalizedName } = useLanguage();
+  const isKhmer = locale === 'kh' || language === 'kh';
   const location = useLocation();
 
   const [theme, setTheme] = useState(() => {
@@ -55,6 +56,10 @@ const Navbar = ({ toggleSidebar }) => {
     if (cleanPath === 'work-hours') return t('workHours') || 'Work Hours';
     if (cleanPath === 'leave-types') return t('types') || 'Leave Types';
     if (cleanPath === 'leave-allowances') return t('allowances') || 'Leave Allowances';
+    if (cleanPath === 'approvals') return t('approvalGroup') || 'Approvals';
+    if (cleanPath === 'approval-manage/leave') return t('leaveApprovers') || (isKhmer ? 'កំណត់អ្នកអនុម័តច្បាប់' : 'Leave Approver Rules');
+    if (cleanPath === 'approval-manage/overtime') return t('overtimeApprovers') || (isKhmer ? 'កំណត់អ្នកអនុម័តថែមម៉ោង' : 'Overtime Approver Rules');
+    if (cleanPath === 'approval-manage/checkin') return t('checkinApprovers') || (isKhmer ? 'កំណត់សិទ្ធិចុះវត្តមានជំនួស' : 'Check-in on Behalf');
     if (cleanPath === 'approval-manage') return t('approvalManage') || 'Approval Manage';
     if (cleanPath === 'permissions') return 'Permissions';
     return 'Overview';

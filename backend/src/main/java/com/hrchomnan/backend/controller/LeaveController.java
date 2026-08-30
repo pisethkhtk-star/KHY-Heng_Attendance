@@ -365,12 +365,12 @@ public class LeaveController {
         Employee currentUser = (authentication != null && authentication.getPrincipal() instanceof Employee emp) ? emp : null;
         if (currentUser != null && currentUser.getRole() != Role.Admin) {
             List<LeaveApprovalRule> indRules = leaveApprovalRuleRepository.findByTargetStaffId(leave.getStaffId()).stream()
-                    .filter(r -> "Employee".equalsIgnoreCase(r.getScope()))
+                    .filter(r -> "Employee".equalsIgnoreCase(r.getScope()) && ("LEAVE".equalsIgnoreCase(r.getRuleType()) || r.getRuleType() == null))
                     .collect(Collectors.toList());
 
             List<LeaveApprovalRule> deptRules = (employee.getDepartmentId() != null)
                     ? leaveApprovalRuleRepository.findByTargetDeptId(employee.getDepartmentId()).stream()
-                    .filter(r -> "Department".equalsIgnoreCase(r.getScope()))
+                    .filter(r -> "Department".equalsIgnoreCase(r.getScope()) && ("LEAVE".equalsIgnoreCase(r.getRuleType()) || r.getRuleType() == null))
                     .collect(Collectors.toList())
                     : Collections.emptyList();
 

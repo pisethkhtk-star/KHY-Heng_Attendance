@@ -139,7 +139,7 @@ public class FaceDataController {
     }
 
     @GetMapping("/{staffId}")
-    @PreAuthorize("@perm.has('facescan') or @perm.isSelfOrAdmin(#staffId)")
+    @PreAuthorize("@perm.has('facescan') or @perm.isSelfOrAdmin(#staffId) or @perm.canCheckinOnBehalf(#staffId)")
     public ResponseEntity<?> getFaceData(@PathVariable String staffId) {
         List<EmployeeFaceData> list = faceDataRepository.findAllByStaffId(staffId);
         if (!list.isEmpty()) {
@@ -176,13 +176,51 @@ public class FaceDataController {
     public ResponseEntity<?> verifyAndCheckInFace(@RequestBody FaceCheckInRequest request) {
         Employee employee = null;
 
-        // 1. If client already matched the face locally using preloaded descriptors:
+        // 1. If staffId is specified:
         if (request.getStaffId() != null && !request.getStaffId().isBlank()) {
             Optional<Employee> empOpt = employeeRepository.findByStaffId(request.getStaffId().trim());
             if (empOpt.isPresent() && empOpt.get().getStatus() == Status.Active) {
                 employee = empOpt.get();
             } else {
                 return ResponseEntity.badRequest().body(Map.of("success", false, "message", "Employee not found or inactive"));
+            }
+
+            // If faceDescriptor is also provided alongside staffId, enforce biometric comparison
+            if (request.getFaceDescriptor() != null) {
+                List<Double> inputDescriptor;
+                try {
+                    if (request.getFaceDescriptor() instanceof List<?> list) {
+                        inputDescriptor = new ArrayList<>();
+                        for (Object item : list) {
+                            if (item instanceof Number n) {
+                                inputDescriptor.add(n.doubleValue());
+                            }
+                        }
+                    } else if (request.getFaceDescriptor() instanceof String str) {
+                        inputDescriptor = objectMapper.readValue(str, new TypeReference<List<Double>>() {});
+                    } else {
+                        return ResponseEntity.badRequest().body(Map.of("message", "Valid face descriptor array is required"));
+                    }
+                } catch (Exception e) {
+                    return ResponseEntity.badRequest().body(Map.of("message", "Valid face descriptor array is required"));
+                }
+
+                List<EmployeeFaceData> enrolledList = faceDataRepository.findAllByStaffId(employee.getStaffId());
+                if (!enrolledList.isEmpty()) {
+                    EmployeeFaceData enrolledRecord = enrolledList.get(0);
+                    try {
+                        List<Double> enrolledDescriptor = objectMapper.readValue(enrolledRecord.getFaceDescriptor(), new TypeReference<List<Double>>() {});
+                        double dist = getEuclideanDistance(inputDescriptor, enrolledDescriptor);
+                        double THRESHOLD = 0.55;
+                        if (dist > THRESHOLD) {
+                            return ResponseEntity.badRequest().body(Map.of(
+                                    "success", false,
+                                    "message", "ផ្ទៃមុខមិនត្រូវគ្នានឹងបុគ្គលិកដែលបានជ្រើសរើសទេ! (Face does not match the selected employee)",
+                                    "distance", dist
+                            ));
+                        }
+                    } catch (Exception ignored) {}
+                }
             }
         } else {
             // Fallback to server-side descriptor comparison

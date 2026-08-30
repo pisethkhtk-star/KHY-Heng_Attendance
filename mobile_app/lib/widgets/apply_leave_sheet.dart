@@ -172,7 +172,7 @@ class _ApplyLeaveSheetState extends State<ApplyLeaveSheet> {
                                   ),
                                   const SizedBox(width: 6),
                                   Obx(() => Text(
-                                    langController.tr('morning'),
+                                    langController.tr('shift_1'),
                                     style: TextStyle(
                                       color: _halfDaySession == 'Morning' ? Colors.white : (isDark ? Colors.white : Colors.black87),
                                       fontWeight: FontWeight.bold,
@@ -208,7 +208,7 @@ class _ApplyLeaveSheetState extends State<ApplyLeaveSheet> {
                                   ),
                                   const SizedBox(width: 6),
                                   Obx(() => Text(
-                                    langController.tr('afternoon'),
+                                    langController.tr('shift_2'),
                                     style: TextStyle(
                                       color: _halfDaySession == 'Afternoon' ? Colors.white : (isDark ? Colors.white : Colors.black87),
                                       fontWeight: FontWeight.bold,
@@ -368,7 +368,7 @@ class _ApplyLeaveSheetState extends State<ApplyLeaveSheet> {
                   Expanded(
                     child: Obx(() {
                       final isKm = langController.currentLanguage == 'km';
-                      final sessionLabel = _halfDaySession == 'Morning' ? langController.tr('morning') : langController.tr('afternoon');
+                      final sessionLabel = _halfDaySession == 'Morning' ? langController.tr('shift_1') : langController.tr('shift_2');
                       final durationText = _durationMode == 'half'
                           ? (isKm ? 'រយៈពេលស្នើសុំ៖ ០.៥ ថ្ងៃ ($sessionLabel)' : 'Requested Duration: 0.5 Day ($sessionLabel)')
                           : _durationMode == 'full'

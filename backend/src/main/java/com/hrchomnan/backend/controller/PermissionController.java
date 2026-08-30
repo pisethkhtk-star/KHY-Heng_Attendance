@@ -206,4 +206,41 @@ public class PermissionController {
                 "canLoginWeb", Boolean.TRUE.equals(emp.getCanLoginWeb())
         ));
     }
+
+    /**
+     * Update employee role from Permissions page
+     */
+    @PutMapping("/employee/{id}/role")
+    public ResponseEntity<?> updateEmployeeRole(
+            @PathVariable UUID id,
+            @RequestBody Map<String, String> body
+    ) {
+        Optional<Employee> empOpt = employeeRepository.findById(id);
+        if (empOpt.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("message", "Employee not found"));
+        }
+
+        String roleStr = body.get("role");
+        if (roleStr == null || roleStr.isBlank()) {
+            return ResponseEntity.badRequest().body(Map.of("message", "Role is required"));
+        }
+
+        Role newRole = Role.Employee;
+        for (Role r : Role.values()) {
+            if (r.name().equalsIgnoreCase(roleStr.trim())) {
+                newRole = r;
+                break;
+            }
+        }
+
+        Employee emp = empOpt.get();
+        emp.setRole(newRole);
+        employeeRepository.save(emp);
+
+        return ResponseEntity.ok(Map.of(
+                "message", "Employee role updated successfully",
+                "role", newRole.name(),
+                "canLoginWeb", newRole == Role.Admin || Boolean.TRUE.equals(emp.getCanLoginWeb())
+        ));
+    }
 }

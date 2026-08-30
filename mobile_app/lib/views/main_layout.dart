@@ -7,6 +7,8 @@ import '../controllers/auth_controller.dart';
 import '../controllers/attendance_controller.dart';
 import '../controllers/leave_controller.dart';
 import '../controllers/overtime_controller.dart';
+import '../controllers/notification_controller.dart';
+import '../widgets/notifications_sheet.dart';
 import 'home_screen.dart';
 import 'attendance_screen.dart';
 import 'leave_screen.dart';
@@ -53,6 +55,7 @@ class _MainLayoutState extends State<MainLayout> {
   @override
   Widget build(BuildContext context) {
     final langController = Get.find<LanguageController>();
+    final notifController = Get.find<NotificationController>();
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     final List<Widget> pages = [
@@ -80,6 +83,51 @@ class _MainLayoutState extends State<MainLayout> {
           ],
         ),
         actions: [
+          // Notification Bell with Unread Badge
+          Obx(() {
+            final unread = notifController.unreadCount;
+            return Stack(
+              alignment: Alignment.center,
+              children: [
+                IconButton(
+                  icon: const Icon(LucideIcons.bell, size: 21),
+                  tooltip: 'Notifications',
+                  onPressed: () {
+                    showModalBottomSheet(
+                      context: context,
+                      isScrollControlled: true,
+                      backgroundColor: Colors.transparent,
+                      builder: (_) => NotificationsSheet(
+                        onNavigateToLeave: () => _changeTab(2),
+                      ),
+                    );
+                  },
+                ),
+                if (unread > 0)
+                  Positioned(
+                    top: 8,
+                    right: 8,
+                    child: Container(
+                      padding: const EdgeInsets.all(3),
+                      decoration: const BoxDecoration(
+                        color: Color(0xFFEF4444),
+                        shape: BoxShape.circle,
+                      ),
+                      constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
+                      child: Text(
+                        unread > 9 ? '9+' : '$unread',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 9,
+                          fontWeight: FontWeight.bold,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                  ),
+              ],
+            );
+          }),
           Obx(
             () => IconButton(
               icon: Icon(
@@ -92,10 +140,13 @@ class _MainLayoutState extends State<MainLayout> {
               },
             ),
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: 4),
         ],
       ),
-      body: pages[_currentIndex],
+      body: IndexedStack(
+        index: _currentIndex,
+        children: pages,
+      ),
       bottomNavigationBar: Container(
         decoration: BoxDecoration(
           color: isDark ? AppColors.cardDark : AppColors.cardLight,

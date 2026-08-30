@@ -43,7 +43,7 @@ public class QrCodeController {
     private final JwtUtil jwtUtil;
 
     @GetMapping("/generate/{staffId}")
-    @PreAuthorize("@perm.has('qrscan') or @perm.isSelfOrAdmin(#staffId)")
+    @PreAuthorize("@perm.canViewQr(#staffId)")
     public ResponseEntity<?> generateQRCode(@PathVariable String staffId) {
         Optional<Employee> empOpt = employeeRepository.findByStaffId(staffId);
         if (empOpt.isEmpty()) {

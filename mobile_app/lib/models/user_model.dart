@@ -12,6 +12,15 @@ class UserModel {
   final String shiftName;
   final String shiftStartTime;
   final String shiftEndTime;
+  final String role;
+
+  bool get isAdmin => role.trim().toLowerCase() == 'admin';
+  bool get isHr => role.trim().toLowerCase() == 'hr';
+  bool get isManager => role.trim().toLowerCase() == 'manager';
+  bool get isEmployee => role.trim().toLowerCase() == 'employee';
+
+  /// Strictly Role Admin has permission to register employee face scans per requirement
+  bool get canRegisterFace => isAdmin;
 
   UserModel({
     required this.id,
@@ -27,9 +36,14 @@ class UserModel {
     this.shiftName = 'Standard Day Shift',
     this.shiftStartTime = '08:00 AM',
     this.shiftEndTime = '05:00 PM',
+    this.role = 'Employee',
   });
 
-  factory UserModel.fromJson(Map<String, dynamic> json) {
+  factory UserModel.fromJson(Map<String, dynamic> rawJson) {
+    final json = (rawJson['user'] is Map<String, dynamic>)
+        ? rawJson['user'] as Map<String, dynamic>
+        : (rawJson['data'] is Map<String, dynamic> ? rawJson['data'] as Map<String, dynamic> : rawJson);
+
     String parsedDept = 'Engineering';
     if (json['department'] != null) {
       if (json['department'] is Map) {
@@ -80,6 +94,16 @@ class UserModel {
       shiftName: json['shiftName'] ?? 'Standard Day Shift (08:00 AM - 05:00 PM)',
       shiftStartTime: json['shiftStartTime'] ?? '08:00 AM',
       shiftEndTime: json['shiftEndTime'] ?? '05:00 PM',
+      role: () {
+        final rawRole = json['role'] ?? json['roleName'];
+        if (rawRole != null) {
+          if (rawRole is Map && rawRole['name'] != null) {
+            return rawRole['name'].toString().trim();
+          }
+          return rawRole.toString().trim();
+        }
+        return 'Employee';
+      }(),
     );
   }
 
@@ -98,6 +122,7 @@ class UserModel {
       'shiftName': shiftName,
       'shiftStartTime': shiftStartTime,
       'shiftEndTime': shiftEndTime,
+      'role': role,
     };
   }
 }

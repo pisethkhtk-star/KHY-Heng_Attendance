@@ -38,6 +38,12 @@ class StatusBadge extends StatelessWidget {
         bg = AppColors.infoBg;
         fg = AppColors.info;
         break;
+      case 'incomplete':
+      case 'incomplete shift':
+      case 'miss':
+        bg = AppColors.warningBg;
+        fg = AppColors.warning;
+        break;
       default:
         bg = Colors.grey.shade200;
         fg = Colors.grey.shade700;

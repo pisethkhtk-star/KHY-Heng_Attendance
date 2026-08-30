@@ -231,18 +231,28 @@ public class OvertimeController {
 
         String creatorName = currentUser != null ? (currentUser.getNameEn() != null ? currentUser.getNameEn() : currentUser.getNameKh()) : "Employee";
 
-        // Resolve designated approver from approval rules
+        // Resolve designated approver from approval rules (prefer OVERTIME rules)
         String assignedApproverId = null;
         String assignedApproverName = null;
         List<com.hrchomnan.backend.model.LeaveApprovalRule> indRules = leaveApprovalRuleRepository.findByTargetStaffId(resolvedStaffId).stream()
-                .filter(r -> "Employee".equalsIgnoreCase(r.getScope()))
+                .filter(r -> "Employee".equalsIgnoreCase(r.getScope()) && "OVERTIME".equalsIgnoreCase(r.getRuleType()))
                 .collect(Collectors.toList());
+        if (indRules.isEmpty()) {
+            indRules = leaveApprovalRuleRepository.findByTargetStaffId(resolvedStaffId).stream()
+                    .filter(r -> "Employee".equalsIgnoreCase(r.getScope()) && r.getRuleType() == null)
+                    .collect(Collectors.toList());
+        }
         if (!indRules.isEmpty()) {
             assignedApproverId = indRules.get(0).getApproverId();
         } else if (employee.getDepartmentId() != null) {
             List<com.hrchomnan.backend.model.LeaveApprovalRule> deptRules = leaveApprovalRuleRepository.findByTargetDeptId(employee.getDepartmentId()).stream()
-                    .filter(r -> "Department".equalsIgnoreCase(r.getScope()))
+                    .filter(r -> "Department".equalsIgnoreCase(r.getScope()) && "OVERTIME".equalsIgnoreCase(r.getRuleType()))
                     .collect(Collectors.toList());
+            if (deptRules.isEmpty()) {
+                deptRules = leaveApprovalRuleRepository.findByTargetDeptId(employee.getDepartmentId()).stream()
+                        .filter(r -> "Department".equalsIgnoreCase(r.getScope()) && r.getRuleType() == null)
+                        .collect(Collectors.toList());
+            }
             if (!deptRules.isEmpty()) {
                 assignedApproverId = deptRules.get(0).getApproverId();
             }
@@ -322,14 +332,24 @@ public class OvertimeController {
         if (currentUser != null && currentUser.getRole() != Role.Admin) {
             Employee targetEmp = employeeRepository.findByStaffId(overtime.getStaffId()).orElse(null);
             List<com.hrchomnan.backend.model.LeaveApprovalRule> indRules = leaveApprovalRuleRepository.findByTargetStaffId(overtime.getStaffId()).stream()
-                    .filter(r -> "Employee".equalsIgnoreCase(r.getScope()))
+                    .filter(r -> "Employee".equalsIgnoreCase(r.getScope()) && "OVERTIME".equalsIgnoreCase(r.getRuleType()))
                     .collect(Collectors.toList());
+            if (indRules.isEmpty()) {
+                indRules = leaveApprovalRuleRepository.findByTargetStaffId(overtime.getStaffId()).stream()
+                        .filter(r -> "Employee".equalsIgnoreCase(r.getScope()) && r.getRuleType() == null)
+                        .collect(Collectors.toList());
+            }
 
             List<com.hrchomnan.backend.model.LeaveApprovalRule> deptRules = (targetEmp != null && targetEmp.getDepartmentId() != null)
                     ? leaveApprovalRuleRepository.findByTargetDeptId(targetEmp.getDepartmentId()).stream()
-                    .filter(r -> "Department".equalsIgnoreCase(r.getScope()))
+                    .filter(r -> "Department".equalsIgnoreCase(r.getScope()) && "OVERTIME".equalsIgnoreCase(r.getRuleType()))
                     .collect(Collectors.toList())
                     : Collections.emptyList();
+            if (deptRules.isEmpty() && targetEmp != null && targetEmp.getDepartmentId() != null) {
+                deptRules = leaveApprovalRuleRepository.findByTargetDeptId(targetEmp.getDepartmentId()).stream()
+                        .filter(r -> "Department".equalsIgnoreCase(r.getScope()) && r.getRuleType() == null)
+                        .collect(Collectors.toList());
+            }
 
             Set<String> allowedApprovers = new HashSet<>();
             indRules.forEach(r -> allowedApprovers.add(r.getApproverId().toLowerCase()));
@@ -423,16 +443,26 @@ public class OvertimeController {
         String managerName = o.getManagerName();
         if ((managerId == null || managerId.isBlank()) && o.getStaffId() != null) {
             List<com.hrchomnan.backend.model.LeaveApprovalRule> indRules = leaveApprovalRuleRepository.findByTargetStaffId(o.getStaffId()).stream()
-                    .filter(r -> "Employee".equalsIgnoreCase(r.getScope()))
+                    .filter(r -> "Employee".equalsIgnoreCase(r.getScope()) && "OVERTIME".equalsIgnoreCase(r.getRuleType()))
                     .collect(Collectors.toList());
+            if (indRules.isEmpty()) {
+                indRules = leaveApprovalRuleRepository.findByTargetStaffId(o.getStaffId()).stream()
+                        .filter(r -> "Employee".equalsIgnoreCase(r.getScope()) && r.getRuleType() == null)
+                        .collect(Collectors.toList());
+            }
             if (!indRules.isEmpty()) {
                 managerId = indRules.get(0).getApproverId();
             } else {
                 Employee emp = employeeMap.get(o.getStaffId());
                 if (emp != null && emp.getDepartmentId() != null) {
                     List<com.hrchomnan.backend.model.LeaveApprovalRule> deptRules = leaveApprovalRuleRepository.findByTargetDeptId(emp.getDepartmentId()).stream()
-                            .filter(r -> "Department".equalsIgnoreCase(r.getScope()))
+                            .filter(r -> "Department".equalsIgnoreCase(r.getScope()) && "OVERTIME".equalsIgnoreCase(r.getRuleType()))
                             .collect(Collectors.toList());
+                    if (deptRules.isEmpty()) {
+                        deptRules = leaveApprovalRuleRepository.findByTargetDeptId(emp.getDepartmentId()).stream()
+                                .filter(r -> "Department".equalsIgnoreCase(r.getScope()) && r.getRuleType() == null)
+                                .collect(Collectors.toList());
+                    }
                     if (!deptRules.isEmpty()) {
                         managerId = deptRules.get(0).getApproverId();
                     }

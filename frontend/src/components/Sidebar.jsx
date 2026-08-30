@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { NavLink } from 'react-router-dom';
+import { NavLink, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
 import {
@@ -13,14 +13,17 @@ import {
   MapPinIcon,
   Cog6ToothIcon,
   GlobeAltIcon,
+  CheckBadgeIcon,
 } from '@heroicons/react/24/outline';
 import { LOGO_TEXT } from '../utils/constants';
 import appIcon from '../assets/app_icon.png';
 
 const Sidebar = ({ isOpen, toggleSidebar }) => {
   const { user, hasPermission } = useAuth();
-  const { t } = useLanguage();
-  const [openMenus, setOpenMenus] = useState({ Attendance: true, Leave: true, Setup: true, WebManage: true, Reports: true });
+  const { t, locale, language } = useLanguage();
+  const isKhmer = locale === 'kh' || language === 'kh';
+  const location = useLocation();
+  const [openMenus, setOpenMenus] = useState({ Approvals: true, Attendance: true, Leave: true, Setup: true, WebManage: true, Reports: true });
 
   const menuItems = [
     {
@@ -116,6 +119,28 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
       ]
     },
     {
+      key: "Approvals",
+      name: t("approvalGroup") || "Approvals",
+      icon: CheckBadgeIcon,
+      subItems: [
+        {
+          path: "/approval-manage/leave",
+          name: t("leaveApprovers") || (isKhmer ? "កំណត់អ្នកអនុម័តច្បាប់" : "Leave Approvers"),
+          resource: "leave_approvals",
+        },
+        {
+          path: "/approval-manage/overtime",
+          name: t("overtimeApprovers") || (isKhmer ? "កំណត់អ្នកអនុម័តថែមម៉ោង" : "Overtime Approvers"),
+          resource: "leave_approvals",
+        },
+        {
+          path: "/approval-manage/checkin",
+          name: t("checkinApprovers") || (isKhmer ? "កំណត់សិទ្ធិចុះវត្តមានជំនួស" : "Check-in on Behalf"),
+          resource: "leave_approvals",
+        },
+      ]
+    },
+    {
       key: "Reports",
       name: t("reports"),
       icon: DocumentChartBarIcon,
@@ -155,11 +180,6 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
           name: t("telegramGroup"),
           resource: "telegram_settings",
         },
-        {
-          path: "/approval-manage",
-          name: t("approvalManage"),
-          resource: "leave_approvals",
-        },
       ]
     },
     {
@@ -193,7 +213,7 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
     return hasPermission(item.resource) ? item : null;
   }).filter(Boolean);
 
-  const currentPath = window.location.pathname;
+  const currentPath = location.pathname;
 
   return (
     <aside

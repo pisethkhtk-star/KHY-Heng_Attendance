@@ -1,12 +1,48 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { useSearchParams, useLocation, useNavigate } from 'react-router-dom';
 import api from '../utils/api';
 import { useLanguage } from '../context/LanguageContext';
-import { PlusIcon, TrashIcon, ShieldCheckIcon, PencilIcon, TableCellsIcon } from '@heroicons/react/24/outline';
+import {
+  PlusIcon,
+  TrashIcon,
+  ShieldCheckIcon,
+  PencilIcon,
+  TableCellsIcon,
+  CalendarDaysIcon,
+  BoltIcon,
+} from '@heroicons/react/24/outline';
 import { useAuth } from '../context/AuthContext';
 
 const ApprovalManage = () => {
-  const { t, getLocalizedName, language } = useLanguage();
+  const { t, getLocalizedName, language, locale } = useLanguage();
+  const isKhmer = language === 'kh' || locale === 'kh';
   const { hasPermission } = useAuth();
+  const [searchParams] = useSearchParams();
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  // Active Category: 'LEAVE', 'OVERTIME', or 'CHECKIN' derived directly from URL for instant 1-click switching
+  const activeCategory = useMemo(() => {
+    if (location.pathname.toLowerCase().includes('checkin') || searchParams.get('type') === 'checkin') {
+      return 'CHECKIN';
+    }
+    if (location.pathname.toLowerCase().includes('overtime') || searchParams.get('type') === 'overtime') {
+      return 'OVERTIME';
+    }
+    return 'LEAVE';
+  }, [location.pathname, searchParams]);
+
+  const handleSwitchCategory = (cat) => {
+    setCurrentPage(1);
+    if (cat === 'CHECKIN') {
+      navigate('/approval-manage/checkin');
+    } else if (cat === 'OVERTIME') {
+      navigate('/approval-manage/overtime');
+    } else {
+      navigate('/approval-manage/leave');
+    }
+  };
+
   const [rules, setRules] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -28,6 +64,7 @@ const ApprovalManage = () => {
 
   // Modal / Form States
   const [showModal, setShowModal] = useState(false);
+  const [modalRuleType, setModalRuleType] = useState('LEAVE'); // 'LEAVE' or 'OVERTIME'
   const [approverId, setApproverId] = useState('');
   const [scope, setScope] = useState('Employee');
   const [targetDeptId, setTargetDeptId] = useState('');
@@ -94,6 +131,7 @@ const ApprovalManage = () => {
   const handleOpenAddModal = () => {
     setIsEditMode(false);
     setEditRuleId(null);
+    setModalRuleType(activeCategory);
     const active = employees.filter(e => e.status !== 'Inactive' && e.status !== 'Resigned' && e.status !== 'Terminated');
     setApproverId(active.length > 0 ? active[0].staffId : (employees.length > 0 ? employees[0].staffId : ''));
     setScope('Employee');
@@ -108,6 +146,7 @@ const ApprovalManage = () => {
   const handleOpenEditModal = (rule) => {
     setIsEditMode(true);
     setEditRuleId(rule.id);
+    setModalRuleType((rule.ruleType || 'LEAVE').toUpperCase());
     setApproverId(rule.approverId || '');
     setScope(rule.scope || 'Employee');
     if (rule.scope === 'Department') {
@@ -131,7 +170,7 @@ const ApprovalManage = () => {
     }
     const assigned = assignedApproversMap.get(staffId);
     if (assigned && !isEditMode) {
-      setErrorMsg(`បុគ្គលិកនេះមានអ្នកអនុម័តរួចហើយ (${assigned.approverName})! បុគ្គលិកម្នាក់មាន approver តែម្នាក់ប៉ុណ្ណោះ`);
+      setErrorMsg(`បុគ្គលិកនេះមានអ្នកអនុម័ត ${modalRuleType} រួចហើយ (${assigned.approverName})! បុគ្គលិកម្នាក់មាន approver តែម្នាក់ប៉ុណ្ណោះ`);
       playSound('error');
       return;
     }
@@ -173,12 +212,12 @@ const ApprovalManage = () => {
       return;
     }
 
-    // Business Rule: One employee can only have ONE approver
+    // Business Rule: One employee can only have ONE approver per category
     if (scope === 'Employee') {
       const conflict = targetStaffIds.find(id => assignedApproversMap.has(id));
       if (conflict) {
         const assigned = assignedApproversMap.get(conflict);
-        setErrorMsg(`បុគ្គលិក ID ${conflict} មាន Approver រួចហើយ (${assigned.approverName})! បុគ្គលិកម្នាក់មាន approver តែម្នាក់ប៉ុណ្ណោះ`);
+        setErrorMsg(`បុគ្គលិក ID ${conflict} មាន Approver ${modalRuleType} រួចហើយ (${assigned.approverName})!`);
         playSound('error');
         return;
       }
@@ -201,17 +240,19 @@ const ApprovalManage = () => {
           approverId,
           scope,
           targetDeptId: scope === 'Department' ? targetDeptId : null,
-          targetStaffId: scope === 'Employee' ? targetStaffIds[0] : null
+          targetStaffId: scope === 'Employee' ? targetStaffIds[0] : null,
+          ruleType: modalRuleType,
         });
-        msg = res.data?.message || 'Leave approval rule updated successfully!';
+        msg = res.data?.message || `${modalRuleType} approval rule updated successfully!`;
       } else {
         res = await api.post('/leave-approvals', {
           approverId,
           scope,
           targetDeptId: scope === 'Department' ? targetDeptId : null,
-          targetStaffIds: scope === 'Employee' ? targetStaffIds : null
+          targetStaffIds: scope === 'Employee' ? targetStaffIds : null,
+          ruleType: modalRuleType,
         });
-        msg = res.data?.message || 'Leave approval rules created successfully!';
+        msg = res.data?.message || `${modalRuleType} approval rules created successfully!`;
       }
 
       setSuccessMsg(msg);
@@ -241,23 +282,43 @@ const ApprovalManage = () => {
     }
   };
 
+  // Category Counts
+  const leaveRulesCount = useMemo(() => {
+    return rules.filter(r => (r.ruleType || 'LEAVE').toUpperCase() === 'LEAVE').length;
+  }, [rules]);
+
+  const overtimeRulesCount = useMemo(() => {
+    return rules.filter(r => (r.ruleType || 'LEAVE').toUpperCase() === 'OVERTIME').length;
+  }, [rules]);
+
+  const checkinRulesCount = useMemo(() => {
+    return rules.filter(r => (r.ruleType || 'LEAVE').toUpperCase() === 'CHECKIN').length;
+  }, [rules]);
+
+  // Current category rules
+  const currentCategoryRules = useMemo(() => {
+    return rules.filter(r => (r.ruleType || 'LEAVE').toUpperCase() === activeCategory);
+  }, [rules, activeCategory]);
+
   // Filtered Rules
-  const filteredRules = rules.filter(rule => {
-    const approverName = rule.approver ? `${rule.approver.nameEn} ${rule.approver.nameKh}`.toLowerCase() : '';
-    const targetName = rule.targetEmployee ? `${rule.targetEmployee.nameEn} ${rule.targetEmployee.nameKh}`.toLowerCase() : '';
-    const deptName = rule.targetDept ? `${rule.targetDept.nameEn} ${rule.targetDept.nameKh}`.toLowerCase() : '';
+  const filteredRules = useMemo(() => {
+    return currentCategoryRules.filter(rule => {
+      const approverName = rule.approver ? `${rule.approver.nameEn} ${rule.approver.nameKh}`.toLowerCase() : '';
+      const targetName = rule.targetEmployee ? `${rule.targetEmployee.nameEn} ${rule.targetEmployee.nameKh}`.toLowerCase() : '';
+      const deptName = rule.targetDept ? `${rule.targetDept.nameEn} ${rule.targetDept.nameKh}`.toLowerCase() : '';
 
-    return approverName.includes(search.toLowerCase()) ||
-      targetName.includes(search.toLowerCase()) ||
-      deptName.includes(search.toLowerCase()) ||
-      rule.approverId.toLowerCase().includes(search.toLowerCase()) ||
-      (rule.targetStaffId && rule.targetStaffId.toLowerCase().includes(search.toLowerCase()));
-  });
+      return approverName.includes(search.toLowerCase()) ||
+        targetName.includes(search.toLowerCase()) ||
+        deptName.includes(search.toLowerCase()) ||
+        rule.approverId.toLowerCase().includes(search.toLowerCase()) ||
+        (rule.targetStaffId && rule.targetStaffId.toLowerCase().includes(search.toLowerCase()));
+    });
+  }, [currentCategoryRules, search]);
 
-  // Reset pagination on search change
+  // Reset pagination on search or category change
   useEffect(() => {
     setCurrentPage(1);
-  }, [search]);
+  }, [search, activeCategory]);
 
   // Pagination for rules table (shows next page if data > 10)
   const totalPages = Math.ceil(filteredRules.length / pageSize) || 1;
@@ -310,10 +371,10 @@ const ApprovalManage = () => {
     `${e.nameEn} ${e.nameKh} ${e.staffId}`.toLowerCase().includes(empSearch.toLowerCase())
   );
 
-  // Map of employees who already have an approver assigned
+  // Map of employees who already have an approver assigned for this specific category (Leave vs Overtime)
   const assignedApproversMap = useMemo(() => {
     const map = new Map();
-    rules.forEach(r => {
+    currentCategoryRules.forEach(r => {
       if (r.scope === 'Employee' && r.targetStaffId && r.id !== editRuleId) {
         const approverEmp = employees.find(e => e.staffId === r.approverId) || r.approver;
         const approverName = approverEmp ? getLocalizedName(approverEmp.nameEn, approverEmp.nameKh) : r.approverId;
@@ -325,11 +386,11 @@ const ApprovalManage = () => {
       }
     });
     return map;
-  }, [rules, employees, editRuleId, getLocalizedName]);
+  }, [currentCategoryRules, employees, editRuleId, getLocalizedName]);
 
-  // Build recursive Approval Hierarchy Tree from rules
+  // Build recursive Approval Hierarchy Tree from rules for active category
   const approvalTreeData = useMemo(() => {
-    if (rules.length === 0) return [];
+    if (currentCategoryRules.length === 0) return [];
 
     const getEmpInfo = (staffId) => {
       const emp = employees.find(e => e.staffId === staffId);
@@ -344,8 +405,8 @@ const ApprovalManage = () => {
       };
     };
 
-    const allApproverIds = [...new Set(rules.map(r => r.approverId).filter(Boolean))];
-    const allTargetStaffIds = new Set(rules.filter(r => r.scope === 'Employee').map(r => r.targetStaffId));
+    const allApproverIds = [...new Set(currentCategoryRules.map(r => r.approverId).filter(Boolean))];
+    const allTargetStaffIds = new Set(currentCategoryRules.filter(r => r.scope === 'Employee').map(r => r.targetStaffId));
 
     // Root approvers: approvers who are not targets of any other approver
     let rootIds = allApproverIds.filter(id => !allTargetStaffIds.has(id));
@@ -358,7 +419,7 @@ const ApprovalManage = () => {
       const nextVisited = new Set(visited).add(staffId);
 
       const empInfo = getEmpInfo(staffId);
-      const myRules = rules.filter(r => r.approverId === staffId);
+      const myRules = currentCategoryRules.filter(r => r.approverId === staffId);
 
       const children = [];
 
@@ -581,10 +642,103 @@ const ApprovalManage = () => {
         </div>
       )}
 
+      {/* Category Tabs: Leave Approvers vs Overtime Approvers vs Check-in on Behalf */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="inline-flex p-1.5 rounded-2xl bg-slate-900/80 dark:bg-slate-950/80 border border-slate-700/60 dark:border-white/10 shadow-lg backdrop-blur-md">
+          <button
+            type="button"
+            onClick={() => handleSwitchCategory('LEAVE')}
+            className={`px-5 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer font-khmer flex items-center gap-2.5 ${
+              activeCategory === 'LEAVE'
+                ? 'bg-gradient-to-r from-indigo-600 to-indigo-500 text-white shadow-lg shadow-indigo-500/30 ring-1 ring-white/20'
+                : 'text-slate-400 hover:text-white hover:bg-white/5'
+            }`}
+          >
+            <CalendarDaysIcon className="w-4 h-4" />
+            <span>{isKhmer ? 'កំណត់អ្នកអនុម័តច្បាប់ (Leave)' : 'Leave Approvers'}</span>
+            <span className={`px-2 py-0.5 rounded-full text-[10px] font-mono font-bold ${
+              activeCategory === 'LEAVE' ? 'bg-white/25 text-white' : 'bg-slate-800 text-slate-400'
+            }`}>
+              {leaveRulesCount}
+            </span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => handleSwitchCategory('OVERTIME')}
+            className={`px-5 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer font-khmer flex items-center gap-2.5 ${
+              activeCategory === 'OVERTIME'
+                ? 'bg-gradient-to-r from-amber-500 to-orange-500 text-slate-950 font-extrabold shadow-lg shadow-amber-500/30 ring-1 ring-white/20'
+                : 'text-slate-400 hover:text-white hover:bg-white/5'
+            }`}
+          >
+            <BoltIcon className="w-4 h-4" />
+            <span>{isKhmer ? 'កំណត់អ្នកអនុម័តថែមម៉ោង (Overtime)' : 'Overtime Approvers'}</span>
+            <span className={`px-2 py-0.5 rounded-full text-[10px] font-mono font-bold ${
+              activeCategory === 'OVERTIME' ? 'bg-slate-950/30 text-slate-950 font-extrabold' : 'bg-slate-800 text-slate-400'
+            }`}>
+              {overtimeRulesCount}
+            </span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => handleSwitchCategory('CHECKIN')}
+            className={`px-5 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer font-khmer flex items-center gap-2.5 ${
+              activeCategory === 'CHECKIN'
+                ? 'bg-gradient-to-r from-emerald-600 to-teal-500 text-white font-extrabold shadow-lg shadow-emerald-500/30 ring-1 ring-white/20'
+                : 'text-slate-400 hover:text-white hover:bg-white/5'
+            }`}
+          >
+            <ShieldCheckIcon className="w-4 h-4" />
+            <span>{isKhmer ? 'កំណត់សិទ្ធិចុះវត្តមានជំនួស (Check-in)' : 'Check-in on Behalf'}</span>
+            <span className={`px-2 py-0.5 rounded-full text-[10px] font-mono font-bold ${
+              activeCategory === 'CHECKIN' ? 'bg-white/25 text-white' : 'bg-slate-800 text-slate-400'
+            }`}>
+              {checkinRulesCount}
+            </span>
+          </button>
+        </div>
+      </div>
+
       {/* Header Block */}
-      <div className="glass-card p-6 rounded-2xl glow-indigo flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+      <div className={`glass-card p-6 rounded-2xl flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 transition-all duration-300 ${
+        activeCategory === 'LEAVE'
+          ? 'glow-indigo'
+          : activeCategory === 'OVERTIME'
+            ? 'border-amber-500/30 shadow-amber-500/10'
+            : 'border-emerald-500/30 shadow-emerald-500/10'
+      }`}>
         <div>
-          <h2 className="text-xl font-bold text-white font-khmer">Approval Manage</h2>
+          <div className="flex items-center gap-2 mb-1">
+            <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold font-mono uppercase tracking-wider ${
+              activeCategory === 'LEAVE'
+                ? 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/30'
+                : activeCategory === 'OVERTIME'
+                  ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+                  : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+            }`}>
+              {activeCategory === 'LEAVE'
+                ? '🌴 Leave Approval Rules'
+                : activeCategory === 'OVERTIME'
+                  ? '⚡ Overtime Approval Rules'
+                  : '📋 Check-in on Behalf Permissions'}
+            </span>
+          </div>
+          <h2 className="text-xl font-bold text-white font-khmer">
+            {activeCategory === 'LEAVE'
+              ? (isKhmer ? 'កំណត់អ្នកអនុម័តច្បាប់ឈប់សម្រាក' : 'Leave Approval Management')
+              : activeCategory === 'OVERTIME'
+                ? (isKhmer ? 'កំណត់អ្នកអនុម័តការថែមម៉ោង (Overtime)' : 'Overtime Approval Management')
+                : (isKhmer ? 'កំណត់សិទ្ធិចុះវត្តមានជំនួស (Check-in on Behalf)' : 'Check-in on Behalf Permissions')}
+          </h2>
+          <p className="text-xs text-slate-400 mt-1 font-khmer">
+            {activeCategory === 'LEAVE'
+              ? (isKhmer ? 'កំណត់បុគ្គលិក ឬដេប៉ាតឺម៉ង់ណាដែលត្រូវអនុម័តច្បាប់ឈប់សម្រាករបស់បុគ្គលិក' : 'Assign designated managers to review and approve leave requests for specific employees or departments')
+              : activeCategory === 'OVERTIME'
+                ? (isKhmer ? 'កំណត់បុគ្គលិក ឬដេប៉ាតឺម៉ង់ណាដែលត្រូវអនុម័តការថែមម៉ោង (OT) របស់បុគ្គលិក' : 'Assign designated managers to review and approve overtime requests for specific employees or departments')
+                : (isKhmer ? 'កំណត់បុគ្គលិកដែលមានសិទ្ធិចុះវត្តមានស្កេន Check In/Out ជំនួសបុគ្គលិក ឬដេប៉ាតឺម៉ង់ជាក់លាក់' : 'Assign authorized employees who can check in attendance on behalf of specific employees or departments')}
+          </p>
         </div>
         <div className="flex items-center gap-3">
           {/* Tree View Toggle Button */}
@@ -592,7 +746,11 @@ const ApprovalManage = () => {
             onClick={() => setViewMode(prev => prev === 'tree' ? 'table' : 'tree')}
             className={`py-2.5 px-4 text-xs font-bold rounded-xl transition-all shadow-sm flex items-center gap-2 border cursor-pointer font-khmer ${
               viewMode === 'tree'
-                ? 'bg-gradient-to-r from-indigo-600 to-purple-600 border-indigo-400 text-white shadow-indigo-500/30 ring-2 ring-indigo-400/50'
+                ? (activeCategory === 'LEAVE'
+                    ? 'bg-gradient-to-r from-indigo-600 to-purple-600 border-indigo-400 text-white shadow-indigo-500/30 ring-2 ring-indigo-400/50'
+                    : activeCategory === 'OVERTIME'
+                      ? 'bg-gradient-to-r from-amber-600 to-orange-600 border-amber-400 text-white shadow-amber-500/30 ring-2 ring-amber-400/50'
+                      : 'bg-gradient-to-r from-emerald-600 to-teal-600 border-emerald-400 text-white shadow-emerald-500/30 ring-2 ring-emerald-400/50')
                 : 'bg-indigo-50 dark:bg-slate-900 border-indigo-300 dark:border-indigo-500/40 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-100 dark:hover:bg-slate-800 hover:text-indigo-900 dark:hover:text-white shadow-sm'
             }`}
             title={viewMode === 'tree' ? 'Switch to Table View' : 'Switch to Tree View'}
@@ -615,10 +773,22 @@ const ApprovalManage = () => {
           {hasPermission('leave_approvals') && (
             <button
               onClick={handleOpenAddModal}
-              className="py-2.5 px-5 text-xs font-semibold bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white rounded-xl transition-all shadow-md shadow-indigo-500/25 font-khmer border-none outline-none cursor-pointer flex items-center gap-2"
+              className={`py-2.5 px-5 text-xs font-semibold rounded-xl transition-all shadow-md font-khmer border-none outline-none cursor-pointer flex items-center gap-2 ${
+                activeCategory === 'LEAVE'
+                  ? 'bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white shadow-indigo-500/25'
+                  : activeCategory === 'OVERTIME'
+                    ? 'bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-slate-950 font-bold shadow-amber-500/25'
+                    : 'bg-gradient-to-r from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 text-white shadow-emerald-500/25'
+              }`}
             >
               <PlusIcon className="h-4 w-4" />
-              <span>Add Approver Rule</span>
+              <span>
+                {activeCategory === 'LEAVE'
+                  ? (isKhmer ? 'បន្ថែមអ្នកអនុម័តច្បាប់' : 'Add Leave Approver')
+                  : activeCategory === 'OVERTIME'
+                    ? (isKhmer ? 'បន្ថែមអ្នកអនុម័ត OT' : 'Add Overtime Approver')
+                    : (isKhmer ? 'កំណត់សិទ្ធិចុះវត្តមានថ្មី' : 'Add Check-in Permission')}
+              </span>
             </button>
           )}
         </div>
@@ -727,7 +897,11 @@ const ApprovalManage = () => {
                   {filteredRules.length === 0 ? (
                     <tr>
                       <td colSpan={(hasPermission('edit_leave_approvals') || hasPermission('delete_leave_approvals')) ? 5 : 4} className="py-6 text-center text-slate-500 font-khmer">
-                        មិនទាន់មានច្បាប់កំណត់អ្នកអនុម័តនៅឡើយទេ
+                        {activeCategory === 'LEAVE'
+                          ? 'មិនទាន់មានច្បាប់កំណត់អ្នកអនុម័តច្បាប់នៅឡើយទេ'
+                          : activeCategory === 'OVERTIME'
+                            ? 'មិនទាន់មានច្បាប់កំណត់អ្នកអនុម័តថែមម៉ោងនៅឡើយទេ'
+                            : 'មិនទាន់មានការកំណត់សិទ្ធិចុះវត្តមានជំនួសនៅឡើយទេ'}
                       </td>
                     </tr>
                   ) : (
@@ -933,19 +1107,87 @@ const ApprovalManage = () => {
 
       {/* Add Modal */}
       {showModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm">
-          <div className="glass-card max-w-md w-full rounded-2xl overflow-hidden shadow-2xl glow-indigo border border-white/10">
-            <div className="p-6 border-b border-white/5 bg-slate-950/40">
-              <h3 className="text-lg font-bold text-white font-khmer">
-                {isEditMode ? 'Edit Approval Leave Rule' : 'Manage Approval leave'}
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/80 backdrop-blur-sm overflow-y-auto">
+          <div className="glass-card max-w-md w-full my-auto rounded-2xl overflow-hidden shadow-2xl glow-indigo border border-white/10 max-h-[92vh] flex flex-col">
+            <div className="p-4 sm:p-5 border-b border-white/5 bg-slate-950/60 flex items-center justify-between flex-shrink-0">
+              <h3 className="text-base sm:text-lg font-bold text-white font-khmer">
+                {isEditMode
+                  ? (modalRuleType === 'CHECKIN'
+                      ? (isKhmer ? 'កែប្រែសិទ្ធិចុះវត្តមានជំនួស' : 'Edit Check-in Permission')
+                      : (isKhmer ? 'កែប្រែអ្នកអនុម័ត' : 'Edit Approval Rule'))
+                  : (modalRuleType === 'LEAVE'
+                      ? (isKhmer ? 'កំណត់អ្នកអនុម័តច្បាប់ (Leave)' : 'Add Leave Approver Rule')
+                      : modalRuleType === 'OVERTIME'
+                        ? (isKhmer ? 'កំណត់អ្នកអនុម័តថែមម៉ោង (Overtime)' : 'Add Overtime Approver Rule')
+                        : (isKhmer ? 'កំណត់សិទ្ធិចុះវត្តមានជំនួស (Check-in)' : 'Add Check-in on Behalf Rule'))}
               </h3>
+              <button
+                type="button"
+                onClick={() => setShowModal(false)}
+                className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
+                title="Close"
+              >
+                ✕
+              </button>
             </div>
 
-            <form onSubmit={handleSubmit}>
-              <div className="p-6 space-y-4">
-                {/* Select Approver */}
+            <form onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0 overflow-hidden">
+              <div className="p-4 sm:p-5 space-y-4 overflow-y-auto flex-1">
+                {/* Approval Type Selector (Leave vs Overtime vs Check-in) */}
+                <div className="space-y-1.5">
+                  <label className="block text-xs font-semibold text-slate-400 uppercase font-khmer">
+                    Approval / Permission Type / ប្រភេទការកំណត់
+                  </label>
+                  <div className="grid grid-cols-3 gap-2">
+                    <button
+                      type="button"
+                      disabled={isEditMode}
+                      onClick={() => setModalRuleType('LEAVE')}
+                      className={`py-2 px-2 rounded-xl text-xs font-bold font-khmer flex items-center justify-center gap-1.5 border transition-all cursor-pointer ${
+                        modalRuleType === 'LEAVE'
+                          ? 'bg-indigo-600 border-indigo-400 text-white shadow-md shadow-indigo-600/30'
+                          : 'bg-slate-900/60 border-white/10 text-slate-400 hover:text-white'
+                      } ${isEditMode ? 'opacity-60 cursor-not-allowed' : ''}`}
+                    >
+                      <CalendarDaysIcon className="w-3.5 h-3.5" />
+                      <span>{isKhmer ? 'ច្បាប់' : 'Leave'}</span>
+                    </button>
+                    <button
+                      type="button"
+                      disabled={isEditMode}
+                      onClick={() => setModalRuleType('OVERTIME')}
+                      className={`py-2 px-2 rounded-xl text-xs font-bold font-khmer flex items-center justify-center gap-1.5 border transition-all cursor-pointer ${
+                        modalRuleType === 'OVERTIME'
+                          ? 'bg-gradient-to-r from-amber-500 to-orange-500 border-amber-400 text-slate-950 font-extrabold shadow-md shadow-amber-500/30'
+                          : 'bg-slate-900/60 border-white/10 text-slate-400 hover:text-white'
+                      } ${isEditMode ? 'opacity-60 cursor-not-allowed' : ''}`}
+                    >
+                      <BoltIcon className="w-3.5 h-3.5" />
+                      <span>{isKhmer ? 'ថែមម៉ោង' : 'Overtime'}</span>
+                    </button>
+                    <button
+                      type="button"
+                      disabled={isEditMode}
+                      onClick={() => setModalRuleType('CHECKIN')}
+                      className={`py-2 px-2 rounded-xl text-xs font-bold font-khmer flex items-center justify-center gap-1.5 border transition-all cursor-pointer ${
+                        modalRuleType === 'CHECKIN'
+                          ? 'bg-gradient-to-r from-emerald-600 to-teal-500 border-emerald-400 text-white font-extrabold shadow-md shadow-emerald-500/30'
+                          : 'bg-slate-900/60 border-white/10 text-slate-400 hover:text-white'
+                      } ${isEditMode ? 'opacity-60 cursor-not-allowed' : ''}`}
+                    >
+                      <ShieldCheckIcon className="w-3.5 h-3.5" />
+                      <span>{isKhmer ? 'វត្តមាន' : 'Check-in'}</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Select Approver / Proxy */}
                 <div className="space-y-2">
-                  <label className="block text-xs font-semibold text-slate-400 uppercase font-khmer">Select Approver</label>
+                  <label className="block text-xs font-semibold text-slate-400 uppercase font-khmer">
+                    {modalRuleType === 'CHECKIN'
+                      ? (isKhmer ? 'អ្នកមានសិទ្ធិចុះវត្តមានជំនួស (Authorized Person)' : 'Authorized Employee (Proxy)')
+                      : (isKhmer ? 'ជ្រើសរើសអ្នកអនុម័ត (Approver)' : 'Select Approver')}
+                  </label>
                   <select
                     value={approverId}
                     onChange={(e) => setApproverId(e.target.value)}
@@ -1145,7 +1387,7 @@ const ApprovalManage = () => {
               </div>
 
               {/* Footer */}
-              <div className="p-6 border-t border-white/5 bg-slate-950/40 flex justify-end gap-2">
+              <div className="p-4 border-t border-white/5 bg-slate-950/60 flex justify-end gap-2 flex-shrink-0">
                 <button
                   type="button"
                   onClick={() => setShowModal(false)}

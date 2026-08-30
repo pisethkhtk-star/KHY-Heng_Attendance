@@ -1,7 +1,13 @@
+import 'dart:async';
+import 'dart:convert';
 import 'package:get/get.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../models/leave_model.dart';
 import '../repositories/leave_repository.dart';
 import 'attendance_controller.dart';
+import 'auth_controller.dart';
+import 'language_controller.dart';
+import 'notification_controller.dart';
 
 class LeaveController extends GetxController {
   final ILeaveRepository _leaveRepository = Get.find<ILeaveRepository>();
@@ -9,6 +15,7 @@ class LeaveController extends GetxController {
   final RxList<LeaveBalance> _balances = <LeaveBalance>[].obs;
   final RxList<LeaveItem> _leaveRequests = <LeaveItem>[].obs;
   final RxBool _isSubmitting = false.obs;
+  Timer? _pollingTimer;
 
   List<LeaveBalance> get balances => _balances;
   List<LeaveItem> get leaveRequests => _leaveRequests;
@@ -18,6 +25,24 @@ class LeaveController extends GetxController {
   void onInit() {
     super.onInit();
     fetchRemoteLeaves();
+    // Background polling every 15 seconds to catch live approvals/rejections
+    _pollingTimer = Timer.periodic(const Duration(seconds: 15), (_) {
+      _pollLeavesSilently();
+    });
+  }
+
+  @override
+  void onClose() {
+    _pollingTimer?.cancel();
+    super.onClose();
+  }
+
+  void _pollLeavesSilently() {
+    if (!Get.isRegistered<AuthController>()) return;
+    final user = Get.find<AuthController>().user;
+    if (user?.employeeId != null) {
+      fetchRemoteLeaves(staffId: user?.employeeId);
+    }
   }
 
   Future<void> fetchRemoteLeaves({String? staffId}) async {
@@ -27,6 +52,7 @@ class LeaveController extends GetxController {
       final leaveTypesRaw = await _leaveRepository.fetchLeaveTypes();
 
       _leaveRequests.value = remoteItems;
+      _checkLeaveStatusTransitions(remoteItems);
 
       // 1. Try to load leave balances directly from database allowances
       if (limitData.isNotEmpty) {
@@ -188,5 +214,61 @@ class LeaveController extends GetxController {
         remainingDays: remaining < 0 ? 0.0 : remaining,
       );
     }).toList();
+  }
+
+  Future<void> _checkLeaveStatusTransitions(List<LeaveItem> freshItems) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final trackingStr = prefs.getString('tracked_leave_statuses');
+      Map<String, dynamic> tracked = {};
+      if (trackingStr != null && trackingStr.isNotEmpty) {
+        try {
+          tracked = jsonDecode(trackingStr) as Map<String, dynamic>;
+        } catch (_) {}
+      }
+
+      final notifController = Get.isRegistered<NotificationController>() ? Get.find<NotificationController>() : null;
+      final langController = Get.isRegistered<LanguageController>() ? Get.find<LanguageController>() : null;
+      final isKhmer = langController?.currentLanguage == 'km';
+
+      bool hasNewTracking = false;
+
+      for (final item in freshItems) {
+        final prevStatus = tracked[item.id]?.toString();
+        final currentStatus = item.status;
+
+        // If this leave was previously Pending and now changed to Approved or Rejected:
+        if (prevStatus != null && prevStatus.toLowerCase() == 'pending') {
+          if (currentStatus.toLowerCase() == 'approved') {
+            notifController?.addNotification(
+              title: isKhmer ? 'ពាក្យស្នើសុំច្បាប់ត្រូវបានអនុម័ត 🎉' : 'Leave Request Approved 🎉',
+              message: isKhmer
+                  ? 'ច្បាប់ឈប់សម្រាក (${item.leaveType}) សម្រាប់ថ្ងៃ ${item.startDate} ត្រូវបានអនុម័តរួចរាល់ហើយ!'
+                  : 'Your leave request for ${item.leaveType} (${item.startDate}) has been APPROVED!',
+              type: 'approved',
+              targetId: item.id,
+            );
+          } else if (currentStatus.toLowerCase() == 'rejected') {
+            notifController?.addNotification(
+              title: isKhmer ? 'ពាក្យស្នើសុំច្បាប់ត្រូវបានបដិសេធ ⚠️' : 'Leave Request Rejected ⚠️',
+              message: isKhmer
+                  ? 'ច្បាប់ឈប់សម្រាក (${item.leaveType}) សម្រាប់ថ្ងៃ ${item.startDate} ត្រូវបានបដិសេធ។'
+                  : 'Your leave request for ${item.leaveType} (${item.startDate}) was REJECTED.',
+              type: 'rejected',
+              targetId: item.id,
+            );
+          }
+        }
+
+        if (prevStatus != currentStatus) {
+          tracked[item.id] = currentStatus;
+          hasNewTracking = true;
+        }
+      }
+
+      if (hasNewTracking || trackingStr == null) {
+        await prefs.setString('tracked_leave_statuses', jsonEncode(tracked));
+      }
+    } catch (_) {}
   }
 }

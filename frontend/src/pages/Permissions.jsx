@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import api from '../utils/api';
 import { useLanguage } from '../context/LanguageContext';
+import { useAuth } from '../context/AuthContext';
 import {
   ChevronDownIcon,
   ChevronRightIcon,
@@ -31,6 +32,7 @@ import {
 
 const Permissions = () => {
   const { language, t } = useLanguage();
+  const { user } = useAuth();
 
   // Active Tab: 'roles' | 'employees'
   const [activeTab, setActiveTab] = useState('roles');
@@ -39,6 +41,7 @@ const Permissions = () => {
   const [permissions, setPermissions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [changingRole, setChangingRole] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedRoleFilter, setSelectedRoleFilter] = useState('All'); // 'All' | 'HR' | 'Manager' | 'Employee'
   const [successMsg, setSuccessMsg] = useState('');
@@ -698,6 +701,62 @@ const Permissions = () => {
       setCanLoginWeb(!nextVal); // Revert on failure
       setErrorMsg(language === 'kh' ? 'មិនអាចផ្លាស់ប្តូរសិទ្ធិ Login Website បានទេ' : 'Failed to update web login permission.');
       playSound('error');
+    }
+  };
+
+  const handleUpdateEmployeeRole = async (newRole) => {
+    if (!selectedEmployee) return;
+    if (selectedEmployee.role === newRole) return;
+
+    try {
+      setChangingRole(true);
+      const res = await api.put(`/permissions/employee/${selectedEmployee.id}/role`, {
+        role: newRole
+      });
+
+      const updatedRole = res.data?.role || newRole;
+      const updatedCanLoginWeb = res.data?.canLoginWeb !== undefined ? Boolean(res.data.canLoginWeb) : (updatedRole === 'Admin' || canLoginWeb);
+
+      const updatedEmp = {
+        ...selectedEmployee,
+        role: updatedRole,
+        canLoginWeb: updatedCanLoginWeb
+      };
+
+      setSelectedEmployee(updatedEmp);
+      setCanLoginWeb(updatedCanLoginWeb);
+
+      // Update in employees list
+      setEmployees(prev => prev.map(e => e.id === updatedEmp.id ? { ...e, role: updatedRole } : e));
+
+      // Update base role permissions
+      const roleBasePerms = permissions
+        .filter(p => p.role === updatedRole && Boolean(p.canAccess))
+        .map(p => p.resource);
+      setEmpRolePerms(roleBasePerms);
+
+      // If user has no custom overrides, effective permissions should automatically follow the new role
+      if (!empHasCustom) {
+        setEmpEffectivePerms(roleBasePerms);
+      }
+
+      setSuccessMsg(
+        language === 'kh'
+          ? `បានប្តូរតួនាទី (Role) របស់ ${selectedEmployee.nameEn || selectedEmployee.nameKh} ទៅជា ${updatedRole} ដោយជោគជ័យ!`
+          : `Updated role for ${selectedEmployee.nameEn || selectedEmployee.nameKh} to ${updatedRole} successfully!`
+      );
+      playSound('success');
+      setTimeout(() => setSuccessMsg(''), 4000);
+    } catch (err) {
+      console.error('Error updating employee role:', err);
+      setErrorMsg(
+        language === 'kh'
+          ? 'មិនអាចកែប្រែតួនាទី (Role) បានទេ!'
+          : 'Failed to update employee role.'
+      );
+      playSound('error');
+    } finally {
+      setChangingRole(false);
     }
   };
 
@@ -1731,44 +1790,76 @@ const Permissions = () => {
                     </div>
                   </div>
 
-                  {/* Right: Web Login Control Box */}
-                  <div className="flex items-center gap-4 p-4 rounded-2xl bg-slate-950/70 border border-white/10 shadow-inner w-full lg:w-auto justify-between">
-                    <div className="text-left">
-                      <div className="text-xs font-bold text-white font-khmer flex items-center gap-2">
-                        <GlobeAltIcon className="h-4 w-4 text-indigo-400 shrink-0" />
-                        <span>{language === 'kh' ? 'សិទ្ធិ Login Website' : 'Web Login Access'}</span>
+                  {/* Right: Role Assignment & Web Login Control Box */}
+                  <div className="flex flex-wrap items-center gap-3 w-full lg:w-auto justify-end">
+                    {/* Role Assignment Selector Box */}
+                    <div className="flex items-center gap-3 p-3.5 rounded-2xl bg-slate-950/70 border border-white/10 shadow-inner w-full sm:w-auto justify-between">
+                      <div className="text-left">
+                        <div className="text-xs font-bold text-white font-khmer flex items-center gap-1.5">
+                          <UserGroupIcon className="h-4 w-4 text-indigo-400 shrink-0" />
+                          <span>{language === 'kh' ? 'កែប្រែតួនាទី (Role)' : 'Assign Role'}</span>
+                        </div>
+                        <div className="text-[11px] text-slate-400 font-khmer mt-0.5">
+                          {language === 'kh' ? 'តួនាទីប្រព័ន្ធ' : 'System Role'}
+                        </div>
                       </div>
-                      <div className="text-[11px] font-khmer mt-0.5">
-                        {canLoginWeb ? (
-                          <span className="text-emerald-400 font-semibold flex items-center gap-1">
-                            <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-                            {language === 'kh' ? 'បើកដំណើរការ (Can Login Web)' : 'Enabled for Web'}
-                          </span>
-                        ) : (
-                          <span className="text-rose-400 font-semibold flex items-center gap-1">
-                            <span className="h-1.5 w-1.5 rounded-full bg-rose-400"></span>
-                            {language === 'kh' ? 'បានបិទ (App Mobile ប្រើធម្មតា)' : 'Disabled (Mobile only)'}
-                          </span>
-                        )}
+
+                      <div className="relative">
+                        <select
+                          value={selectedEmployee.role || 'Employee'}
+                          disabled={changingRole || (user?.staffId && selectedEmployee.staffId === user.staffId)}
+                          onChange={(e) => handleUpdateEmployeeRole(e.target.value)}
+                          className="py-1.5 px-3 pr-8 rounded-xl border border-white/10 bg-slate-900 text-white text-xs font-bold font-mono focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/20 outline-none transition-all cursor-pointer disabled:opacity-50 appearance-none shadow-sm hover:border-indigo-500/40"
+                          title={selectedEmployee.staffId === user?.staffId ? 'Cannot change own role' : 'Select role'}
+                        >
+                          <option value="Employee">Employee</option>
+                          <option value="Manager">Manager</option>
+                          <option value="HR">HR</option>
+                          <option value="Admin">Admin</option>
+                        </select>
+                        <ChevronDownIcon className="h-3.5 w-3.5 text-slate-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                       </div>
                     </div>
 
-                    {/* Toggle Switch */}
-                    <button
-                      type="button"
-                      disabled={saving || selectedEmployee?.role === 'Admin'}
-                      onClick={handleToggleWebLogin}
-                      className={`relative inline-flex h-6 w-12 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed ${
-                        canLoginWeb ? 'bg-emerald-500' : 'bg-slate-700'
-                      }`}
-                      title={canLoginWeb ? 'Disable web login' : 'Enable web login'}
-                    >
-                      <span
-                        className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-lg ring-0 transition duration-200 ease-in-out ${
-                          canLoginWeb ? 'translate-x-6' : 'translate-x-0'
+                    {/* Web Login Control Box */}
+                    <div className="flex items-center gap-4 p-4 rounded-2xl bg-slate-950/70 border border-white/10 shadow-inner w-full sm:w-auto justify-between">
+                      <div className="text-left">
+                        <div className="text-xs font-bold text-white font-khmer flex items-center gap-2">
+                          <GlobeAltIcon className="h-4 w-4 text-indigo-400 shrink-0" />
+                          <span>{language === 'kh' ? 'សិទ្ធិ Login Website' : 'Web Login Access'}</span>
+                        </div>
+                        <div className="text-[11px] font-khmer mt-0.5">
+                          {canLoginWeb ? (
+                            <span className="text-emerald-400 font-semibold flex items-center gap-1">
+                              <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                              {language === 'kh' ? 'បើកដំណើរការ (Can Login Web)' : 'Enabled for Web'}
+                            </span>
+                          ) : (
+                            <span className="text-rose-400 font-semibold flex items-center gap-1">
+                              <span className="h-1.5 w-1.5 rounded-full bg-rose-400"></span>
+                              {language === 'kh' ? 'បានបិទ (App Mobile ប្រើធម្មតា)' : 'Disabled (Mobile only)'}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Toggle Switch */}
+                      <button
+                        type="button"
+                        disabled={saving || selectedEmployee?.role === 'Admin'}
+                        onClick={handleToggleWebLogin}
+                        className={`relative inline-flex h-6 w-12 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed ${
+                          canLoginWeb ? 'bg-emerald-500' : 'bg-slate-700'
                         }`}
-                      />
-                    </button>
+                        title={canLoginWeb ? 'Disable web login' : 'Enable web login'}
+                      >
+                        <span
+                          className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-lg ring-0 transition duration-200 ease-in-out ${
+                            canLoginWeb ? 'translate-x-6' : 'translate-x-0'
+                          }`}
+                        />
+                      </button>
+                    </div>
                   </div>
                 </div>
 

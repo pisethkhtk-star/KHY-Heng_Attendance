@@ -6,16 +6,16 @@ const getBaseUrl = () => {
   }
 
   if (typeof window !== 'undefined' && window.location) {
-    const { port } = window.location;
-    // If served via standard HTTP/HTTPS proxy (Nginx port 80/443), use relative /api (proxied to 100.56.149.110)
+    const { port, hostname } = window.location;
+    // If served via standard HTTP/HTTPS proxy (Nginx port 80/443), use relative /api
     if (!port || port === '80' || port === '443') {
       return '/api';
     }
-    // If running frontend dev server locally or custom port
-    return 'http://192.168.1.32:8080/api';
+    // If running frontend dev server locally (localhost) or via LAN IP (192.168.x.x)
+    return `http://${hostname || 'localhost'}:8080/api`;
   }
 
-  return import.meta.env.DEV ? 'http://192.168.1.32:8080/api' : '/api';
+  return import.meta.env.DEV ? 'http://localhost:8080/api' : '/api';
 };
 
 const api = axios.create({

@@ -28,7 +28,9 @@ class AuthController extends GetxController {
 
   void _syncUserAttendance() {
     if (Get.isRegistered<AttendanceController>()) {
-      Get.find<AttendanceController>().fetchRemoteHistory(staffId: _user.value?.employeeId);
+      final attendanceCtrl = Get.find<AttendanceController>();
+      attendanceCtrl.fetchRemoteHistory(staffId: _user.value?.employeeId);
+      attendanceCtrl.checkOnBehalfEligibility();
     }
   }
 
@@ -136,6 +138,11 @@ class AuthController extends GetxController {
     await prefs.remove('auth_token');
     await prefs.remove('user_data');
     await prefs.remove('branch_settings');
+    if (Get.isRegistered<AttendanceController>()) {
+      final attendanceCtrl = Get.find<AttendanceController>();
+      attendanceCtrl.canCheckinOnBehalf.value = false;
+      attendanceCtrl.eligibleEmployees.clear();
+    }
     _syncUserAttendance();
   }
 }

@@ -12,6 +12,8 @@ import '../widgets/custom_card.dart';
 import '../widgets/stat_ring_chart.dart';
 import '../widgets/apply_leave_sheet.dart';
 import '../widgets/scanner_modal_sheet.dart';
+import '../widgets/checkin_on_behalf_sheet.dart';
+import '../widgets/face_enroll_modal_sheet.dart';
 import 'overtime_screen.dart';
 
 class HomeScreen extends StatelessWidget {
@@ -83,9 +85,50 @@ class HomeScreen extends StatelessWidget {
                           color: isDark ? AppColors.textSecondaryDark : AppColors.textSecondaryLight,
                         ),
                       ),
-                      Text(
-                        user?.name ?? 'Chomnan Heng',
-                        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                      Row(
+                        children: [
+                          Flexible(
+                            child: Text(
+                              user?.name ?? 'Chomnan Heng',
+                              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          if (user?.role != null) ...[
+                            const SizedBox(width: 8),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: (user!.isAdmin
+                                    ? AppColors.primary
+                                    : (user.isHr
+                                        ? AppColors.accent
+                                        : (user.isManager ? AppColors.warning : Colors.grey))).withValues(alpha: 0.15),
+                                borderRadius: BorderRadius.circular(6),
+                                border: Border.all(
+                                  color: (user.isAdmin
+                                      ? AppColors.primary
+                                      : (user.isHr
+                                          ? AppColors.accent
+                                          : (user.isManager ? AppColors.warning : Colors.grey))).withValues(alpha: 0.3),
+                                  width: 0.8,
+                                ),
+                              ),
+                              child: Text(
+                                user.role,
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold,
+                                  color: user.isAdmin
+                                      ? AppColors.primary
+                                      : (user.isHr
+                                          ? AppColors.accent
+                                          : (user.isManager ? AppColors.warning : Colors.grey)),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ],
                       ),
                       Text(
                         '${user?.position ?? 'Senior Developer'} • ${user?.department ?? 'Engineering'}',
@@ -222,20 +265,20 @@ class HomeScreen extends StatelessWidget {
                     ),
                     child: Column(
                       children: [
-                        // Session 1 (Morning / ព្រឹក)
+                        // Shift 1
                         Row(
                           children: [
-                            const Expanded(
+                            Expanded(
                               child: Row(
                                 children: [
-                                  Icon(LucideIcons.sun, size: 15, color: AppColors.warning),
-                                  SizedBox(width: 4),
+                                  const Icon(LucideIcons.sun, size: 15, color: AppColors.warning),
+                                  const SizedBox(width: 4),
                                   Expanded(
-                                    child: Text(
-                                      'Session 1 (ព្រឹក)',
-                                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                                    child: Obx(() => Text(
+                                      langController.tr('shift_1'),
+                                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
                                       overflow: TextOverflow.ellipsis,
-                                    ),
+                                    )),
                                   ),
                                 ],
                               ),
@@ -256,20 +299,20 @@ class HomeScreen extends StatelessWidget {
                           child: Divider(height: 1),
                         ),
 
-                        // Session 2 (Afternoon / រសៀល)
+                        // Shift 2
                         Row(
                           children: [
-                            const Expanded(
+                            Expanded(
                               child: Row(
                                 children: [
-                                  Icon(LucideIcons.sunset, size: 15, color: AppColors.accent),
-                                  SizedBox(width: 4),
+                                  const Icon(LucideIcons.sunset, size: 15, color: AppColors.accent),
+                                  const SizedBox(width: 4),
                                   Expanded(
-                                    child: Text(
-                                      'Session 2 (រសៀល)',
-                                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                                    child: Obx(() => Text(
+                                      langController.tr('shift_2'),
+                                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
                                       overflow: TextOverflow.ellipsis,
-                                    ),
+                                    )),
                                   ),
                                 ],
                               ),
@@ -344,25 +387,117 @@ class HomeScreen extends StatelessWidget {
                     Get.to(() => const OvertimeScreen());
                   },
                 ),
-                _buildActionCard(
-                  context,
-                  icon: LucideIcons.qrCode,
-                  title: langController.tr('qr_scan'),
-                  color: AppColors.success,
-                  onTap: () {
-                    showModalBottomSheet(
-                      context: context,
-                      isScrollControlled: true,
-                      shape: const RoundedRectangleBorder(
-                        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+                attendanceController.canCheckinOnBehalf.value
+                    ? _buildActionCard(
+                        context,
+                        icon: LucideIcons.userCheck,
+                        title: langController.tr('check_on_behalf'),
+                        color: AppColors.success,
+                        onTap: () {
+                          showModalBottomSheet(
+                            context: context,
+                            isScrollControlled: true,
+                            shape: const RoundedRectangleBorder(
+                              borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+                            ),
+                            builder: (_) => const CheckinOnBehalfSheet(),
+                          );
+                        },
+                      )
+                    : _buildActionCard(
+                        context,
+                        icon: LucideIcons.qrCode,
+                        title: langController.tr('qr_scan'),
+                        color: AppColors.success,
+                        onTap: () {
+                          showModalBottomSheet(
+                            context: context,
+                            isScrollControlled: true,
+                            shape: const RoundedRectangleBorder(
+                              borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+                            ),
+                            builder: (_) => const ScannerModalSheet(),
+                          );
+                        },
                       ),
-                      builder: (_) => const ScannerModalSheet(),
-                    );
-                  },
-                ),
               ],
             ),
           ).animate().fadeIn(delay: 300.ms),
+
+          // Admin Face Registration Banner (Strictly Admin only)
+          Obx(() {
+            if (authController.user?.isAdmin != true) return const SizedBox.shrink();
+            return Padding(
+              padding: const EdgeInsets.only(top: 14),
+              child: InkWell(
+                onTap: () {
+                  showModalBottomSheet(
+                    context: context,
+                    isScrollControlled: true,
+                    backgroundColor: Colors.transparent,
+                    builder: (_) => const FaceEnrollModalSheet(),
+                  );
+                },
+                borderRadius: BorderRadius.circular(16),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [
+                        AppColors.primary,
+                        AppColors.primary.withValues(alpha: 0.85),
+                      ],
+                    ),
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: [
+                      BoxShadow(
+                        color: AppColors.primary.withValues(alpha: 0.25),
+                        blurRadius: 10,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.2),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: const Icon(LucideIcons.scanFace, color: Colors.white, size: 22),
+                      ),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              langController.tr('register_employee_face'),
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 14,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            const Text(
+                              'ចុះឈ្មោះទិន្នន័យផ្ទៃមុខជីវមាត្របុគ្គលិក (Admin)',
+                              style: TextStyle(
+                                color: Colors.white70,
+                                fontSize: 11,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const Icon(LucideIcons.chevronRight, color: Colors.white70, size: 18),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          }),
           const SizedBox(height: 24),
 
           // Monthly Statistics Summary (Attendance Statistics)

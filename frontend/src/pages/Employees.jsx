@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import api from '../utils/api';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
-import { PlusIcon, PencilIcon, TrashIcon, MagnifyingGlassIcon, QrCodeIcon, CameraIcon, CalendarDaysIcon, ClockIcon, ArrowDownTrayIcon } from '@heroicons/react/24/outline';
+import { PlusIcon, PencilIcon, TrashIcon, MagnifyingGlassIcon, QrCodeIcon, CameraIcon, CalendarDaysIcon, ClockIcon, ArrowDownTrayIcon, LockClosedIcon } from '@heroicons/react/24/outline';
 import FlexibleSchedulePicker from '../components/FlexibleSchedulePicker';
 import { WEEKDAYS } from '../utils/constants';
 import { registerCameraStream } from '../utils/cameraManager';
@@ -42,6 +42,7 @@ const Employees = () => {
   const [filterStatus, setFilterStatus] = useState('');
 
   // Form State
+  const [selectedEditEmp, setSelectedEditEmp] = useState(null);
   const [editId, setEditId] = useState(null);
   const [staffId, setStaffId] = useState('');
   const [nameEn, setNameEn] = useState('');
@@ -538,11 +539,90 @@ const Employees = () => {
     setFormPhotoStatus('idle');
     setProfilePhoto('');
     setErrorMsg('');
+    setSelectedEditEmp(null);
     setShowModal(true);
+  };
+
+  const normalizeRole = (r) => {
+    if (!r) return 'Employee';
+    const str = String(r).trim().toLowerCase();
+    if (str === 'admin') return 'Admin';
+    if (str === 'hr') return 'HR';
+    if (str === 'manager') return 'Manager';
+    return 'Employee';
+  };
+
+  const canViewQr = (emp) => {
+    if (!user || !emp) return false;
+    const myRole = user.role;
+    const targetRole = emp.role || 'Employee';
+    const isSelf = (user.staffId && user.staffId === emp.staffId) || (user.id && user.id === emp.id);
+
+    // Rule 1: Role Admin can view QR of ALL roles
+    if (myRole === 'Admin') return true;
+
+    // Rule: Other roles CANNOT view QR of role Admin!
+    if (targetRole === 'Admin' && !isSelf) return false;
+
+    // Rule 2: Role HR can view QR of self, manager, employee
+    if (myRole === 'HR') {
+      return isSelf || targetRole === 'Manager' || targetRole === 'Employee';
+    }
+
+    // Rule 3: Role Manager can view QR of self and employee
+    if (myRole === 'Manager') {
+      return isSelf || targetRole === 'Employee';
+    }
+
+    // Rule 4: Role Employee can view QR of self only
+    return isSelf;
+  };
+
+  const canEditEmployee = (emp) => {
+    if (!user || !emp) return false;
+    const myRole = user.role;
+    const targetRole = emp.role || 'Employee';
+    const isSelf = (user.staffId && user.staffId === emp.staffId) || (user.id && user.id === emp.id);
+
+    if (isSelf) return true;
+    if (myRole === 'Admin') return true;
+    if (myRole === 'HR') {
+      return targetRole === 'Manager' || targetRole === 'Employee';
+    }
+    return false;
+  };
+
+  const canEditPassword = (emp) => {
+    if (!user) return false;
+    if (!editId) {
+      return user.role === 'Admin' || user.role === 'HR';
+    }
+    const myRole = user.role;
+    const targetRole = emp?.role || role || 'Employee';
+    const isSelf = (user.staffId && user.staffId === emp?.staffId) || (user.id && user.id === emp?.id);
+
+    // Admin can edit password of all roles
+    if (myRole === 'Admin') return true;
+
+    // Other roles cannot edit Admin's password
+    if (targetRole === 'Admin' && !isSelf) return false;
+
+    // HR can edit password of self, manager, employee
+    if (myRole === 'HR') {
+      return isSelf || targetRole === 'Manager' || targetRole === 'Employee';
+    }
+
+    // Manager can edit password of self only
+    if (myRole === 'Manager') {
+      return isSelf;
+    }
+
+    return isSelf;
   };
 
   const handleOpenEditModal = (emp) => {
     if (!emp) return;
+    setSelectedEditEmp(emp);
     setEditId(emp.id);
     setStaffId(emp.staffId || '');
     setNameEn(emp.nameEn || '');
@@ -577,7 +657,7 @@ const Employees = () => {
     }
     setEmail(emp.email || '');
     setPassword(''); // leave blank
-    setRole(emp.role);
+    setRole(normalizeRole(emp.role));
     setAddress(emp.address || '');
     setIdCardPassport(emp.idCardPassport || '');
     const facePhotoUrl = (Array.isArray(emp.faceData) ? emp.faceData[0]?.photoUrl : emp.faceData?.photoUrl) || '';
@@ -635,7 +715,7 @@ const Employees = () => {
           workingDays,
         }),
         email: email.trim(),
-        role,
+        role: normalizeRole(role),
         address: address || '',
         idCardPassport: idCardPassport || '',
         facePhoto: formPhotoStatus === 'success' ? formPhoto : undefined,
@@ -643,7 +723,7 @@ const Employees = () => {
         profilePhoto: profilePhoto || undefined,
       };
 
-      if (password && password.trim()) {
+      if (password && password.trim() && canEditPassword(selectedEditEmp)) {
         payload.password = password.trim();
       }
 
@@ -960,35 +1040,48 @@ const Employees = () => {
                               </svg>
                             </button>
 
-                            {!isReadOnly && (
-                              <>
-                                <button
-                                  onClick={() => handleOpenQrModal(emp)}
-                                  className="inline-flex p-2 bg-cyan-500/10 text-cyan-400 hover:bg-cyan-500/25 border border-cyan-500/20 rounded-lg transition-colors cursor-pointer"
-                                  title="View QR Code"
-                                >
-                                  <QrCodeIcon className="h-4 w-4" />
-                                </button>
-                                <button
-                                  onClick={() => handleOpenFaceModal(emp)}
-                                  className="inline-flex p-2 bg-purple-500/10 text-purple-400 hover:bg-purple-500/25 border border-purple-500/20 rounded-lg transition-colors cursor-pointer"
-                                  title="Enroll Face Descriptor"
-                                >
-                                  <CameraIcon className="h-4 w-4" />
-                                </button>
-                                <button
-                                  onClick={() => handleOpenEditModal(emp)}
-                                  className="inline-flex p-2 bg-indigo-500/10 text-indigo-400 hover:bg-indigo-500/25 border border-indigo-500/20 rounded-lg transition-colors cursor-pointer"
-                                >
-                                  <PencilIcon className="h-4 w-4" />
-                                </button>
-                                <button
-                                  onClick={() => handleDelete(emp.id)}
-                                  className="inline-flex p-2 bg-rose-500/10 text-rose-400 hover:bg-rose-500/25 border border-rose-500/20 rounded-lg transition-colors cursor-pointer"
-                                >
-                                  <TrashIcon className="h-4 w-4" />
-                                </button>
-                              </>
+                            {/* QR Code button: Admin (all), HR (self, manager, employee), Manager (self, employee), Employee (self only) */}
+                            {canViewQr(emp) && (
+                              <button
+                                onClick={() => handleOpenQrModal(emp)}
+                                className="inline-flex p-2 bg-cyan-500/10 text-cyan-400 hover:bg-cyan-500/25 border border-cyan-500/20 rounded-lg transition-colors cursor-pointer"
+                                title={locale === 'kh' ? 'មើល QR Code' : 'View QR Code'}
+                              >
+                                <QrCodeIcon className="h-4 w-4" />
+                              </button>
+                            )}
+
+                            {/* Face Modal button: Admin, and HR for non-admins */}
+                            {(user?.role === 'Admin' || (user?.role === 'HR' && emp.role !== 'Admin')) && (
+                              <button
+                                onClick={() => handleOpenFaceModal(emp)}
+                                className="inline-flex p-2 bg-purple-500/10 text-purple-400 hover:bg-purple-500/25 border border-purple-500/20 rounded-lg transition-colors cursor-pointer"
+                                title="Enroll Face Descriptor"
+                              >
+                                <CameraIcon className="h-4 w-4" />
+                              </button>
+                            )}
+
+                            {/* Edit button: Admin (all), HR (self, manager, employee), Manager (self only) */}
+                            {canEditEmployee(emp) && (
+                              <button
+                                onClick={() => handleOpenEditModal(emp)}
+                                className="inline-flex p-2 bg-indigo-500/10 text-indigo-400 hover:bg-indigo-500/25 border border-indigo-500/20 rounded-lg transition-colors cursor-pointer"
+                                title={locale === 'kh' ? 'កែប្រែព័ត៌មាន' : 'Edit Employee'}
+                              >
+                                <PencilIcon className="h-4 w-4" />
+                              </button>
+                            )}
+
+                            {/* Delete button: Admin (all except self), HR (manager & employee) */}
+                            {(user?.role === 'Admin' || (user?.role === 'HR' && emp.role !== 'Admin')) && user?.staffId !== emp.staffId && (
+                              <button
+                                onClick={() => handleDelete(emp.id)}
+                                className="inline-flex p-2 bg-rose-500/10 text-rose-400 hover:bg-rose-500/25 border border-rose-500/20 rounded-lg transition-colors cursor-pointer"
+                                title="Delete Employee"
+                              >
+                                <TrashIcon className="h-4 w-4" />
+                              </button>
                             )}
                           </div>
                         </td>
@@ -1188,17 +1281,43 @@ const Employees = () => {
 
                 {/* Password */}
                 <div>
-                  <label className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase font-khmer">
-                    {t("password")} {editId ? `(${locale === 'kh' ? 'ស្រេចចិត្ត' : 'optional'})` : '*'}
-                  </label>
-                  <input
-                    type="password"
-                    required={!editId}
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder="••••••••"
-                    className="block w-full py-2 px-3 border border-white/10 bg-slate-950/60 text-white rounded-xl text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/20 outline-none transition-all"
-                  />
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="block text-xs font-semibold text-slate-400 uppercase font-khmer">
+                      {t("password")} {editId ? `(${locale === 'kh' ? 'ស្រេចចិត្ត' : 'optional'})` : '*'}
+                    </label>
+                    {editId && !canEditPassword(selectedEditEmp) && (
+                      <span className="text-[10px] text-rose-400 font-khmer flex items-center gap-1 bg-rose-500/10 px-2 py-0.5 rounded-md border border-rose-500/20">
+                        <LockClosedIcon className="w-3 h-3 text-rose-400" />
+                        {locale === 'kh' ? 'គ្មានសិទ្ធិកែពាក្យសម្ងាត់' : 'Password Locked'}
+                      </span>
+                    )}
+                  </div>
+                  {editId && !canEditPassword(selectedEditEmp) ? (
+                    <div>
+                      <input
+                        type="password"
+                        disabled
+                        readOnly
+                        value="••••••••••••"
+                        className="block w-full py-2 px-3.5 border border-slate-300/40 dark:border-white/10 bg-slate-100 dark:bg-slate-900/60 text-slate-400 rounded-xl text-sm cursor-not-allowed select-none font-mono opacity-80"
+                        title={locale === 'kh' ? 'អ្នកមិនមានសិទ្ធិកែប្រែពាក្យសម្ងាត់សម្រាប់ Role នេះទេ' : 'You do not have permission to edit password for this role'}
+                      />
+                      <p className="text-[10px] text-rose-400/80 font-khmer mt-1">
+                        {locale === 'kh'
+                          ? '* អ្នកមិនមានសិទ្ធិកែប្រែពាក្យសម្ងាត់សម្រាប់បុគ្គលិកនេះទេ'
+                          : '* You do not have permission to edit password for this employee'}
+                      </p>
+                    </div>
+                  ) : (
+                    <input
+                      type="password"
+                      required={!editId}
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder="••••••••"
+                      className="block w-full py-2 px-3 border border-white/10 bg-slate-950/60 text-white rounded-xl text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/20 outline-none transition-all"
+                    />
+                  )}
                 </div>
 
                 {/* Gender */}
@@ -1245,10 +1364,10 @@ const Employees = () => {
                   <select
                     value={departmentId}
                     onChange={(e) => setDepartmentId(e.target.value)}
-                    className="block w-full py-2 px-3 border border-white/10 bg-slate-950/60 text-white rounded-xl text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/20 focus:bg-slate-900 outline-none transition-all font-khmer"
+                    className="block w-full py-2 px-3 border border-white/10 bg-slate-950/60 text-white rounded-xl text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/20 focus:bg-slate-900 outline-none transition-all font-khmer cursor-pointer"
                   >
                     {departments.map(d => (
-                      <option key={d.id} value={d.id} className="bg-slate-900">{getLocalizedName(d.nameEn, d.nameKh)}</option>
+                      <option key={d.id} value={d.id}>{getLocalizedName(d.nameEn, d.nameKh)}</option>
                     ))}
                   </select>
                 </div>
@@ -1259,10 +1378,10 @@ const Employees = () => {
                   <select
                     value={positionId}
                     onChange={(e) => setPositionId(e.target.value)}
-                    className="block w-full py-2 px-3 border border-white/10 bg-slate-950/60 text-white rounded-xl text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/20 focus:bg-slate-900 outline-none transition-all font-khmer"
+                    className="block w-full py-2 px-3 border border-white/10 bg-slate-950/60 text-white rounded-xl text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/20 focus:bg-slate-900 outline-none transition-all font-khmer cursor-pointer"
                   >
                     {displayPositions.map(p => (
-                      <option key={p.id} value={p.id} className="bg-slate-900">{getLocalizedName(p.titleEn, p.titleKh)}</option>
+                      <option key={p.id} value={p.id}>{getLocalizedName(p.titleEn, p.titleKh)}</option>
                     ))}
                   </select>
                 </div>
@@ -1323,27 +1442,53 @@ const Employees = () => {
                   <select
                     value={status}
                     onChange={(e) => setStatus(e.target.value)}
-                    className="block w-full py-2 px-3 border border-white/10 bg-slate-950/60 text-white rounded-xl text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/20 focus:bg-slate-900 outline-none transition-all font-khmer"
+                    className="block w-full py-2 px-3 border border-white/10 bg-slate-950/60 text-white rounded-xl text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/20 focus:bg-slate-900 outline-none transition-all font-khmer cursor-pointer"
                   >
-                    <option value="Active" className="bg-slate-900">{t("active")}</option>
-                    <option value="Inactive" className="bg-slate-900">{t("inactive")}</option>
-                    <option value="Suspended" className="bg-slate-900">{t("suspended")}</option>
+                    <option value="Active">{t("active")}</option>
+                    <option value="Inactive">{t("inactive")}</option>
+                    <option value="Suspended">{t("suspended")}</option>
                   </select>
                 </div>
 
-                {/* Role */}
+                {/* Role (Read-only / Managed via Permissions) */}
                 <div>
-                  <label className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase font-khmer">Role</label>
-                  <select
-                    value={role}
-                    onChange={(e) => setRole(e.target.value)}
-                    className="block w-full py-2 px-3 border border-white/10 bg-slate-950/60 text-white rounded-xl text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/20 focus:bg-slate-900 outline-none transition-all"
-                  >
-                    <option value="Employee" className="bg-slate-900">Employee</option>
-                    <option value="Manager" className="bg-slate-900">Manager</option>
-                    <option value="HR" className="bg-slate-900">HR</option>
-                    <option value="Admin" className="bg-slate-900">Admin</option>
-                  </select>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="block text-xs font-semibold text-slate-400 uppercase font-khmer">
+                      Role ({locale === 'kh' ? 'តួនាទីប្រព័ន្ធ' : 'System Role'})
+                    </label>
+                    <span className="text-[10px] text-amber-400 font-khmer flex items-center gap-1 bg-amber-500/10 px-2 py-0.5 rounded-md border border-amber-500/20">
+                      <LockClosedIcon className="w-3 h-3 text-amber-400" />
+                      {locale === 'kh' ? 'កែប្រែក្នុង Permissions' : 'Managed in Permissions'}
+                    </span>
+                  </div>
+                  <div className="relative">
+                    <input
+                      type="text"
+                      readOnly
+                      disabled
+                      value={role || 'Employee'}
+                      className="block w-full py-2.5 px-3.5 pr-24 border border-slate-300/60 dark:border-white/10 bg-slate-100 dark:bg-slate-900/60 text-slate-700 dark:text-slate-300 rounded-xl text-sm cursor-not-allowed select-none font-semibold font-mono shadow-inner opacity-90"
+                      title={locale === 'kh' ? 'កន្លែងនេះគ្រាន់តែបង្ហាញប៉ុណ្ណោះ។ ដើម្បីកែប្រែ Role សូមចូលទៅកាន់ទំព័រ Permissions' : 'Read-only: To assign or change roles, please go to Permissions page.'}
+                    />
+                    <div className="absolute right-2.5 top-1/2 -translate-y-1/2 flex items-center gap-1 pointer-events-none">
+                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                        (role === 'Admin')
+                          ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
+                          : (role === 'HR')
+                            ? 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/30'
+                            : (role === 'Manager')
+                              ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+                              : 'bg-slate-500/20 text-slate-300 border border-slate-500/30'
+                      }`}>
+                        {role || 'Employee'}
+                      </span>
+                    </div>
+                  </div>
+                  <p className="text-[10px] text-slate-400 font-khmer mt-1">
+                    {locale === 'kh'
+                      ? '* តួនាទីបុគ្គលិកអាចកំណត់ និងកែប្រែបានតែនៅក្នុងទំព័រ Permissions ប៉ុណ្ណោះ'
+                      : '* Employee role can only be assigned or edited under the Permissions page'}
+                  </p>
                 </div>
 
                 {/* Working Days Checkboxes (Monday - Sunday) - Located Between Role and Flexible */}

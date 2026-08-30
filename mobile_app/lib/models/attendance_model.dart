@@ -116,6 +116,30 @@ class AttendanceRecord {
       note: json['note']?.toString(),
     );
   }
+
+  bool get isIncomplete {
+    if (status.toLowerCase().contains('incomplete')) return true;
+    if (status.toLowerCase() == 'on leave' || status.toLowerCase() == 'absent') return false;
+
+    final hasIn1 = checkIn1 != null && checkIn1 != '-' && checkIn1 != '--:--' && checkIn1!.trim().isNotEmpty;
+    final hasOut1 = checkOut1 != null && checkOut1 != '-' && checkOut1 != '--:--' && checkOut1!.trim().isNotEmpty;
+    final hasIn2 = checkIn2 != null && checkIn2 != '-' && checkIn2 != '--:--' && checkIn2!.trim().isNotEmpty;
+    final hasOut2 = checkOut2 != null && checkOut2 != '-' && checkOut2 != '--:--' && checkOut2!.trim().isNotEmpty;
+
+    // Missing scan in Shift 1
+    if ((hasIn1 && !hasOut1) || (!hasIn1 && hasOut1)) return true;
+    // Missing scan in Shift 2
+    if ((hasIn2 && !hasOut2) || (!hasIn2 && hasOut2)) return true;
+    // Has only one shift completed and completely missing the other shift
+    if ((hasIn1 || hasOut1) && (!hasIn2 && !hasOut2)) return true;
+    if ((!hasIn1 && !hasOut1) && (hasIn2 || hasOut2)) return true;
+
+    if (note != null && (note!.toLowerCase().contains('incomplete') || note!.toLowerCase().contains('missing'))) {
+      return true;
+    }
+
+    return false;
+  }
 }
 
 

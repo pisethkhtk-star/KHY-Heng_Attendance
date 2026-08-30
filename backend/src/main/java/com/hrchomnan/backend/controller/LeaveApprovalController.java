@@ -34,11 +34,22 @@ public class LeaveApprovalController {
     private final com.hrchomnan.backend.repository.EmployeeFaceDataRepository employeeFaceDataRepository;
 
     @GetMapping
-    public ResponseEntity<List<Map<String, Object>>> getAllRules(@RequestParam(required = false) String approverId) {
+    public ResponseEntity<List<Map<String, Object>>> getAllRules(
+            @RequestParam(required = false) String approverId,
+            @RequestParam(required = false) String ruleType
+    ) {
         List<LeaveApprovalRule> rules = ruleRepository.findAll();
         if (approverId != null && !approverId.isBlank()) {
             final String aId = approverId.trim();
             rules = rules.stream().filter(r -> aId.equalsIgnoreCase(r.getApproverId())).collect(Collectors.toList());
+        }
+
+        if (ruleType != null && !ruleType.isBlank()) {
+            final String rt = ruleType.trim().toUpperCase();
+            rules = rules.stream().filter(r -> {
+                String currentRt = r.getRuleType() != null ? r.getRuleType().toUpperCase() : "LEAVE";
+                return rt.equals(currentRt);
+            }).collect(Collectors.toList());
         }
 
         rules.sort(Comparator.comparing(LeaveApprovalRule::getCreatedAt, Comparator.nullsLast(Comparator.reverseOrder())));
@@ -60,6 +71,7 @@ public class LeaveApprovalController {
             map.put("scope", rule.getScope());
             map.put("targetDeptId", rule.getTargetDeptId());
             map.put("targetStaffId", rule.getTargetStaffId());
+            map.put("ruleType", rule.getRuleType() != null ? rule.getRuleType() : "LEAVE");
             map.put("createdAt", rule.getCreatedAt());
             map.put("updatedAt", rule.getUpdatedAt());
 
@@ -141,6 +153,7 @@ public class LeaveApprovalController {
         private UUID targetDeptId;
         private String targetStaffId;
         private List<String> targetStaffIds;
+        private String ruleType; // "LEAVE" or "OVERTIME"
     }
 
     @PostMapping
@@ -149,13 +162,17 @@ public class LeaveApprovalController {
             return ResponseEntity.badRequest().body(Map.of("message", "Approver and Scope are required"));
         }
 
+        final String ruleType = (request.getRuleType() != null && !request.getRuleType().isBlank())
+                ? request.getRuleType().trim().toUpperCase()
+                : "LEAVE";
+
         Optional<Employee> approverOpt = employeeRepository.findByStaffId(request.getApproverId());
         if (approverOpt.isEmpty()) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("message", "Approver employee not found"));
         }
 
-        if (approverOpt.get().getRole() == Role.Employee) {
-            return ResponseEntity.badRequest().body(Map.of("message", "Normal employees cannot be leave approvers"));
+        if (!"CHECKIN".equalsIgnoreCase(ruleType) && approverOpt.get().getRole() == Role.Employee) {
+            return ResponseEntity.badRequest().body(Map.of("message", "Normal employees cannot be approvers for leave or overtime"));
         }
 
         if ("Department".equalsIgnoreCase(request.getScope())) {
@@ -166,17 +183,19 @@ public class LeaveApprovalController {
             boolean exists = ruleRepository.findAll().stream().anyMatch(r ->
                     request.getApproverId().equalsIgnoreCase(r.getApproverId()) &&
                             "Department".equalsIgnoreCase(r.getScope()) &&
-                            request.getTargetDeptId().equals(r.getTargetDeptId())
+                            request.getTargetDeptId().equals(r.getTargetDeptId()) &&
+                            ruleType.equalsIgnoreCase(r.getRuleType() != null ? r.getRuleType() : "LEAVE")
             );
 
             if (exists) {
-                return ResponseEntity.badRequest().body(Map.of("message", "This approval rule already exists for this department"));
+                return ResponseEntity.badRequest().body(Map.of("message", "This " + ruleType.toLowerCase() + " approval rule already exists for this department"));
             }
 
             LeaveApprovalRule rule = LeaveApprovalRule.builder()
                     .approverId(request.getApproverId())
                     .scope("Department")
                     .targetDeptId(request.getTargetDeptId())
+                    .ruleType(ruleType)
                     .build();
 
             LeaveApprovalRule saved = ruleRepository.save(rule);
@@ -194,10 +213,11 @@ public class LeaveApprovalController {
             List<String> skippedIds = new ArrayList<>();
 
             for (String tId : staffIds) {
-                // An employee can only have ONE approver rule
+                // An employee can only have ONE approver rule per ruleType (Leave / Overtime)
                 boolean alreadyHasApprover = ruleRepository.findAll().stream().anyMatch(r ->
                         "Employee".equalsIgnoreCase(r.getScope()) &&
-                                tId.equalsIgnoreCase(r.getTargetStaffId())
+                                tId.equalsIgnoreCase(r.getTargetStaffId()) &&
+                                ruleType.equalsIgnoreCase(r.getRuleType() != null ? r.getRuleType() : "LEAVE")
                 );
 
                 if (alreadyHasApprover) {
@@ -209,17 +229,20 @@ public class LeaveApprovalController {
                         .approverId(request.getApproverId())
                         .scope("Employee")
                         .targetStaffId(tId)
+                        .ruleType(ruleType)
                         .build();
 
                 createdRules.add(ruleRepository.save(rule));
             }
 
             if (createdRules.isEmpty() && !skippedIds.isEmpty()) {
-                return ResponseEntity.badRequest().body(Map.of("message", "Selected employee(s) already have an approver assigned. Each employee can only have one approver. (បុគ្គលិកម្នាក់មាន approver តែម្នាក់ប៉ុណ្ណោះ)"));
+                return ResponseEntity.badRequest().body(Map.of(
+                        "message", "Selected employee(s) already have a " + ruleType.toLowerCase() + " approver assigned. (បុគ្គលិកម្នាក់មានអ្នកអនុម័ត " + ruleType + " តែម្នាក់ប៉ុណ្ណោះ)"
+                ));
             }
 
             return ResponseEntity.status(HttpStatus.CREATED).body(Map.of(
-                    "message", "Successfully created rules for " + createdRules.size() + " employees.",
+                    "message", "Successfully created " + ruleType.toLowerCase() + " rules for " + createdRules.size() + " employees.",
                     "createdCount", createdRules.size(),
                     "skippedCount", skippedIds.size(),
                     "data", createdRules.isEmpty() ? null : createdRules.get(0)
@@ -238,16 +261,19 @@ public class LeaveApprovalController {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("message", "Approver employee not found"));
         }
 
-        if (approverOpt.get().getRole() == Role.Employee) {
-            return ResponseEntity.badRequest().body(Map.of("message", "Normal employees cannot be leave approvers"));
-        }
-
         Optional<LeaveApprovalRule> ruleOpt = ruleRepository.findById(id);
         if (ruleOpt.isEmpty()) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("message", "Approval rule not found"));
         }
 
         LeaveApprovalRule rule = ruleOpt.get();
+        final String ruleType = (request.getRuleType() != null && !request.getRuleType().isBlank())
+                ? request.getRuleType().trim().toUpperCase()
+                : (rule.getRuleType() != null ? rule.getRuleType() : "LEAVE");
+
+        if (!"CHECKIN".equalsIgnoreCase(ruleType) && approverOpt.get().getRole() == Role.Employee) {
+            return ResponseEntity.badRequest().body(Map.of("message", "Normal employees cannot be approvers for leave or overtime"));
+        }
 
         if ("Department".equalsIgnoreCase(request.getScope())) {
             if (request.getTargetDeptId() == null) {
@@ -258,17 +284,19 @@ public class LeaveApprovalController {
                     !id.equals(r.getId()) &&
                             request.getApproverId().equalsIgnoreCase(r.getApproverId()) &&
                             "Department".equalsIgnoreCase(r.getScope()) &&
-                            request.getTargetDeptId().equals(r.getTargetDeptId())
+                            request.getTargetDeptId().equals(r.getTargetDeptId()) &&
+                            ruleType.equalsIgnoreCase(r.getRuleType() != null ? r.getRuleType() : "LEAVE")
             );
 
             if (exists) {
-                return ResponseEntity.badRequest().body(Map.of("message", "This approval rule already exists for this department"));
+                return ResponseEntity.badRequest().body(Map.of("message", "This " + ruleType.toLowerCase() + " approval rule already exists for this department"));
             }
 
             rule.setApproverId(request.getApproverId());
             rule.setScope("Department");
             rule.setTargetDeptId(request.getTargetDeptId());
             rule.setTargetStaffId(null);
+            rule.setRuleType(ruleType);
 
             return ResponseEntity.ok(ruleRepository.save(rule));
         } else {
@@ -280,21 +308,24 @@ public class LeaveApprovalController {
                     ? request.getTargetStaffId()
                     : request.getTargetStaffIds().get(0);
 
-            // An employee can only have ONE approver rule
             boolean alreadyHasApprover = ruleRepository.findAll().stream().anyMatch(r ->
                     !id.equals(r.getId()) &&
                             "Employee".equalsIgnoreCase(r.getScope()) &&
-                            targetStaffId.equalsIgnoreCase(r.getTargetStaffId())
+                            targetStaffId.equalsIgnoreCase(r.getTargetStaffId()) &&
+                            ruleType.equalsIgnoreCase(r.getRuleType() != null ? r.getRuleType() : "LEAVE")
             );
 
             if (alreadyHasApprover) {
-                return ResponseEntity.badRequest().body(Map.of("message", "This employee already has an approver assigned. Each employee can only have one approver. (បុគ្គលិកម្នាក់មាន approver តែម្នាក់ប៉ុណ្ណោះ)"));
+                return ResponseEntity.badRequest().body(Map.of(
+                        "message", "This employee already has a " + ruleType.toLowerCase() + " approver assigned. (បុគ្គលិកម្នាក់មានអ្នកអនុម័ត " + ruleType + " តែម្នាក់ប៉ុណ្ណោះ)"
+                ));
             }
 
             rule.setApproverId(request.getApproverId());
             rule.setScope("Employee");
             rule.setTargetStaffId(targetStaffId);
             rule.setTargetDeptId(null);
+            rule.setRuleType(ruleType);
 
             return ResponseEntity.ok(ruleRepository.save(rule));
         }

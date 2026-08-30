@@ -16,6 +16,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import com.hrchomnan.backend.security.SecurityPermissionService;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
@@ -34,6 +35,7 @@ public class EmployeeController {
     private final PositionRepository positionRepository;
     private final EmployeeFaceDataRepository employeeFaceDataRepository;
     private final PasswordEncoder passwordEncoder;
+    private final SecurityPermissionService securityPermissionService;
 
     @GetMapping
     @PreAuthorize("@perm.has('employees')")
@@ -172,19 +174,9 @@ public class EmployeeController {
             return ResponseEntity.badRequest().body(Map.of("message", "Email already registered"));
         }
 
-        Role role = Role.Employee;
-        if (dto.getRole() != null) {
-            try {
-                role = Role.valueOf(dto.getRole());
-            } catch (Exception ignored) {}
-        }
+        Role role = parseRole(dto.getRole());
 
-        Status status = Status.Active;
-        if (dto.getStatus() != null) {
-            try {
-                status = Status.valueOf(dto.getStatus());
-            } catch (Exception ignored) {}
-        }
+        Status status = parseStatus(dto.getStatus());
 
         LocalDate join = dto.getJoinDate() != null ? LocalDate.parse(dto.getJoinDate()) : LocalDate.now();
 
@@ -235,7 +227,7 @@ public class EmployeeController {
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("@perm.has('edit_employee')")
+    @PreAuthorize("@perm.canEditEmployee(#id)")
     public ResponseEntity<?> updateEmployee(@PathVariable UUID id, @RequestBody EmployeeCreateDto dto) {
         Optional<Employee> empOpt = employeeRepository.findById(id);
         if (empOpt.isEmpty()) {
@@ -278,19 +270,19 @@ public class EmployeeController {
             emp.setJoinDate(LocalDate.parse(dto.getJoinDate()));
         }
 
-        if (dto.getStatus() != null) {
-            try {
-                emp.setStatus(Status.valueOf(dto.getStatus()));
-            } catch (Exception ignored) {}
+        if (dto.getStatus() != null && !dto.getStatus().isBlank()) {
+            emp.setStatus(parseStatus(dto.getStatus()));
         }
 
-        if (dto.getRole() != null) {
-            try {
-                emp.setRole(Role.valueOf(dto.getRole()));
-            } catch (Exception ignored) {}
+        if (dto.getRole() != null && !dto.getRole().isBlank()) {
+            emp.setRole(parseRole(dto.getRole()));
         }
 
         if (dto.getPassword() != null && !dto.getPassword().isBlank()) {
+            if (!securityPermissionService.canEditPassword(id)) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                        .body(Map.of("message", "You do not have permission to edit this employee's password"));
+            }
             emp.setPassword(passwordEncoder.encode(dto.getPassword()));
         }
 
@@ -326,6 +318,26 @@ public class EmployeeController {
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("message", "Employee not found"));
     }
 
+    private Role parseRole(String roleStr) {
+        if (roleStr == null || roleStr.isBlank()) return Role.Employee;
+        for (Role r : Role.values()) {
+            if (r.name().equalsIgnoreCase(roleStr.trim())) {
+                return r;
+            }
+        }
+        return Role.Employee;
+    }
+
+    private Status parseStatus(String statusStr) {
+        if (statusStr == null || statusStr.isBlank()) return Status.Active;
+        for (Status s : Status.values()) {
+            if (s.name().equalsIgnoreCase(statusStr.trim())) {
+                return s;
+            }
+        }
+        return Status.Active;
+    }
+
     private Map<String, Object> enrichEmployee(
             Employee e,
             Map<UUID, Department> deptMap,
@@ -354,6 +366,7 @@ public class EmployeeController {
         String facePhoto = faceDataMap.get(e.getStaffId());
         String effectivePhoto = (e.getPhotoUrl() != null && !e.getPhotoUrl().isBlank()) ? e.getPhotoUrl() : facePhoto;
         map.put("photoUrl", effectivePhoto);
+        map.put("hasFaceData", faceDataMap.containsKey(e.getStaffId()));
         map.put("email", e.getEmail());
         map.put("role", e.getRole());
         map.put("createdAt", e.getCreatedAt());

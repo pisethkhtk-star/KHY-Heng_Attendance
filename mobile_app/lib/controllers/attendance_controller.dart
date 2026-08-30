@@ -36,16 +36,83 @@ class AttendanceController extends GetxController {
 
   List<AttendanceRecord> get historyRecords => _historyRecords;
 
+  final RxBool canCheckinOnBehalf = false.obs;
+  final RxList<Map<String, dynamic>> eligibleEmployees = <Map<String, dynamic>>[].obs;
+
   @override
   void onInit() {
     super.onInit();
     fetchRemoteHistory();
+    checkOnBehalfEligibility();
+  }
+
+  Future<void> checkOnBehalfEligibility() async {
+    try {
+      final res = await _attendanceRepository.fetchCheckinOnBehalfEligibility();
+      final list = res['eligibleEmployees'];
+      if (list is List) {
+        eligibleEmployees.value = list.map((e) => Map<String, dynamic>.from(e as Map)).toList();
+      } else {
+        eligibleEmployees.clear();
+      }
+      canCheckinOnBehalf.value = res['canCheckinOnBehalf'] == true && eligibleEmployees.isNotEmpty;
+    } catch (_) {
+      canCheckinOnBehalf.value = false;
+      eligibleEmployees.clear();
+    }
+  }
+
+  Future<Map<String, dynamic>?> fetchEmployeeFaceData(String staffId) async {
+    return await _attendanceRepository.fetchEmployeeFaceData(staffId);
+  }
+
+  Future<List<Map<String, dynamic>>> fetchAllEmployees() async {
+    return await _attendanceRepository.fetchAllEmployees();
+  }
+
+  Future<Map<String, dynamic>> enrollEmployeeFace({
+    required String staffId,
+    required dynamic faceDescriptor,
+    required String photoUrl,
+  }) async {
+    final res = await _attendanceRepository.enrollEmployeeFace(
+      staffId: staffId,
+      faceDescriptor: faceDescriptor,
+      photoUrl: photoUrl,
+    );
+    if (res['success'] == true) {
+      await checkOnBehalfEligibility();
+    }
+    return res;
+  }
+
+  Future<Map<String, dynamic>> logCheckinOnBehalf({
+    required String staffId,
+    required String action,
+    String? note,
+  }) async {
+    _isProcessing.value = true;
+    try {
+      final result = await _attendanceRepository.logCheckInOut(
+        action,
+        staffId: staffId,
+        note: note ?? 'Check-in on behalf',
+      );
+      if (result['success'] == true) {
+        await fetchRemoteHistory();
+      }
+      return result;
+    } finally {
+      _isProcessing.value = false;
+    }
   }
 
   Future<void> fetchRemoteHistory({String? staffId}) async {
     final effectiveStaffId = (staffId != null && staffId.isNotEmpty)
         ? staffId
         : (Get.isRegistered<AuthController>() ? Get.find<AuthController>().user?.employeeId : null);
+
+    checkOnBehalfEligibility();
 
     final parsed = await _attendanceRepository.fetchHistoryRecords(staffId: effectiveStaffId, forceRefresh: true);
     _historyRecords.value = parsed;

@@ -26,6 +26,18 @@ abstract class IAttendanceRepository {
   });
 
   Future<Map<String, dynamic>> checkInFace(String base64Image);
+
+  Future<Map<String, dynamic>> fetchCheckinOnBehalfEligibility();
+
+  Future<Map<String, dynamic>?> fetchEmployeeFaceData(String staffId);
+
+  Future<List<Map<String, dynamic>>> fetchAllEmployees();
+
+  Future<Map<String, dynamic>> enrollEmployeeFace({
+    required String staffId,
+    required dynamic faceDescriptor,
+    required String photoUrl,
+  });
 }
 
 class AttendanceRepository implements IAttendanceRepository {
@@ -194,4 +206,76 @@ class AttendanceRepository implements IAttendanceRepository {
     }
     return {'success': false, 'message': 'Network error during Face Scan'};
   }
+
+  @override
+  Future<Map<String, dynamic>> fetchCheckinOnBehalfEligibility() async {
+    try {
+      final response = await _apiClient.get('/attendances/checkin-on-behalf/eligible-employees');
+      if (response != null) {
+        final data = jsonDecode(response.body);
+        if (response.statusCode == 200 && data is Map<String, dynamic>) {
+          return data;
+        }
+      }
+    } catch (_) {}
+    return {'canCheckinOnBehalf': false, 'eligibleEmployees': []};
+  }
+
+  @override
+  Future<Map<String, dynamic>?> fetchEmployeeFaceData(String staffId) async {
+    try {
+      final response = await _apiClient.get('/face/$staffId');
+      if (response != null && response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (data is Map<String, dynamic>) {
+          return data;
+        }
+      }
+    } catch (_) {}
+    return null;
+  }
+
+  @override
+  Future<List<Map<String, dynamic>>> fetchAllEmployees() async {
+    try {
+      final response = await _apiClient.get('/employees');
+      if (response != null && response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (data is List) {
+          return data.map((e) => Map<String, dynamic>.from(e as Map)).toList();
+        }
+      }
+    } catch (_) {}
+    return [];
+  }
+
+  @override
+  Future<Map<String, dynamic>> enrollEmployeeFace({
+    required String staffId,
+    required dynamic faceDescriptor,
+    required String photoUrl,
+  }) async {
+    try {
+      final response = await _apiClient.post(
+        '/face/enroll',
+        body: {
+          'staffId': staffId,
+          'faceDescriptor': faceDescriptor,
+          'photoUrl': photoUrl,
+        },
+      );
+      if (response != null) {
+        final data = jsonDecode(response.body);
+        if (response.statusCode >= 200 && response.statusCode < 300) {
+          return {'success': true, 'data': data};
+        } else {
+          return {'success': false, 'message': data['message'] ?? 'Enrollment failed'};
+        }
+      }
+    } catch (e) {
+      return {'success': false, 'message': e.toString()};
+    }
+    return {'success': false, 'message': 'Network connection failed'};
+  }
 }
+

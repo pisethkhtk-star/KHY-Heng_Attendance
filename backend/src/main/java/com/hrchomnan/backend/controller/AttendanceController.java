@@ -2,23 +2,29 @@ package com.hrchomnan.backend.controller;
 
 import com.hrchomnan.backend.enums.LeaveStatus;
 import com.hrchomnan.backend.enums.Status;
+import com.hrchomnan.backend.enums.Role;
 import com.hrchomnan.backend.model.Attendance;
 import com.hrchomnan.backend.model.Department;
 import com.hrchomnan.backend.model.Employee;
 import com.hrchomnan.backend.model.Position;
 import com.hrchomnan.backend.model.CompanyWorkHour;
+import com.hrchomnan.backend.model.LeaveApprovalRule;
 import com.hrchomnan.backend.repository.AttendanceRepository;
 import com.hrchomnan.backend.repository.CompanyWorkHourRepository;
 import com.hrchomnan.backend.repository.DepartmentRepository;
 import com.hrchomnan.backend.repository.EmployeeRepository;
 import com.hrchomnan.backend.repository.LeaveRepository;
 import com.hrchomnan.backend.repository.PositionRepository;
+import com.hrchomnan.backend.repository.LeaveApprovalRuleRepository;
 import com.hrchomnan.backend.util.AttendanceHelper;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
@@ -38,6 +44,7 @@ public class AttendanceController {
     private final PositionRepository positionRepository;
     private final LeaveRepository leaveRepository;
     private final CompanyWorkHourRepository companyWorkHourRepository;
+    private final LeaveApprovalRuleRepository leaveApprovalRuleRepository;
     private final AttendanceHelper attendanceHelper;
 
     @Data
@@ -50,7 +57,7 @@ public class AttendanceController {
     }
 
     @PostMapping("/log")
-    @PreAuthorize("@perm.has('add_attendance') or hasAnyRole('Admin', 'HR') or @perm.isSelfOrAdmin(#request.staffId)")
+    @PreAuthorize("@perm.has('add_attendance') or hasAnyRole('Admin', 'HR') or @perm.isSelfOrAdmin(#request.staffId) or @perm.canCheckinOnBehalf(#request.staffId)")
     public ResponseEntity<?> logCheckInOut(@RequestBody LogRequest request) {
         if (request.getStaffId() == null || request.getAction() == null) {
             return ResponseEntity.badRequest().body(Map.of("message", "Staff ID and Action are required"));
@@ -84,6 +91,90 @@ public class AttendanceController {
             }
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("message", "Server error logging attendance"));
         }
+    }
+
+    @GetMapping("/checkin-on-behalf/eligible-employees")
+    public ResponseEntity<?> getEligibleEmployeesForCheckinOnBehalf(
+            @AuthenticationPrincipal Employee principal
+    ) {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        Employee currentEmp = principal;
+        if (currentEmp == null && auth != null && auth.getPrincipal() instanceof Employee emp) {
+            currentEmp = emp;
+        }
+        if (currentEmp == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("message", "Unauthorized"));
+        }
+
+        Employee freshEmp = employeeRepository.findById(currentEmp.getId()).orElse(currentEmp);
+        String staffId = freshEmp.getStaffId();
+
+        // 1. Fetch rules for Check-in on Behalf (ruleType = 'CHECKIN')
+        List<LeaveApprovalRule> checkinRules = leaveApprovalRuleRepository.findByRuleType("CHECKIN");
+        List<LeaveApprovalRule> userRules = checkinRules.stream()
+                .filter(r -> staffId != null && staffId.equalsIgnoreCase(r.getApproverId()))
+                .collect(Collectors.toList());
+
+        // 2. Permission is strictly derived from the Check-in on Behalf approval hierarchy
+        boolean canCheckinOnBehalf = !userRules.isEmpty();
+
+        // Fallback for Admin/HR only if NO Check-in on Behalf rules exist in the entire system yet
+        if (!canCheckinOnBehalf && checkinRules.isEmpty() && (freshEmp.getRole() == Role.Admin || freshEmp.getRole() == Role.HR)) {
+            canCheckinOnBehalf = true;
+        }
+
+        if (!canCheckinOnBehalf) {
+            return ResponseEntity.ok(Map.of(
+                    "canCheckinOnBehalf", false,
+                    "eligibleEmployees", List.of()
+            ));
+        }
+
+        List<Employee> allEmployees = employeeRepository.findAll().stream()
+                .filter(e -> e.getStatus() == null || e.getStatus() == Status.Active)
+                .collect(Collectors.toList());
+
+        List<Employee> eligibleList;
+        if (!userRules.isEmpty()) {
+            Set<String> allowedStaffIds = new HashSet<>();
+            Set<UUID> allowedDeptIds = new HashSet<>();
+            for (LeaveApprovalRule rule : userRules) {
+                if ("Employee".equalsIgnoreCase(rule.getScope()) && rule.getTargetStaffId() != null) {
+                    allowedStaffIds.add(rule.getTargetStaffId().trim().toUpperCase());
+                } else if ("Department".equalsIgnoreCase(rule.getScope()) && rule.getTargetDeptId() != null) {
+                    allowedDeptIds.add(rule.getTargetDeptId());
+                }
+            }
+
+            eligibleList = allEmployees.stream().filter(e -> {
+                if (e.getStaffId() != null && allowedStaffIds.contains(e.getStaffId().trim().toUpperCase())) return true;
+                if (e.getDepartmentId() != null && allowedDeptIds.contains(e.getDepartmentId())) return true;
+                return false;
+            }).collect(Collectors.toList());
+        } else {
+            eligibleList = allEmployees;
+        }
+
+        Map<UUID, Department> deptMap = departmentRepository.findAll().stream().collect(Collectors.toMap(Department::getId, d -> d, (a, b) -> a));
+        Map<UUID, Position> posMap = positionRepository.findAll().stream().collect(Collectors.toMap(Position::getId, p -> p, (a, b) -> a));
+
+        List<Map<String, Object>> resultList = eligibleList.stream().map(e -> {
+            Map<String, Object> m = new LinkedHashMap<>();
+            m.put("id", e.getId());
+            m.put("staffId", e.getStaffId());
+            m.put("nameEn", e.getNameEn() != null ? e.getNameEn() : "");
+            m.put("nameKh", e.getNameKh() != null ? e.getNameKh() : "");
+            m.put("fullName", e.getNameKh() != null && !e.getNameKh().isBlank() ? e.getNameKh() : (e.getNameEn() != null ? e.getNameEn() : ""));
+            m.put("department", e.getDepartmentId() != null && deptMap.containsKey(e.getDepartmentId()) ? deptMap.get(e.getDepartmentId()).getNameEn() : "-");
+            m.put("position", e.getPositionId() != null && posMap.containsKey(e.getPositionId()) ? posMap.get(e.getPositionId()).getTitleEn() : "-");
+            m.put("avatar", e.getPhotoUrl());
+            return m;
+        }).collect(Collectors.toList());
+
+        return ResponseEntity.ok(Map.of(
+                "canCheckinOnBehalf", true,
+                "eligibleEmployees", resultList
+        ));
     }
 
     @GetMapping("/today")

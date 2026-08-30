@@ -47,7 +47,7 @@ const AppLayout = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[var(--bg-app)] text-[var(--text-primary)] flex relative overflow-hidden">
+    <div className="h-screen bg-[var(--bg-app)] text-[var(--text-primary)] flex relative overflow-hidden">
       {/* Mobile Overlay - closes sidebar when clicking outside */}
       {sidebarOpen && (
         <div
@@ -60,13 +60,13 @@ const AppLayout = () => {
       <Sidebar isOpen={sidebarOpen} toggleSidebar={toggleSidebar} />
 
       {/* Main Content Area */}
-      <div className="flex-1 flex flex-col md:pl-64 min-w-0 transition-all duration-300 relative z-10">
+      <div className="flex-1 flex flex-col md:pl-64 min-w-0 h-screen transition-all duration-300 relative z-10 overflow-hidden">
         {/* Top Navbar */}
         <Navbar toggleSidebar={toggleSidebar} />
 
         {/* Scrollable Panel */}
-        <main className="flex-grow p-4 md:p-6 lg:p-8 overflow-y-auto">
-          <div className="max-w-7xl mx-auto">
+        <main className="flex-1 p-4 md:p-6 lg:p-8 overflow-y-auto min-h-0">
+          <div className="max-w-7xl mx-auto pb-16">
             <Outlet />
           </div>
         </main>
@@ -205,14 +205,39 @@ function App() {
                 }
               />
 
-              {/* Leave Approval Management (Permission-guarded) */}
+              {/* Approval Management Routes */}
               <Route
                 path="approval-manage"
+                element={<Navigate to="/approval-manage/leave" replace />}
+              />
+              <Route
+                path="approval-manage/leave"
                 element={
                   <ProtectedRoute resource="leave_approvals">
                     <ApprovalManage />
                   </ProtectedRoute>
                 }
+              />
+              <Route
+                path="approval-manage/overtime"
+                element={
+                  <ProtectedRoute resource="leave_approvals">
+                    <ApprovalManage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="approval-manage/checkin"
+                element={
+                  <ProtectedRoute resource="leave_approvals">
+                    <ApprovalManage />
+                  </ProtectedRoute>
+                }
+              />
+
+              <Route
+                path="approvals"
+                element={<Navigate to="/approval-manage/leave" replace />}
               />
 
               {/* Company Work Hours Settings (Permission-guarded) */}
