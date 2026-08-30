@@ -4,6 +4,7 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import api from '../utils/api';
 import { useLanguage } from '../context/LanguageContext';
+import { useAuth } from '../context/AuthContext';
 import { MapPinIcon, CheckCircleIcon, ArrowPathIcon, TrashIcon, PlusIcon, XMarkIcon, QrCodeIcon, DocumentArrowDownIcon } from '@heroicons/react/24/outline';
 
 // Fix default Leaflet marker icon broken by bundlers
@@ -41,7 +42,13 @@ const MapClickHandler = ({ onMapClick }) => {
 
 const KioskSettings = () => {
   const { language, locale } = useLanguage();
+  const { hasPermission } = useAuth();
   const isKhmer = language === 'kh' || locale === 'kh';
+
+  // Granular Branch Permissions
+  const canAdd = hasPermission('add_branch');
+  const canEdit = hasPermission('edit_branch');
+  const canDelete = hasPermission('delete_branch');
 
   const [settingsList, setSettingsList] = useState([]);
   const [selectedId, setSelectedId] = useState(null); // null means "Add Mode"
@@ -113,10 +120,18 @@ const KioskSettings = () => {
     }
   };
 
+  // When settingsList loads and user cannot add, automatically select first branch to view
+  useEffect(() => {
+    if (!canAdd && !selectedId && settingsList.length > 0) {
+      selectSetting(settingsList[0]);
+    }
+  }, [settingsList, canAdd, selectedId]);
+
   // Handle Map clicks to move/set active coordinates
   const handleMapClick = useCallback((lat, lng) => {
+    if (selectedId ? !canEdit : !canAdd) return;
     setMarkerPos([lat, lng]);
-  }, []);
+  }, [selectedId, canEdit, canAdd]);
 
   // Reset form to Add Mode
   const resetForm = () => {
@@ -514,9 +529,10 @@ const KioskSettings = () => {
                 <Marker
                   position={markerPos}
                   icon={glowIcon}
-                  draggable
+                  draggable={selectedId ? canEdit : canAdd}
                   eventHandlers={{
                     dragend: (e) => {
+                      if (selectedId ? !canEdit : !canAdd) return;
                       const latlng = e.target.getLatLng();
                       setMarkerPos([latlng.lat, latlng.lng]);
                     },
@@ -556,7 +572,7 @@ const KioskSettings = () => {
                 {isKhmer ? `សាខាដែលបានកំណត់ (${settingsList.length})` : `Configured Branches (${settingsList.length})`}
               </h3>
 
-              {selectedId && (
+              {selectedId && canAdd && (
                 <button
                   onClick={resetForm}
                   className="flex items-center gap-1 text-[11px] font-semibold text-indigo-400 hover:text-indigo-300 font-khmer cursor-pointer border-none bg-transparent outline-none"
@@ -595,18 +611,20 @@ const KioskSettings = () => {
                         <QrCodeIcon className="h-4 w-4" />
                       </button>
 
-                      <button
-                        onClick={(e) => handleDelete(s.id, e)}
-                        disabled={deletingId === s.id}
-                        className="p-2 rounded-xl text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 transition-all cursor-pointer opacity-0 group-hover:opacity-100 focus:opacity-100 disabled:opacity-50"
-                        title={isKhmer ? "លុបទីតាំងសាខា" : "Delete geofence"}
-                      >
-                        {deletingId === s.id ? (
-                          <ArrowPathIcon className="h-4 w-4 animate-spin" />
-                        ) : (
-                          <TrashIcon className="h-4 w-4" />
-                        )}
-                      </button>
+                      {canDelete && (
+                        <button
+                          onClick={(e) => handleDelete(s.id, e)}
+                          disabled={deletingId === s.id}
+                          className="p-2 rounded-xl text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 transition-all cursor-pointer opacity-0 group-hover:opacity-100 focus:opacity-100 disabled:opacity-50"
+                          title={isKhmer ? "លុបទីតាំងសាខា" : "Delete geofence"}
+                        >
+                          {deletingId === s.id ? (
+                            <ArrowPathIcon className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <TrashIcon className="h-4 w-4" />
+                          )}
+                        </button>
+                      )}
                     </div>
                   </div>
                 );
@@ -617,12 +635,24 @@ const KioskSettings = () => {
           {/* Edit/Create Form Card */}
           <div className="glass-card rounded-3xl p-5 border border-white/10 space-y-4">
             <div className="flex items-center justify-between border-b border-white/5 pb-2">
-              <h3 className="text-sm font-bold text-white font-khmer">
-                {selectedId
-                  ? (isKhmer ? '📝 កែប្រែ Geofence ទីតាំង' : '📝 Edit Branch Geofence')
-                  : (isKhmer ? '➕ បន្ថែម Geofence ថ្មី' : '➕ Add New Geofence')}
-              </h3>
-              {selectedId && (
+              <div className="flex items-center gap-2">
+                <h3 className="text-sm font-bold text-white font-khmer">
+                  {selectedId
+                    ? (isKhmer ? '📝 កែប្រែ Geofence ទីតាំង' : '📝 Edit Branch Geofence')
+                    : (isKhmer ? '➕ បន្ថែម Geofence ថ្មី' : '➕ Add New Geofence')}
+                </h3>
+                {selectedId && !canEdit && (
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-500/10 border border-amber-500/20 text-amber-300 font-khmer">
+                    {isKhmer ? '🔒 មើលតែប៉ុណ្ណោះ' : '🔒 Read-only'}
+                  </span>
+                )}
+                {!selectedId && !canAdd && (
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-rose-500/10 border border-rose-500/20 text-rose-300 font-khmer">
+                    {isKhmer ? '🔒 គ្មានសិទ្ធិបង្កើត' : '🔒 No Create Permission'}
+                  </span>
+                )}
+              </div>
+              {selectedId && canAdd && (
                 <button
                   onClick={resetForm}
                   className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-white/5 transition-all cursor-pointer border-none bg-transparent outline-none"
@@ -643,8 +673,9 @@ const KioskSettings = () => {
                   type="text"
                   placeholder={isKhmer ? "ឧ. ការិយាល័យកណ្តាល (Phnom Penh HQ)" : "e.g. Phnom Penh HQ"}
                   value={name}
+                  disabled={selectedId ? !canEdit : !canAdd}
                   onChange={(e) => setName(e.target.value)}
-                  className="w-full py-2.5 px-4 bg-slate-950/60 border border-white/10 text-white rounded-xl text-xs focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/20 outline-none transition-all font-khmer font-medium"
+                  className="w-full py-2.5 px-4 bg-slate-950/60 border border-white/10 text-white rounded-xl text-xs focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/20 outline-none transition-all font-khmer font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                 />
               </div>
 
@@ -658,8 +689,9 @@ const KioskSettings = () => {
                     type="number"
                     step="any"
                     value={markerPos[0]}
+                    disabled={selectedId ? !canEdit : !canAdd}
                     onChange={(e) => setMarkerPos([parseFloat(e.target.value) || 0, markerPos[1]])}
-                    className="w-full py-2.5 px-4 bg-slate-950/60 border border-white/10 text-white rounded-xl text-xs focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/20 outline-none transition-all tabular-nums"
+                    className="w-full py-2.5 px-4 bg-slate-950/60 border border-white/10 text-white rounded-xl text-xs focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/20 outline-none transition-all tabular-nums disabled:opacity-50 disabled:cursor-not-allowed"
                   />
                 </div>
                 <div>
@@ -671,8 +703,9 @@ const KioskSettings = () => {
                     type="number"
                     step="any"
                     value={markerPos[1]}
+                    disabled={selectedId ? !canEdit : !canAdd}
                     onChange={(e) => setMarkerPos([markerPos[0], parseFloat(e.target.value) || 0])}
-                    className="w-full py-2.5 px-4 bg-slate-950/60 border border-white/10 text-white rounded-xl text-xs focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/20 outline-none transition-all tabular-nums"
+                    className="w-full py-2.5 px-4 bg-slate-950/60 border border-white/10 text-white rounded-xl text-xs focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/20 outline-none transition-all tabular-nums disabled:opacity-50 disabled:cursor-not-allowed"
                   />
                 </div>
               </div>
@@ -693,8 +726,9 @@ const KioskSettings = () => {
                   max={5000}
                   step={10}
                   value={radius}
+                  disabled={selectedId ? !canEdit : !canAdd}
                   onChange={(e) => setRadius(parseInt(e.target.value))}
-                  className="w-full accent-indigo-500 cursor-pointer"
+                  className="w-full accent-indigo-500 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                 />
 
                 {/* Radius Presets */}
@@ -703,8 +737,9 @@ const KioskSettings = () => {
                     <button
                       key={r}
                       id={`preset-radius-${r}`}
+                      disabled={selectedId ? !canEdit : !canAdd}
                       onClick={() => setRadius(r)}
-                      className={`py-1 text-[10px] font-bold rounded-lg border transition-all cursor-pointer outline-none font-khmer ${radius === r
+                      className={`py-1 text-[10px] font-bold rounded-lg border transition-all cursor-pointer outline-none font-khmer disabled:opacity-40 disabled:cursor-not-allowed ${radius === r
                           ? 'bg-indigo-500/20 text-indigo-300 border-indigo-500/40'
                           : 'bg-slate-950/60 text-slate-400 border-white/5 hover:text-white hover:border-white/20'
                         }`}
@@ -733,29 +768,40 @@ const KioskSettings = () => {
               </div>
             )}
 
-            {/* Save Action Button */}
-            <button
-              id="save-kiosk-settings-btn"
-              onClick={handleSave}
-              disabled={saving}
-              className="w-full py-3 px-6 font-bold text-xs rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white shadow-lg shadow-indigo-500/25 transition-all cursor-pointer outline-none border-none disabled:opacity-50 disabled:cursor-not-allowed font-khmer flex items-center justify-center gap-2"
-            >
-              {saving ? (
-                <>
-                  <ArrowPathIcon className="h-4 w-4 animate-spin" />
-                  {isKhmer ? 'កំពុងរក្សាទុក...' : 'Saving...'}
-                </>
-              ) : saveSuccess ? (
-                <>
-                  <CheckCircleIcon className="h-4 w-4 text-emerald-300" />
-                  {isKhmer ? 'បានរក្សាទុកដោយជោគជ័យ!' : 'Saved Successfully!'}
-                </>
-              ) : (
-                selectedId
-                  ? (isKhmer ? '💾 កែប្រែទីតាំង (Update Zone)' : '💾 Update Branch Zone')
-                  : (isKhmer ? '💾 រក្សាទុកទីតាំង (Save Zone)' : '💾 Save Branch Zone')
-              )}
-            </button>
+            {/* Save Action Button or Read-Only Banner */}
+            {(selectedId ? canEdit : canAdd) ? (
+              <button
+                id="save-kiosk-settings-btn"
+                onClick={handleSave}
+                disabled={saving}
+                className="w-full py-3 px-6 font-bold text-xs rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white shadow-lg shadow-indigo-500/25 transition-all cursor-pointer outline-none border-none disabled:opacity-50 disabled:cursor-not-allowed font-khmer flex items-center justify-center gap-2"
+              >
+                {saving ? (
+                  <>
+                    <ArrowPathIcon className="h-4 w-4 animate-spin" />
+                    {isKhmer ? 'កំពុងរក្សាទុក...' : 'Saving...'}
+                  </>
+                ) : saveSuccess ? (
+                  <>
+                    <CheckCircleIcon className="h-4 w-4 text-emerald-300" />
+                    {isKhmer ? 'បានរក្សាទុកដោយជោគជ័យ!' : 'Saved Successfully!'}
+                  </>
+                ) : (
+                  selectedId
+                    ? (isKhmer ? '💾 កែប្រែទីតាំង (Update Zone)' : '💾 Update Branch Zone')
+                    : (isKhmer ? '💾 រក្សាទុកទីតាំង (Save Zone)' : '💾 Save Branch Zone')
+                )}
+              </button>
+            ) : (
+              <div className="p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-center text-xs text-amber-300 font-khmer flex items-center justify-center gap-2">
+                <span>🔒</span>
+                <span>
+                  {selectedId
+                    ? (isKhmer ? 'គណនីរបស់អ្នកមិនមានសិទ្ធិកែប្រែទីតាំងសាខាទេ (View-only)' : 'You do not have permission to edit branch geofences (View-only)')
+                    : (isKhmer ? 'គណនីរបស់អ្នកមិនមានសិទ្ធិបង្កើតសាខាថ្មីទេ' : 'You do not have permission to create branch geofences')}
+                </span>
+              </div>
+            )}
           </div>
         </div>
       </div>
