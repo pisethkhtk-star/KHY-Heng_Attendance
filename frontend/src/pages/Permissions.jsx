@@ -25,7 +25,8 @@ import {
   PlusCircleIcon,
   PencilSquareIcon,
   TrashIcon,
-  ArrowDownTrayIcon
+  ArrowDownTrayIcon,
+  MapPinIcon
 } from '@heroicons/react/24/outline';
 
 const Permissions = () => {
@@ -369,10 +370,43 @@ const Permissions = () => {
     },
     {
       key: 'kiosk_group',
-      labelEn: 'Kiosk Terminals & GPS Geofencing',
-      labelKh: 'ម៉ាស៊ីនស្កេន Kiosk, Facescan & ទីតាំង',
-      icon: ComputerDesktopIcon,
+      labelEn: 'Branch Offices & Kiosk Terminals',
+      labelKh: 'សាខាក្រុមហ៊ុន & ម៉ាស៊ីនស្កេនវត្តមាន (Kiosk)',
+      icon: MapPinIcon,
       modules: [
+        {
+          key: 'kiosk_settings',
+          labelEn: 'Branch Office Management',
+          labelKh: 'សាខាក្រុមហ៊ុន (Branch Settings)',
+          descEn: 'Configure office branches, GPS geofences and scan radius',
+          descKh: 'គ្រប់គ្រងសាខាក្រុមហ៊ុន កំណត់ទីតាំង GPS និងកាំរង្វង់អនុញ្ញាតស្កេន',
+          actions: [
+            {
+              key: 'add_branch',
+              actionType: 'add',
+              labelEn: 'Create Branch',
+              labelKh: 'បន្ថែមសាខាថ្មី',
+              descEn: 'Register a new office branch and GPS geofence boundary',
+              descKh: 'បង្កើតសាខាថ្មី និងកំណត់កូអរដោនេទីតាំង GPS'
+            },
+            {
+              key: 'edit_branch',
+              actionType: 'edit',
+              labelEn: 'Edit Branch',
+              labelKh: 'កែប្រែព័ត៌មានសាខា',
+              descEn: 'Update branch title, latitude, longitude and radius meters',
+              descKh: 'កែប្រែឈ្មោះសាខា ទីតាំង ឬកាំរង្វង់ម៉ែត្រ'
+            },
+            {
+              key: 'delete_branch',
+              actionType: 'delete',
+              labelEn: 'Delete Branch',
+              labelKh: 'លុបសាខា',
+              descEn: 'Remove office branch and its geofence from the system',
+              descKh: 'លុបទីតាំងសាខាដែលលែងដំណើរការចេញពីប្រព័ន្ធ'
+            }
+          ]
+        },
         {
           key: 'facescan',
           labelEn: 'Face Recognition Kiosk Terminal',
@@ -387,14 +421,6 @@ const Permissions = () => {
               labelKh: 'ម៉ាស៊ីនស្កេន QR Code',
               descEn: 'Scan employee QR badges for rapid attendance verification',
               descKh: 'ដំណើរការម៉ាស៊ីនស្កេន QR Code សម្រាប់បុគ្គលិក'
-            },
-            {
-              key: 'kiosk_settings',
-              actionType: 'config',
-              labelEn: 'Branch Geofencing & GPS Coordinates',
-              labelKh: 'កំណត់ទីតាំង GPS & សាខា',
-              descEn: 'Configure branch offices, latitudes, longitudes and scan radius',
-              descKh: 'កំណត់ទីតាំង GPS សាខាក្រុមហ៊ុន និងកាំរង្វង់អនុញ្ញាតស្កេន'
             },
             {
               key: 'scan_behalf_face',

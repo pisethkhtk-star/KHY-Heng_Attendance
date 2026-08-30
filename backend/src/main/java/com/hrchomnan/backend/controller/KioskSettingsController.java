@@ -30,7 +30,7 @@ public class KioskSettingsController {
     }
 
     @PostMapping
-    @PreAuthorize("@perm.has('kiosk_settings') or hasAnyRole('Admin', 'HR')")
+    @PreAuthorize("@perm.has('add_branch') or @perm.has('kiosk_settings') or hasAnyRole('Admin', 'HR')")
     public ResponseEntity<?> createSetting(@RequestBody KioskSetting setting) {
         if (setting.getName() == null || setting.getLatitude() == null || setting.getLongitude() == null) {
             return ResponseEntity.badRequest().body(Map.of("message", "Name, latitude, and longitude are required"));
@@ -51,7 +51,7 @@ public class KioskSettingsController {
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("@perm.has('kiosk_settings') or hasAnyRole('Admin', 'HR')")
+    @PreAuthorize("@perm.has('edit_branch') or @perm.has('kiosk_settings') or hasAnyRole('Admin', 'HR')")
     public ResponseEntity<?> updateSetting(@PathVariable UUID id, @RequestBody KioskSetting setting) {
         Optional<KioskSetting> existingOpt = kioskSettingRepository.findById(id);
         if (existingOpt.isEmpty()) {
@@ -80,7 +80,7 @@ public class KioskSettingsController {
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize("@perm.has('kiosk_settings') or hasAnyRole('Admin', 'HR')")
+    @PreAuthorize("@perm.has('delete_branch') or @perm.has('kiosk_settings') or hasAnyRole('Admin', 'HR')")
     public ResponseEntity<?> deleteSetting(@PathVariable UUID id) {
         if (kioskSettingRepository.existsById(id)) {
             kioskSettingRepository.deleteById(id);
