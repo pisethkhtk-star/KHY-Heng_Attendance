@@ -27,8 +27,10 @@ import {
   PencilSquareIcon,
   TrashIcon,
   ArrowDownTrayIcon,
-  MapPinIcon
+  MapPinIcon,
+  CameraIcon
 } from '@heroicons/react/24/outline';
+import faceDataService from '../services/FaceDataService';
 
 const Permissions = () => {
   const { language, t } = useLanguage();
@@ -42,6 +44,7 @@ const Permissions = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [changingRole, setChangingRole] = useState(false);
+  const [clearingFace, setClearingFace] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedRoleFilter, setSelectedRoleFilter] = useState('All'); // 'All' | 'HR' | 'Manager' | 'Employee'
   const [successMsg, setSuccessMsg] = useState('');
@@ -657,6 +660,19 @@ const Permissions = () => {
     setEmpHasCustom(false);
     setCanLoginWeb(emp.role === 'Admin' || Boolean(emp.canLoginWeb));
 
+    // Check latest face data status in background
+    if (emp.staffId) {
+      api.get(`/face/${emp.staffId}`)
+        .then(faceRes => {
+          if (faceRes && faceRes.data) {
+            setSelectedEmployee(prev => (prev && prev.staffId === emp.staffId ? { ...prev, hasFaceData: true, faceData: faceRes.data } : prev));
+          }
+        })
+        .catch(() => {
+          setSelectedEmployee(prev => (prev && prev.staffId === emp.staffId ? { ...prev, hasFaceData: false, faceData: null } : prev));
+        });
+    }
+
     try {
       setEmpPermissionsLoading(true);
       const res = await api.get(`/permissions/employee/${emp.id}`);
@@ -757,6 +773,48 @@ const Permissions = () => {
       playSound('error');
     } finally {
       setChangingRole(false);
+    }
+  };
+
+  const handleClearFaceData = async () => {
+    if (!selectedEmployee || !selectedEmployee.staffId) return;
+
+    const empDisplayName = language === 'kh'
+      ? (selectedEmployee.nameKh || selectedEmployee.nameEn || selectedEmployee.staffId)
+      : (selectedEmployee.nameEn || selectedEmployee.nameKh || selectedEmployee.staffId);
+
+    const confirmMsg = language === 'kh'
+      ? `តើអ្នកពិតជាចង់លុបទិន្នន័យស្កេនផ្ទៃមុខរបស់ "${empDisplayName}" (${selectedEmployee.staffId}) មែនទេ? បុគ្គលិកនេះនឹងលែងអាចស្កេនមុខបានទៀតហើយ រហូតទាល់តែចុះឈ្មោះម្តងទៀត។`
+      : `Are you sure you want to clear the biometric face data for "${empDisplayName}" (${selectedEmployee.staffId})? The employee will no longer be able to check in via face scan until re-enrolled.`;
+
+    if (!window.confirm(confirmMsg)) return;
+
+    setClearingFace(true);
+    try {
+      await api.delete(`/face/${selectedEmployee.staffId}`);
+
+      // Update state in selectedEmployee and employees list
+      setSelectedEmployee(prev => prev ? { ...prev, hasFaceData: false, faceData: null } : null);
+      setEmployees(prev => prev.map(e => e.staffId === selectedEmployee.staffId ? { ...e, hasFaceData: false, faceData: null } : e));
+
+      // Refresh face cache in background
+      try {
+        if (faceDataService) {
+          faceDataService.preloadFaceData(true).catch(() => {});
+        }
+      } catch (ignored) {}
+
+      playSound('success');
+      setSuccessMsg(language === 'kh' ? 'បានលុបទិន្នន័យស្កេនផ្ទៃមុខដោយជោគជ័យ!' : 'Face data cleared successfully!');
+      setTimeout(() => setSuccessMsg(''), 4000);
+    } catch (err) {
+      console.error('Error clearing face data:', err);
+      playSound('error');
+      const msg = err.response?.data?.message || (language === 'kh' ? 'បរាជ័យក្នុងការលុបទិន្នន័យផ្ទៃមុខ' : 'Failed to clear face data');
+      setErrorMsg(msg);
+      setTimeout(() => setErrorMsg(''), 5000);
+    } finally {
+      setClearingFace(false);
     }
   };
 
@@ -1790,8 +1848,61 @@ const Permissions = () => {
                     </div>
                   </div>
 
-                  {/* Right: Role Assignment & Web Login Control Box */}
+                  {/* Right: Face Data, Role Assignment & Web Login Control Box */}
                   <div className="flex flex-wrap items-center gap-3 w-full lg:w-auto justify-end">
+                    {/* Biometric Face Data Status & Clear Control Box */}
+                    {(() => {
+                      const hasFace = Boolean(
+                        selectedEmployee?.hasFaceData ||
+                        (Array.isArray(selectedEmployee?.faceData) ? selectedEmployee.faceData.length > 0 : Boolean(selectedEmployee?.faceData))
+                      );
+
+                      return (
+                        <div className="flex items-center gap-3 p-3.5 rounded-2xl bg-slate-950/70 border border-white/10 shadow-inner w-full sm:w-auto justify-between">
+                          <div className="text-left">
+                            <div className="text-xs font-bold text-white font-khmer flex items-center gap-1.5">
+                              <CameraIcon className="h-4 w-4 text-indigo-400 shrink-0" />
+                              <span>{language === 'kh' ? 'ទិន្នន័យស្កេនមុខ' : 'Biometric Face'}</span>
+                            </div>
+                            <div className="text-[11px] font-khmer mt-0.5">
+                              {hasFace ? (
+                                <span className="text-emerald-400 font-semibold flex items-center gap-1">
+                                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                                  {language === 'kh' ? 'បានចុះឈ្មោះ (Enrolled)' : 'Enrolled'}
+                                </span>
+                              ) : (
+                                <span className="text-slate-400 font-semibold flex items-center gap-1">
+                                  <span className="h-1.5 w-1.5 rounded-full bg-slate-500"></span>
+                                  {language === 'kh' ? 'មិនទាន់ចុះឈ្មោះ' : 'Not Enrolled'}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+
+                          {hasFace ? (
+                            <button
+                              type="button"
+                              disabled={clearingFace}
+                              onClick={handleClearFaceData}
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-rose-500/15 hover:bg-rose-500/25 border border-rose-500/30 text-rose-400 hover:text-rose-300 text-xs font-semibold rounded-xl transition-all cursor-pointer font-khmer shadow-sm shrink-0 disabled:opacity-50"
+                              title={language === 'kh' ? 'លុបទិន្នន័យស្កេនផ្ទៃមុខ' : 'Clear Face Data'}
+                            >
+                              {clearingFace ? (
+                                <span className="w-3.5 h-3.5 border-2 border-rose-400 border-t-transparent rounded-full animate-spin"></span>
+                              ) : (
+                                <TrashIcon className="w-3.5 h-3.5" />
+                              )}
+                              <span>{language === 'kh' ? 'លុបទិន្នន័យមុខ' : 'Clear Face'}</span>
+                            </button>
+                          ) : (
+                            <span className="text-[11px] px-2.5 py-1 rounded-xl bg-white/5 border border-white/10 text-slate-400 font-khmer">
+                              {language === 'kh' ? 'គ្មានទិន្នន័យ' : 'No Data'}
+                            </span>
+                          )}
+                        </div>
+                      );
+                    })()}
+
                     {/* Role Assignment Selector Box */}
                     <div className="flex items-center gap-3 p-3.5 rounded-2xl bg-slate-950/70 border border-white/10 shadow-inner w-full sm:w-auto justify-between">
                       <div className="text-left">

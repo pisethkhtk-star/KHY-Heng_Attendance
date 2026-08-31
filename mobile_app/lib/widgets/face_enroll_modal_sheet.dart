@@ -205,6 +205,9 @@ class _FaceEnrollModalSheetState extends State<FaceEnrollModalSheet>
 
   void _showSuccessDialog(String name, String staffId) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final langController = Get.find<LanguageController>();
+    final isKm = langController.currentLanguage == 'km';
+
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -226,14 +229,16 @@ class _FaceEnrollModalSheetState extends State<FaceEnrollModalSheet>
               child: const Icon(LucideIcons.checkCheck, color: AppColors.success, size: 44),
             ).animate().scale(duration: 400.ms, curve: Curves.elasticOut),
             const SizedBox(height: 18),
-            const Text(
-              'ចុះឈ្មោះផ្ទៃមុខជោគជ័យ!',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            Text(
+              langController.tr('face_registered_dialog_title'),
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 8),
             Text(
-              'បុគ្គលិក: $name ($staffId)\nត្រូវបានរក្សាទុកទិន្នន័យផ្ទៃមុខជីវមាត្រ (Biometric Face Data) ក្នុងប្រព័ន្ធរួចរាល់ហើយ។',
+              isKm
+                  ? 'បុគ្គលិក: $name ($staffId)\n${langController.tr('face_saved_desc')}'
+                  : 'Employee: $name ($staffId)\n${langController.tr('face_saved_desc')}',
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 13,
@@ -256,9 +261,9 @@ class _FaceEnrollModalSheetState extends State<FaceEnrollModalSheet>
                   widget.onSuccess?.call();
                   Navigator.of(context).pop(); // Close sheet
                 },
-                child: const Text(
-                  'យល់ព្រម (Done)',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                child: Text(
+                  langController.tr('btn_done'),
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
                 ),
               ),
             ),
@@ -270,6 +275,9 @@ class _FaceEnrollModalSheetState extends State<FaceEnrollModalSheet>
 
   void _showEmployeePicker() {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final langController = Get.find<LanguageController>();
+    final isKm = langController.currentLanguage == 'km';
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -308,9 +316,9 @@ class _FaceEnrollModalSheetState extends State<FaceEnrollModalSheet>
                     children: [
                       const Icon(LucideIcons.users, size: 20, color: AppColors.primary),
                       const SizedBox(width: 8),
-                      const Text(
-                        'ជ្រើសរើសបុគ្គលិក',
-                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                      Text(
+                        langController.tr('select_employee_title'),
+                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                       ),
                       const Spacer(),
                       IconButton(
@@ -325,7 +333,7 @@ class _FaceEnrollModalSheetState extends State<FaceEnrollModalSheet>
                   child: TextField(
                     controller: _searchCtrl,
                     decoration: InputDecoration(
-                      hintText: 'ស្វែងរកឈ្មោះ ឬ អត្តលេខ...',
+                      hintText: langController.tr('search_employee_hint'),
                       prefixIcon: const Icon(LucideIcons.search, size: 18),
                       contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
@@ -339,7 +347,7 @@ class _FaceEnrollModalSheetState extends State<FaceEnrollModalSheet>
                   child: _isLoadingEmployees
                       ? const Center(child: CircularProgressIndicator())
                       : filtered.isEmpty
-                          ? const Center(child: Text('រកមិនឃើញបុគ្គលិកឡើយ'))
+                          ? Center(child: Text(langController.tr('no_employee_found')))
                           : ListView.builder(
                               itemCount: filtered.length,
                               itemBuilder: (c, idx) {
@@ -347,10 +355,14 @@ class _FaceEnrollModalSheetState extends State<FaceEnrollModalSheet>
                                 final hasFace = emp['hasFaceData'] == true;
                                 final nameEn = emp['nameEn']?.toString() ?? '';
                                 final nameKh = emp['nameKh']?.toString() ?? '';
-                                final displayName = nameKh.isNotEmpty ? nameKh : nameEn;
+                                final displayName = isKm
+                                    ? (nameKh.isNotEmpty ? nameKh : nameEn)
+                                    : (nameEn.isNotEmpty ? nameEn : nameKh);
                                 final staffId = emp['staffId']?.toString() ?? '';
                                 final dept = emp['department'] is Map
-                                    ? (emp['department']['nameEn'] ?? '')
+                                    ? (isKm
+                                        ? (emp['department']['nameKh'] ?? emp['department']['nameEn'] ?? '')
+                                        : (emp['department']['nameEn'] ?? emp['department']['nameKh'] ?? ''))
                                     : (emp['department']?.toString() ?? '');
 
                                 return ListTile(
@@ -372,7 +384,9 @@ class _FaceEnrollModalSheetState extends State<FaceEnrollModalSheet>
                                       borderRadius: BorderRadius.circular(8),
                                     ),
                                     child: Text(
-                                      hasFace ? 'ចុះឈ្មោះរួច ✅' : 'មិនទាន់ចុះឈ្មោះ ⚠️',
+                                      hasFace
+                                          ? langController.tr('face_registered_badge')
+                                          : langController.tr('face_not_registered_badge'),
                                       style: TextStyle(
                                         fontSize: 11,
                                         fontWeight: FontWeight.bold,
@@ -401,245 +415,257 @@ class _FaceEnrollModalSheetState extends State<FaceEnrollModalSheet>
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final langController = Get.find<LanguageController>();
 
-    final empName = _selectedEmployee?['nameKh']?.toString().isNotEmpty == true
-        ? _selectedEmployee!['nameKh']
-        : (_selectedEmployee?['nameEn'] ?? _selectedEmployee?['fullName'] ?? '');
-    final empStaffId = _selectedEmployee?['staffId']?.toString() ?? '';
-    final empDept = _selectedEmployee?['department'] is Map
-        ? (_selectedEmployee!['department']['nameEn'] ?? '')
-        : (_selectedEmployee?['department']?.toString() ?? '');
+    return Obx(() {
+      final isKm = langController.currentLanguage == 'km';
 
-    return Container(
-      height: MediaQuery.of(context).size.height * 0.90,
-      decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
-      ),
-      child: Column(
-        children: [
-          // Drag Handle
-          const SizedBox(height: 12),
-          Container(
-            width: 44,
-            height: 4,
-            decoration: BoxDecoration(
-              color: Colors.grey.shade400,
-              borderRadius: BorderRadius.circular(2),
+      final empName = _selectedEmployee != null
+          ? (isKm
+              ? (_selectedEmployee!['nameKh']?.toString().isNotEmpty == true
+                  ? _selectedEmployee!['nameKh']
+                  : (_selectedEmployee!['nameEn'] ?? _selectedEmployee!['fullName'] ?? ''))
+              : (_selectedEmployee!['nameEn']?.toString().isNotEmpty == true
+                  ? _selectedEmployee!['nameEn']
+                  : (_selectedEmployee!['nameKh'] ?? _selectedEmployee!['fullName'] ?? '')))
+          : '';
+      final empStaffId = _selectedEmployee?['staffId']?.toString() ?? '';
+      final empDept = _selectedEmployee?['department'] is Map
+          ? (isKm
+              ? (_selectedEmployee!['department']['nameKh'] ?? _selectedEmployee!['department']['nameEn'] ?? '')
+              : (_selectedEmployee!['department']['nameEn'] ?? _selectedEmployee!['department']['nameKh'] ?? ''))
+          : (_selectedEmployee?['department']?.toString() ?? '');
+
+      return Container(
+        height: MediaQuery.of(context).size.height * 0.90,
+        decoration: BoxDecoration(
+          color: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+        ),
+        child: Column(
+          children: [
+            // Drag Handle
+            const SizedBox(height: 12),
+            Container(
+              width: 44,
+              height: 4,
+              decoration: BoxDecoration(
+                color: Colors.grey.shade400,
+                borderRadius: BorderRadius.circular(2),
+              ),
             ),
-          ),
-          const SizedBox(height: 8),
+            const SizedBox(height: 8),
 
-          // Header
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
-            child: Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: AppColors.primary.withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(10),
+            // Header
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: AppColors.primary.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Icon(LucideIcons.scanFace, color: AppColors.primary, size: 22),
                   ),
-                  child: const Icon(LucideIcons.scanFace, color: AppColors.primary, size: 22),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          langController.tr('register_employee_face'),
+                          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                        ),
+                        Text(
+                          langController.tr('face_enroll_subtitle'),
+                          style: const TextStyle(fontSize: 12, color: Colors.grey),
+                        ),
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(LucideIcons.x, size: 22),
+                    onPressed: () => Navigator.of(context).pop(),
+                  ),
+                ],
+              ),
+            ),
+
+            // Employee Selector Badge
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+              child: InkWell(
+                onTap: widget.initialEmployee == null ? _showEmployeePicker : null,
+                borderRadius: BorderRadius.circular(14),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: isDark ? const Color(0xFF1E293B) : Colors.white,
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(
+                      color: isDark ? Colors.white12 : Colors.black12,
+                    ),
+                  ),
+                  child: Row(
                     children: [
-                      Text(
-                        langController.tr('register_employee_face'),
-                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                      CircleAvatar(
+                        radius: 20,
+                        backgroundColor: AppColors.primary.withValues(alpha: 0.15),
+                        child: const Icon(LucideIcons.user, color: AppColors.primary, size: 20),
                       ),
-                      const Text(
-                        'ចុះឈ្មោះផ្ទៃមុខជីវមាត្របុគ្គលិក (Admin)',
-                        style: TextStyle(fontSize: 12, color: Colors.grey),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              _selectedEmployee != null
+                                  ? empName
+                                  : langController.tr('tap_to_select_employee'),
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.bold,
+                                color: _selectedEmployee != null
+                                    ? (isDark ? Colors.white : Colors.black87)
+                                    : AppColors.primary,
+                              ),
+                            ),
+                            if (_selectedEmployee != null)
+                              Text(
+                                '$empStaffId • $empDept',
+                                style: const TextStyle(fontSize: 11, color: Colors.grey),
+                              ),
+                          ],
+                        ),
+                      ),
+                      if (widget.initialEmployee == null)
+                        const Icon(LucideIcons.chevronDown, size: 18, color: Colors.grey),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+
+            // Camera Viewfinder Box
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(20),
+                  child: Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      // Camera feed
+                      Positioned.fill(
+                        child: kIsWeb
+                            ? const WebCameraPreview()
+                            : (_scannerController != null
+                                ? MobileScanner(controller: _scannerController!)
+                                : Container(color: Colors.black)),
+                      ),
+
+                      // Biometric Guide Painter & Animated Laser
+                      Positioned.fill(
+                        child: AnimatedBuilder(
+                          animation: _laserAnimCtrl,
+                          builder: (ctx, _) => CustomPaint(
+                            painter: _EnrollFaceGuidePainter(
+                              laserProgress: _laserAnimCtrl.value,
+                              isEnrolling: _isEnrolling,
+                              isSuccess: _isSuccess,
+                            ),
+                          ),
+                        ),
+                      ),
+
+                      // Instruction Banner
+                      Positioned(
+                        top: 16,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: Colors.black.withValues(alpha: 0.65),
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: Text(
+                            _statusText.isNotEmpty
+                                ? _statusText
+                                : langController.tr('align_face_guide'),
+                            style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600),
+                          ),
+                        ),
+                      ),
+
+                      // Top Camera Controls
+                      Positioned(
+                        top: 14,
+                        right: 14,
+                        child: Row(
+                          children: [
+                            CircleAvatar(
+                              radius: 18,
+                              backgroundColor: Colors.black.withValues(alpha: 0.55),
+                              child: IconButton(
+                                padding: EdgeInsets.zero,
+                                icon: Icon(_isTorchOn ? LucideIcons.zap : LucideIcons.zapOff, size: 16, color: Colors.white),
+                                onPressed: _toggleTorch,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            CircleAvatar(
+                              radius: 18,
+                              backgroundColor: Colors.black.withValues(alpha: 0.55),
+                              child: IconButton(
+                                padding: EdgeInsets.zero,
+                                icon: const Icon(LucideIcons.switchCamera, size: 16, color: Colors.white),
+                                onPressed: _toggleCameraFacing,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ],
                   ),
                 ),
-                IconButton(
-                  icon: const Icon(LucideIcons.x, size: 22),
-                  onPressed: () => Navigator.of(context).pop(),
-                ),
-              ],
+              ),
             ),
-          ),
 
-          // Employee Selector Badge
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-            child: InkWell(
-              onTap: widget.initialEmployee == null ? _showEmployeePicker : null,
-              borderRadius: BorderRadius.circular(14),
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                decoration: BoxDecoration(
-                  color: isDark ? const Color(0xFF1E293B) : Colors.white,
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(
-                    color: isDark ? Colors.white12 : Colors.black12,
+            // Capture & Register Action Button
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: SizedBox(
+                width: double.infinity,
+                height: 52,
+                child: ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                    elevation: 3,
+                  ),
+                  onPressed: (_isEnrolling || _selectedEmployee == null)
+                      ? null
+                      : _handleCaptureAndEnroll,
+                  icon: _isEnrolling
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5),
+                        )
+                      : const Icon(LucideIcons.camera, size: 22),
+                  label: Text(
+                    _isEnrolling
+                        ? langController.tr('enrolling_face')
+                        : langController.tr('capture_and_register'),
+                    style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
                   ),
                 ),
-                child: Row(
-                  children: [
-                    CircleAvatar(
-                      radius: 20,
-                      backgroundColor: AppColors.primary.withValues(alpha: 0.15),
-                      child: const Icon(LucideIcons.user, color: AppColors.primary, size: 20),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            _selectedEmployee != null
-                                ? empName
-                                : 'ចុចទីនេះដើម្បីជ្រើសរើសបុគ្គលិក...',
-                            style: TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.bold,
-                              color: _selectedEmployee != null
-                                  ? (isDark ? Colors.white : Colors.black87)
-                                  : AppColors.primary,
-                            ),
-                          ),
-                          if (_selectedEmployee != null)
-                            Text(
-                              '$empStaffId • $empDept',
-                              style: const TextStyle(fontSize: 11, color: Colors.grey),
-                            ),
-                        ],
-                      ),
-                    ),
-                    if (widget.initialEmployee == null)
-                      const Icon(LucideIcons.chevronDown, size: 18, color: Colors.grey),
-                  ],
-                ),
               ),
             ),
-          ),
-
-          // Camera Viewfinder Box
-          Expanded(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(20),
-                child: Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    // Camera feed
-                    Positioned.fill(
-                      child: kIsWeb
-                          ? const WebCameraPreview()
-                          : (_scannerController != null
-                              ? MobileScanner(controller: _scannerController!)
-                              : Container(color: Colors.black)),
-                    ),
-
-                    // Biometric Guide Painter & Animated Laser
-                    Positioned.fill(
-                      child: AnimatedBuilder(
-                        animation: _laserAnimCtrl,
-                        builder: (ctx, _) => CustomPaint(
-                          painter: _EnrollFaceGuidePainter(
-                            laserProgress: _laserAnimCtrl.value,
-                            isEnrolling: _isEnrolling,
-                            isSuccess: _isSuccess,
-                          ),
-                        ),
-                      ),
-                    ),
-
-                    // Instruction Banner
-                    Positioned(
-                      top: 16,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-                        decoration: BoxDecoration(
-                          color: Colors.black.withValues(alpha: 0.65),
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: Text(
-                          _statusText.isNotEmpty
-                              ? _statusText
-                              : langController.tr('align_face_guide'),
-                          style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600),
-                        ),
-                      ),
-                    ),
-
-                    // Top Camera Controls
-                    Positioned(
-                      top: 14,
-                      right: 14,
-                      child: Row(
-                        children: [
-                          CircleAvatar(
-                            radius: 18,
-                            backgroundColor: Colors.black.withValues(alpha: 0.55),
-                            child: IconButton(
-                              padding: EdgeInsets.zero,
-                              icon: Icon(_isTorchOn ? LucideIcons.zap : LucideIcons.zapOff, size: 16, color: Colors.white),
-                              onPressed: _toggleTorch,
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          CircleAvatar(
-                            radius: 18,
-                            backgroundColor: Colors.black.withValues(alpha: 0.55),
-                            child: IconButton(
-                              padding: EdgeInsets.zero,
-                              icon: const Icon(LucideIcons.switchCamera, size: 16, color: Colors.white),
-                              onPressed: _toggleCameraFacing,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-
-          // Capture & Register Action Button
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: SizedBox(
-              width: double.infinity,
-              height: 52,
-              child: ElevatedButton.icon(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primary,
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                  elevation: 3,
-                ),
-                onPressed: (_isEnrolling || _selectedEmployee == null)
-                    ? null
-                    : _handleCaptureAndEnroll,
-                icon: _isEnrolling
-                    ? const SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5),
-                      )
-                    : const Icon(LucideIcons.camera, size: 22),
-                label: Text(
-                  _isEnrolling
-                      ? langController.tr('enrolling_face')
-                      : langController.tr('capture_and_register'),
-                  style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
+          ],
+        ),
+      );
+    });
   }
 }
 

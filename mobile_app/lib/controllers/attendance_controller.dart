@@ -4,6 +4,28 @@ import '../models/attendance_model.dart';
 import '../repositories/attendance_repository.dart';
 import 'auth_controller.dart';
 
+class AutoActionDecision {
+  final String? action; // 'checkin_1', 'checkout_1', 'checkin_2', 'checkout_2'
+  final String? alertMessage; // Khmer alert message if action cannot be performed
+  final bool isSuccess;
+
+  const AutoActionDecision({
+    this.action,
+    this.alertMessage,
+    required this.isSuccess,
+  });
+
+  factory AutoActionDecision.performAction(String action) => AutoActionDecision(
+        action: action,
+        isSuccess: true,
+      );
+
+  factory AutoActionDecision.alert(String message) => AutoActionDecision(
+        alertMessage: message,
+        isSuccess: false,
+      );
+}
+
 class AttendanceController extends GetxController {
   final IAttendanceRepository _attendanceRepository = Get.find<IAttendanceRepository>();
 
@@ -86,6 +108,87 @@ class AttendanceController extends GetxController {
     return res;
   }
 
+  static int timeToMinutes(String? timeStr) {
+    if (timeStr == null || !timeStr.contains(':')) return 0;
+    try {
+      final parts = timeStr.trim().split(':');
+      int h = int.parse(parts[0]);
+      int m = int.parse(parts[1].split(' ')[0]);
+      final lower = timeStr.toLowerCase();
+      if (lower.contains('pm') && h < 12) h += 12;
+      if (lower.contains('am') && h == 12) h = 0;
+      return h * 60 + m;
+    } catch (_) {
+      return 0;
+    }
+  }
+
+  static bool isTimeRecorded(String? val) {
+    return val != null &&
+        val.trim().isNotEmpty &&
+        val.trim() != '--:--' &&
+        val.trim() != '-';
+  }
+
+  static AutoActionDecision evaluateAutoShiftAction({
+    required AttendanceRecord? todayRecord,
+    String? shift1End,
+    String? shift2End,
+    DateTime? currentTime,
+  }) {
+    final now = currentTime ?? DateTime.now();
+    final currentMinutes = now.hour * 60 + now.minute;
+
+    final s1EndMin = timeToMinutes(shift1End ?? '12:00');
+    final s2EndMin = timeToMinutes(shift2End ?? '17:00');
+
+    final bool hasCheckIn1 = isTimeRecorded(todayRecord?.checkIn1);
+    final bool hasCheckOut1 = isTimeRecorded(todayRecord?.checkOut1);
+    final bool hasCheckIn2 = isTimeRecorded(todayRecord?.checkIn2);
+    final bool hasCheckOut2 = isTimeRecorded(todayRecord?.checkOut2);
+
+    // 1. IF (currentTime < s1_end):
+    if (currentMinutes < s1EndMin) {
+      if (!hasCheckIn1) {
+        return AutoActionDecision.performAction('checkin_1');
+      } else if (!hasCheckOut1) {
+        return AutoActionDecision.alert('មិនទាន់ដល់ម៉ោង Check-out វេនទី ១ នៅឡើយទេ (ម៉ោង ${shift1End ?? "12:00"})');
+      } else {
+        return AutoActionDecision.alert('Session 1 បាន Check-in/out រួចរាល់ហើយ');
+      }
+    }
+
+    // 2. ELSE IF (currentTime >= s1_end AND currentTime < s2_end):
+    else if (currentMinutes >= s1EndMin && currentMinutes < s2EndMin) {
+      // ករណីភ្លេច Check-out វេនព្រឹក (ដល់/ហួសម៉ោង s1_end ហើយ)
+      if (hasCheckIn1 && !hasCheckOut1) {
+        return AutoActionDecision.performAction('checkout_1');
+      }
+      // ករណីវេនព្រឹកចប់សព្វគ្រប់ ហើយចូលវេនរសៀល
+      else if (!hasCheckIn2) {
+        return AutoActionDecision.performAction('checkin_2');
+      }
+      // ករណីបាន Check-in វេនរសៀលរួចហើយ (មិនអាច Check-out 2 មុនម៉ោង s2_end បានទេ)
+      else if (!hasCheckOut2) {
+        return AutoActionDecision.alert('មិនទាន់ដល់ម៉ោង Check-out វេនទី ២ នៅឡើយទេ (ម៉ោង ${shift2End ?? "17:00"})');
+      }
+      // ករណីពេញលេញ
+      else {
+        return AutoActionDecision.alert('បាន Check ពេញលេញសម្រាប់ថ្ងៃនេះហើយ');
+      }
+    }
+
+    // 3. ELSE IF (currentTime >= s2_end):
+    else {
+      // ករណីដល់/ហួសម៉ោងវេនរសៀល
+      if (hasCheckIn2 && !hasCheckOut2) {
+        return AutoActionDecision.performAction('checkout_2');
+      } else {
+        return AutoActionDecision.alert('ផុតកំណត់ម៉ោងធ្វើការ / បាន Check-out រួចរាល់ហើយ');
+      }
+    }
+  }
+
   Future<Map<String, dynamic>> logCheckinOnBehalf({
     required String staffId,
     required String action,
@@ -93,8 +196,14 @@ class AttendanceController extends GetxController {
   }) async {
     _isProcessing.value = true;
     try {
+      String normalized = action.toLowerCase().trim();
+      if (normalized == 'check_in_1') normalized = 'checkin_1';
+      if (normalized == 'check_out_1') normalized = 'checkout_1';
+      if (normalized == 'check_in_2') normalized = 'checkin_2';
+      if (normalized == 'check_out_2') normalized = 'checkout_2';
+
       final result = await _attendanceRepository.logCheckInOut(
-        action,
+        normalized,
         staffId: staffId,
         note: note ?? 'Check-in on behalf',
       );

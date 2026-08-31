@@ -63,6 +63,13 @@ public class AttendanceController {
             return ResponseEntity.badRequest().body(Map.of("message", "Staff ID and Action are required"));
         }
 
+        String rawAction = request.getAction().toLowerCase().trim();
+        if (rawAction.equals("check_in_1")) rawAction = "checkin_1";
+        if (rawAction.equals("check_out_1")) rawAction = "checkout_1";
+        if (rawAction.equals("check_in_2")) rawAction = "checkin_2";
+        if (rawAction.equals("check_out_2")) rawAction = "checkout_2";
+        request.setAction(rawAction);
+
         List<String> validActions = List.of("checkin_1", "checkout_1", "checkin_2", "checkout_2");
         if (!validActions.contains(request.getAction())) {
             return ResponseEntity.badRequest().body(Map.of("message", "Invalid action. Must be checkin_1, checkout_1, checkin_2, or checkout_2"));

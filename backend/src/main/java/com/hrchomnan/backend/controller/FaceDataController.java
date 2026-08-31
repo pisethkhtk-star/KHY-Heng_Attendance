@@ -154,9 +154,9 @@ public class FaceDataController {
         List<EmployeeFaceData> list = faceDataRepository.findAllByStaffId(staffId);
         if (!list.isEmpty()) {
             faceDataRepository.deleteAll(list);
-            return ResponseEntity.ok(Map.of("message", "Face data deleted successfully"));
+            return ResponseEntity.ok(Map.of("message", "Face data deleted successfully", "success", true));
         }
-        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("message", "Face data not found"));
+        return ResponseEntity.ok(Map.of("message", "Face data already cleared", "success", true));
     }
 
     @Data

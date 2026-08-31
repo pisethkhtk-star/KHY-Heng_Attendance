@@ -7,6 +7,7 @@ import FlexibleSchedulePicker from '../components/FlexibleSchedulePicker';
 import { WEEKDAYS } from '../utils/constants';
 import { registerCameraStream } from '../utils/cameraManager';
 import { formatDateDDMMYYYY } from '../utils/dateUtils';
+import faceDataService from '../services/FaceDataService';
 
 const Employees = () => {
   const { user } = useAuth();

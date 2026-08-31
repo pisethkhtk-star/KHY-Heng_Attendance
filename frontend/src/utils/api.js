@@ -12,14 +12,14 @@ const getBaseUrl = () => {
       return '/api';
     }
     // If running frontend dev server locally (localhost) or via LAN IP (192.168.x.x)
-    return `http://${hostname || 'localhost'}:8080/api`;
+    return `http://${hostname || '192.168.88.214'}:8080/api`;
   }
 
-  return import.meta.env.DEV ? 'http://localhost:8080/api' : '/api';
+  return import.meta.env.DEV ? 'http://192.168.88.214:8080/api' : '/api';
 };
 
 const api = axios.create({
-  baseURL: getBaseUrl(),
+  baseURL: getBaseUrl(),/*  */
   headers: {
     'Content-Type': 'application/json',
   },

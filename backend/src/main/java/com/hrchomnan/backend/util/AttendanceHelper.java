@@ -105,31 +105,24 @@ public class AttendanceHelper {
         boolean hasCheckIn2 = checkin2 != null && !checkin2.isBlank() && !checkin2.equals("--:--") && !checkin2.equals("-");
         boolean hasCheckOut2 = checkout2 != null && !checkout2.isBlank() && !checkout2.equals("--:--") && !checkout2.equals("-");
 
-        if (hasCheckIn1 && hasCheckOut1 && hasCheckIn2 && hasCheckOut2) {
-            return "completed";
-        }
-
-        // 1. If scan time is past Shift 1 End (12:00 PM / afternoon)
-        if (currentMinutes >= s1EndMinutes) {
-            if (!hasCheckIn1) {
-                if (!hasCheckIn2) return "checkin_2";
-                if (!hasCheckOut2) return "checkout_2";
-                return "completed";
-            } else {
-                if (!hasCheckOut1 && currentMinutes <= s2StartMinutes) {
-                    return "checkout_1";
-                }
-                if (!hasCheckIn2) return "checkin_2";
-                if (!hasCheckOut2) return "checkout_2";
-                return "completed";
-            }
-        } else {
-            // 2. Scan time is before Shift 1 End (morning)
+        // 1. IF (currentTime < s1_end):
+        if (currentMinutes < s1EndMinutes) {
             if (!hasCheckIn1) return "checkin_1";
-            if (!hasCheckOut1) return "checkout_1";
-            if (!hasCheckIn2) return "checkin_2";
-            if (!hasCheckOut2) return "checkout_2";
-            return "completed";
+            else return "completed";
+        }
+        // 2. ELSE IF (currentTime >= s1EndMinutes AND currentTime < s2EndMinutes):
+        else if (currentMinutes >= s1EndMinutes && currentMinutes < s2EndMinutes) {
+            // ករណីភ្លេច Check-out វេនព្រឹក (ដល់/ហួសម៉ោង s1_end)
+            if (hasCheckIn1 && !hasCheckOut1) return "checkout_1";
+            // ករណីវេនព្រឹកចប់សព្វគ្រប់ ហើយចូលវេនរសៀល
+            else if (!hasCheckIn2) return "checkin_2";
+            else return "completed";
+        }
+        // 3. ELSE IF (currentTime >= s2_end):
+        else {
+            // ករណីដល់/ហួសម៉ោងវេនរសៀល
+            if (hasCheckIn2 && !hasCheckOut2) return "checkout_2";
+            else return "completed";
         }
     }
 

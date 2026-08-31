@@ -11,6 +11,7 @@ import 'package:mobile_scanner/mobile_scanner.dart';
 import '../core/constants/app_colors.dart';
 import '../controllers/attendance_controller.dart';
 import '../controllers/language_controller.dart';
+import '../models/attendance_model.dart';
 import 'web_camera/web_camera.dart';
 
 class FaceScanModalSheet extends StatefulWidget {
@@ -230,7 +231,45 @@ class _FaceScanModalSheetState extends State<FaceScanModalSheet>
       return;
     }
 
-    // 4. Biometric Match Verified! Insert check-in data into database
+    // 4. Evaluate shift & time conditions for check on behalf
+    AttendanceRecord? todayRecord;
+    try {
+      final todayStr = DateFormat('yyyy-MM-dd').format(DateTime.now());
+      for (final rec in attendanceController.historyRecords) {
+        if (rec.staffId == staffId &&
+            (rec.rawDate.contains(todayStr) || rec.date.contains(todayStr))) {
+          todayRecord = rec;
+          break;
+        }
+      }
+    } catch (_) {}
+
+    final decision = AttendanceController.evaluateAutoShiftAction(
+      todayRecord: todayRecord,
+      shift1End: widget.targetEmployee['shift1End']?.toString(),
+      shift2End: widget.targetEmployee['shift2End']?.toString(),
+    );
+
+    if (!decision.isSuccess) {
+      HapticFeedback.heavyImpact();
+      setState(() {
+        _isScanning = false;
+        _isSuccess = false;
+        _isMismatch = true;
+        _statusText = decision.alertMessage;
+      });
+      _showAlertModal(
+        title: 'ដំណឹងវត្តមាន',
+        message: decision.alertMessage ?? 'មិនអាចកត់ត្រាវត្តមានបានឡើយ',
+        empName: widget.targetEmployee['fullName'] ?? widget.targetEmployee['nameEn'],
+        staffId: staffId,
+      );
+      return;
+    }
+
+    final effectiveAction = decision.action ?? widget.selectedAction;
+
+    // 5. Biometric Match Verified & Action Validated! Insert check-in data into database
     setState(() {
       _isScanning = false;
       _isSuccess = true;
@@ -246,7 +285,7 @@ class _FaceScanModalSheetState extends State<FaceScanModalSheet>
 
     final result = await attendanceController.logCheckinOnBehalf(
       staffId: staffId,
-      action: widget.selectedAction,
+      action: effectiveAction,
       note: note,
     );
 
@@ -260,7 +299,7 @@ class _FaceScanModalSheetState extends State<FaceScanModalSheet>
           widget.targetEmployee['nameEn'] ??
           staffId;
       final dept = widget.targetEmployee['department'] ?? 'General';
-      final actionLabel = _getActionLabel(widget.selectedAction);
+      final actionLabel = _getActionLabel(effectiveAction);
       final timeStr = DateFormat('hh:mm:ss a').format(DateTime.now());
 
       _showSuccessDialog({
@@ -277,6 +316,88 @@ class _FaceScanModalSheetState extends State<FaceScanModalSheet>
         _statusText = result['message'] ?? 'Failed to log check-in data';
       });
     }
+  }
+
+  void _showAlertModal({
+    required String title,
+    required String message,
+    String? empName,
+    String? staffId,
+  }) {
+    if (!mounted) return;
+
+    showDialog(
+      context: context,
+      barrierDismissible: true,
+      builder: (ctx) {
+        final isDark = Theme.of(ctx).brightness == Brightness.dark;
+
+        return AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+          backgroundColor: isDark ? AppColors.cardDark : AppColors.cardLight,
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: AppColors.warning.withValues(alpha: 0.15),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(LucideIcons.circleAlert, color: AppColors.warning, size: 46),
+              ).animate().scale(duration: 350.ms),
+              const SizedBox(height: 14),
+              Text(
+                title,
+                style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 10),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                decoration: BoxDecoration(
+                  color: AppColors.warning.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: AppColors.warning.withValues(alpha: 0.3)),
+                ),
+                child: Text(
+                  message,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.warning,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+              if (empName != null && empName.isNotEmpty) ...[
+                const SizedBox(height: 12),
+                Text(
+                  'បុគ្គលិក: $empName ($staffId)',
+                  style: const TextStyle(fontSize: 12, color: Colors.grey),
+                  textAlign: TextAlign.center,
+                ),
+              ],
+              const SizedBox(height: 20),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  ),
+                  onPressed: () => Navigator.of(ctx).pop(),
+                  child: const Text('យល់ព្រម (OK)',
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
   }
 
   void _showSuccessDialog(

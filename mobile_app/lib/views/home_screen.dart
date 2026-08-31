@@ -137,10 +137,6 @@ class HomeScreen extends StatelessWidget {
                     ],
                   ),
                 ),
-                IconButton(
-                  onPressed: () {},
-                  icon: const Icon(LucideIcons.bell, size: 22),
-                ),
               ],
             );
           }).animate().fadeIn().slideY(begin: -0.2, end: 0),
@@ -197,61 +193,76 @@ class HomeScreen extends StatelessWidget {
 
                 // Animated Circular Punch Button
                 Obx(
-                  () => GestureDetector(
-                    onTap: attendanceController.isProcessing
-                      ? null
-                      : () {
-                          showModalBottomSheet(
-                            context: context,
-                            isScrollControlled: true,
-                            shape: const RoundedRectangleBorder(
-                              borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+                  () {
+                    final step = attendanceController.currentStep;
+                    final isDone = step >= 4;
+                    final isCheckOut = step % 2 == 1;
+
+                    return GestureDetector(
+                      onTap: (attendanceController.isProcessing || isDone)
+                        ? null
+                        : () {
+                            showModalBottomSheet(
+                              context: context,
+                              isScrollControlled: true,
+                              shape: const RoundedRectangleBorder(
+                                borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+                              ),
+                              builder: (_) => const ScannerModalSheet(),
+                            );
+                          },
+                      child: Container(
+                        width: 140,
+                        height: 140,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          gradient: isDone
+                              ? const LinearGradient(colors: [Color(0xFF10B981), Color(0xFF059669)])
+                              : (isCheckOut
+                                  ? const LinearGradient(colors: [Color(0xFFEF4444), Color(0xFFDC2626)])
+                                  : AppColors.primaryGradient),
+                          boxShadow: [
+                            BoxShadow(
+                              color: (isDone
+                                      ? AppColors.success
+                                      : (isCheckOut ? AppColors.danger : AppColors.primary))
+                                  .withValues(alpha: 0.4),
+                              blurRadius: 20,
+                              spreadRadius: 2,
+                              offset: const Offset(0, 8),
                             ),
-                            builder: (_) => const ScannerModalSheet(),
-                          );
-                        },
-                    child: Container(
-                      width: 140,
-                      height: 140,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        gradient: attendanceController.currentStep % 2 == 1
-                            ? const LinearGradient(colors: [Color(0xFFEF4444), Color(0xFFDC2626)])
-                            : AppColors.primaryGradient,
-                        boxShadow: [
-                          BoxShadow(
-                            color: (attendanceController.currentStep % 2 == 1
-                                    ? AppColors.danger
-                                    : AppColors.primary)
-                                .withValues(alpha: 0.4),
-                            blurRadius: 20,
-                            spreadRadius: 2,
-                            offset: const Offset(0, 8),
-                          ),
-                        ],
-                      ),
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            attendanceController.currentStep % 2 == 1 ? LucideIcons.logOut : LucideIcons.fingerprint,
-                            color: Colors.white,
-                            size: 40,
-                          ),
-                          const SizedBox(height: 6),
-                          Text(
-                            attendanceController.activeActionLabel,
-                            style: const TextStyle(
+                          ],
+                        ),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              isDone
+                                  ? LucideIcons.checkCircle
+                                  : (isCheckOut ? LucideIcons.logOut : LucideIcons.fingerprint),
                               color: Colors.white,
-                              fontSize: 15,
-                              fontWeight: FontWeight.bold,
+                              size: 40,
                             ),
-                          ),
-                        ],
+                            const SizedBox(height: 6),
+                            Text(
+                              attendanceController.activeActionLabel,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 15,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
-                  ),
-                ).animate(target: attendanceController.currentStep.toDouble()).scale(duration: 300.ms),
+                    ).animate(key: ValueKey(step)).scale(
+                          begin: const Offset(0.92, 0.92),
+                          end: const Offset(1.0, 1.0),
+                          duration: 250.ms,
+                          curve: Curves.easeOutBack,
+                        );
+                  },
+                ),
                 const SizedBox(height: 24),
 
                 // Single Box Daily Sessions Display (Session 1 & Session 2 in 1 Card)
