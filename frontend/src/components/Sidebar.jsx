@@ -11,7 +11,7 @@ import {
   ComputerDesktopIcon,
   ShieldCheckIcon,
   MapPinIcon,
-  Cog6ToothIcon,
+  UserGroupIcon,
   GlobeAltIcon,
   CheckBadgeIcon,
 } from '@heroicons/react/24/outline';
@@ -34,7 +34,7 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
     {
       key: "Setup",
       name: t("setupGroup"),
-      icon: Cog6ToothIcon,
+      icon: UserGroupIcon,
       subItems: [
         {
           path: "/employees",
