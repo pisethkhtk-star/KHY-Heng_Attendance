@@ -12,4 +12,5 @@ import java.util.UUID;
 public interface EmployeeLeaveLimitRepository extends JpaRepository<EmployeeLeaveLimit, UUID> {
     List<EmployeeLeaveLimit> findByStaffId(String staffId);
     Optional<EmployeeLeaveLimit> findByStaffIdAndLeaveCode(String staffId, String leaveCode);
+    void deleteByStaffId(String staffId);
 }

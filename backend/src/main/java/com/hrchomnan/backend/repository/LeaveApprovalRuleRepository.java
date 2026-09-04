@@ -15,4 +15,6 @@ public interface LeaveApprovalRuleRepository extends JpaRepository<LeaveApproval
     List<LeaveApprovalRule> findByRuleType(String ruleType);
     List<LeaveApprovalRule> findByTargetStaffIdAndRuleType(String targetStaffId, String ruleType);
     List<LeaveApprovalRule> findByTargetDeptIdAndRuleType(UUID targetDeptId, String ruleType);
+    void deleteByApproverId(String approverId);
+    void deleteByTargetStaffId(String targetStaffId);
 }

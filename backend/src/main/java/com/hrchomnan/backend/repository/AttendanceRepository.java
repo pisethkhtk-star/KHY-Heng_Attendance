@@ -15,4 +15,5 @@ public interface AttendanceRepository extends JpaRepository<Attendance, UUID> {
     Optional<Attendance> findByStaffIdAndAttendanceDate(String staffId, LocalDate attendanceDate);
     List<Attendance> findByAttendanceDate(LocalDate attendanceDate);
     List<Attendance> findByAttendanceDateBetween(LocalDate startDate, LocalDate endDate);
+    void deleteByStaffId(String staffId);
 }

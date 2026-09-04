@@ -6,10 +6,7 @@ import com.hrchomnan.backend.model.Department;
 import com.hrchomnan.backend.model.Employee;
 import com.hrchomnan.backend.model.EmployeeFaceData;
 import com.hrchomnan.backend.model.Position;
-import com.hrchomnan.backend.repository.DepartmentRepository;
-import com.hrchomnan.backend.repository.EmployeeFaceDataRepository;
-import com.hrchomnan.backend.repository.EmployeeRepository;
-import com.hrchomnan.backend.repository.PositionRepository;
+import com.hrchomnan.backend.repository.*;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -34,6 +31,13 @@ public class EmployeeController {
     private final DepartmentRepository departmentRepository;
     private final PositionRepository positionRepository;
     private final EmployeeFaceDataRepository employeeFaceDataRepository;
+    private final AttendanceRepository attendanceRepository;
+    private final AttendanceLogRepository attendanceLogRepository;
+    private final LeaveRepository leaveRepository;
+    private final OvertimeRepository overtimeRepository;
+    private final EmployeeLeaveLimitRepository employeeLeaveLimitRepository;
+    private final EmployeeQRCodeRepository employeeQRCodeRepository;
+    private final LeaveApprovalRuleRepository leaveApprovalRuleRepository;
     private final PasswordEncoder passwordEncoder;
     private final SecurityPermissionService securityPermissionService;
 
@@ -457,9 +461,24 @@ public class EmployeeController {
     @DeleteMapping("/{id}")
     @PreAuthorize("@perm.has('delete_employee')")
     public ResponseEntity<?> deleteEmployee(@PathVariable UUID id) {
-        if (employeeRepository.existsById(id)) {
-            employeeRepository.deleteById(id);
-            return ResponseEntity.ok(Map.of("message", "Employee deleted successfully"));
+        Optional<Employee> empOpt = employeeRepository.findById(id);
+        if (empOpt.isPresent()) {
+            Employee emp = empOpt.get();
+            String staffId = emp.getStaffId();
+            if (staffId != null && !staffId.isBlank()) {
+                attendanceRepository.deleteByStaffId(staffId);
+                attendanceLogRepository.deleteByStaffId(staffId);
+                leaveRepository.deleteByStaffId(staffId);
+                overtimeRepository.deleteByStaffId(staffId);
+                overtimeRepository.clearManagerReferences(staffId);
+                employeeLeaveLimitRepository.deleteByStaffId(staffId);
+                employeeFaceDataRepository.deleteByStaffId(staffId);
+                employeeQRCodeRepository.deleteByStaffId(staffId);
+                leaveApprovalRuleRepository.deleteByApproverId(staffId);
+                leaveApprovalRuleRepository.deleteByTargetStaffId(staffId);
+            }
+            employeeRepository.delete(emp);
+            return ResponseEntity.ok(Map.of("message", "Employee and all related attendance, leave, overtime, and biometric records deleted successfully"));
         }
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("message", "Employee not found"));
     }

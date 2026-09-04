@@ -10,4 +10,5 @@ import java.util.UUID;
 @Repository
 public interface AttendanceLogRepository extends JpaRepository<AttendanceLog, UUID> {
     List<AttendanceLog> findByStaffId(String staffId);
+    void deleteByStaffId(String staffId);
 }

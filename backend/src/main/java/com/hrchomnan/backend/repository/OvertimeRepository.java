@@ -3,6 +3,7 @@ package com.hrchomnan.backend.repository;
 import com.hrchomnan.backend.enums.LeaveStatus;
 import com.hrchomnan.backend.model.Overtime;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -36,4 +37,10 @@ public interface OvertimeRepository extends JpaRepository<Overtime, UUID> {
             @Param("startDate") LocalDate startDate,
             @Param("endDate") LocalDate endDate
     );
+
+    void deleteByStaffId(String staffId);
+
+    @Modifying
+    @Query("UPDATE Overtime o SET o.managerId = null, o.managerName = null WHERE o.managerId = :managerId")
+    void clearManagerReferences(@Param("managerId") String managerId);
 }
