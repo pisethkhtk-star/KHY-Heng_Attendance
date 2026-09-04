@@ -117,7 +117,7 @@ const getEmpPhoto = (emp) => {
 
 const Attendance = () => {
   const { user, hasPermission } = useAuth();
-  const { t, getLocalizedName } = useLanguage();
+  const { locale, t, getLocalizedName } = useLanguage();
 
   const [logs, setLogs] = useState([]);
   const [departments, setDepartments] = useState([]);
@@ -191,8 +191,8 @@ const Attendance = () => {
     try {
       setLoading(true);
       let query = `?startDate=${startDate}&endDate=${endDate}`;
-      if (user.role === 'Employee') {
-        query += `&staffId=${user.staffId}`;
+      if (user?.role === 'Employee') {
+        query += `&staffId=${user?.staffId}`;
       } else {
         if (selectedStaffId) {
           query += `&staffId=${selectedStaffId}`;
@@ -362,7 +362,7 @@ const Attendance = () => {
 
   const fetchMetadata = async () => {
     try {
-      if (user.role !== 'Employee') {
+      if (user?.role !== 'Employee') {
         const [deptRes, empRes] = await Promise.all([
           api.get('/departments'),
           api.get('/employees')
@@ -1030,7 +1030,7 @@ const Attendance = () => {
         </div>
 
         {/* HR/Admin query parameters */}
-        {user.role !== 'Employee' ? (
+        {user?.role !== 'Employee' ? (
           <>
             {/* Employee Searchable Select Dropdown */}
             <div className="space-y-1 relative" ref={empDropdownRef}>
@@ -1160,7 +1160,7 @@ const Attendance = () => {
           </>
         ) : (
           <div className="md:col-span-2 flex items-center justify-end p-4 bg-slate-950/40 border border-white/5 rounded-xl text-xs font-medium text-slate-400 font-khmer">
-            🔍 កំពុងបង្ហាញកំណត់ត្រាវត្តមានសម្រាប់គណនីរបស់អ្នកផ្ទាល់ ({user.staffId})
+            🔍 កំពុងបង្ហាញកំណត់ត្រាវត្តមានសម្រាប់គណនីរបស់អ្នកផ្ទាល់ ({user?.staffId})
           </div>
         )}
       </div>
@@ -1176,7 +1176,7 @@ const Attendance = () => {
                 <tr>
                   <th className="py-4 px-4 font-khmer whitespace-nowrap text-center">No.</th>
                   <th className="py-4 px-6 font-khmer whitespace-nowrap">{t("date")}</th>
-                  {user.role !== 'Employee' && <th className="py-4 px-6 font-khmer">{t("employees")}</th>}
+                  {user?.role !== 'Employee' && <th className="py-4 px-6 font-khmer">{t("employees")}</th>}
                   <th className="py-4 px-6 font-khmer whitespace-nowrap">{t("checkin1")}</th>
                   <th className="py-4 px-6 font-khmer whitespace-nowrap">{t("checkout1")}</th>
                   <th className="py-4 px-6 font-khmer whitespace-nowrap">{t("checkin2")}</th>
@@ -1191,7 +1191,7 @@ const Attendance = () => {
               <tbody className="divide-y divide-white/5">
                 {paginatedLogs.length === 0 ? (
                   <tr>
-                    <td colSpan={user.role === 'Employee' ? 8 : ((hasPermission('edit_attendance') || hasPermission('delete_attendance')) ? 10 : 9)} className="py-6 text-center text-slate-500 font-khmer">
+                    <td colSpan={user?.role === 'Employee' ? 8 : ((hasPermission('edit_attendance') || hasPermission('delete_attendance')) ? 10 : 9)} className="py-6 text-center text-slate-500 font-khmer">
                       {t("noData")}
                     </td>
                   </tr>
@@ -1219,7 +1219,7 @@ const Attendance = () => {
                         <td className="py-4 px-6 font-semibold text-white whitespace-nowrap">
                           {formatDateDDMMYYYY(log.attendanceDate)}
                         </td>
-                        {user.role !== 'Employee' && (
+                        {user?.role !== 'Employee' && (
                           <td className="py-4 px-6 whitespace-nowrap">
                             <div className="flex items-center gap-3">
                               {/* Profile Avatar */}
