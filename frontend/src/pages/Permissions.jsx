@@ -704,11 +704,11 @@ const Permissions = () => {
       setSuccessMsg(
         nextVal
           ? (language === 'kh'
-              ? `បានបើកសិទ្ធិ Login ចូល Website សម្រាប់ ${selectedEmployee.nameEn || selectedEmployee.nameKh}!`
-              : `Web login access ENABLED for ${selectedEmployee.nameEn || selectedEmployee.nameKh}!`)
+            ? `បានបើកសិទ្ធិ Login ចូល Website សម្រាប់ ${selectedEmployee.nameEn || selectedEmployee.nameKh}!`
+            : `Web login access ENABLED for ${selectedEmployee.nameEn || selectedEmployee.nameKh}!`)
           : (language === 'kh'
-              ? `បានបិទសិទ្ធិ Login ចូល Website សម្រាប់ ${selectedEmployee.nameEn || selectedEmployee.nameKh} (Mobile App អាច Login ធម្មតា)!`
-              : `Web login access DISABLED for ${selectedEmployee.nameEn || selectedEmployee.nameKh} (Mobile app unaffected)!`)
+            ? `បានបិទសិទ្ធិ Login ចូល Website សម្រាប់ ${selectedEmployee.nameEn || selectedEmployee.nameKh} (Mobile App អាច Login ធម្មតា)!`
+            : `Web login access DISABLED for ${selectedEmployee.nameEn || selectedEmployee.nameKh} (Mobile app unaffected)!`)
       );
       playSound('success');
       setTimeout(() => setSuccessMsg(''), 4000);
@@ -800,9 +800,9 @@ const Permissions = () => {
       // Refresh face cache in background
       try {
         if (faceDataService) {
-          faceDataService.preloadFaceData(true).catch(() => {});
+          faceDataService.preloadFaceData(true).catch(() => { });
         }
-      } catch (ignored) {}
+      } catch (ignored) { }
 
       playSound('success');
       setSuccessMsg(language === 'kh' ? 'បានលុបទិន្នន័យស្កេនផ្ទៃមុខដោយជោគជ័យ!' : 'Face data cleared successfully!');
@@ -1064,8 +1064,8 @@ const Permissions = () => {
           const mMatches = mLabelKh.includes(q) || mLabelEn.includes(q) || mDescKh.includes(q) || mDescEn.includes(q) || mKey.includes(q);
           const hasMatchingAction = m.actions && m.actions.some(a => {
             return (a.labelKh || '').toLowerCase().includes(q) ||
-                   (a.labelEn || '').toLowerCase().includes(q) ||
-                   (a.key || '').toLowerCase().includes(q);
+              (a.labelEn || '').toLowerCase().includes(q) ||
+              (a.key || '').toLowerCase().includes(q);
           });
 
           return mMatches || hasMatchingAction;
@@ -1182,11 +1182,10 @@ const Permissions = () => {
           <button
             type="button"
             onClick={() => { setActiveTab('roles'); setSuccessMsg(''); setErrorMsg(''); }}
-            className={`flex items-center gap-2.5 py-2.5 px-5 rounded-xl text-xs md:text-sm font-bold transition-all cursor-pointer font-khmer border ${
-              activeTab === 'roles'
+            className={`flex items-center gap-2.5 py-2.5 px-5 rounded-xl text-xs md:text-sm font-bold transition-all cursor-pointer font-khmer border ${activeTab === 'roles'
                 ? 'bg-gradient-to-r from-indigo-500 to-purple-600 border-indigo-400/50 text-white shadow-lg shadow-indigo-500/25'
                 : 'bg-slate-950/40 border-white/10 text-slate-400 hover:text-white hover:bg-white/5'
-            }`}
+              }`}
           >
             <ShieldCheckIcon className="h-4 w-4" />
             <span>{language === 'kh' ? '១. សិទ្ធិតាមតួនាទី (Role Matrix)' : '1. Role Permissions Matrix'}</span>
@@ -1195,11 +1194,10 @@ const Permissions = () => {
           <button
             type="button"
             onClick={() => { setActiveTab('employees'); setSuccessMsg(''); setErrorMsg(''); }}
-            className={`flex items-center gap-2.5 py-2.5 px-5 rounded-xl text-xs md:text-sm font-bold transition-all cursor-pointer font-khmer border ${
-              activeTab === 'employees'
+            className={`flex items-center gap-2.5 py-2.5 px-5 rounded-xl text-xs md:text-sm font-bold transition-all cursor-pointer font-khmer border ${activeTab === 'employees'
                 ? 'bg-gradient-to-r from-indigo-500 to-purple-600 border-indigo-400/50 text-white shadow-lg shadow-indigo-500/25'
                 : 'bg-slate-950/40 border-white/10 text-slate-400 hover:text-white hover:bg-white/5'
-            }`}
+              }`}
           >
             <UserIcon className="h-4 w-4" />
             <span>{language === 'kh' ? '២. សិទ្ធិតាមបុគ្គលិកម្នាក់ៗ (Individual Overrides)' : '2. Individual Employee Overrides'}</span>
@@ -1283,11 +1281,10 @@ const Permissions = () => {
                     key={rf}
                     type="button"
                     onClick={() => setSelectedRoleFilter(rf)}
-                    className={`py-1.5 px-3 rounded-lg font-bold transition-all cursor-pointer border-none ${
-                      selectedRoleFilter === rf
+                    className={`py-1.5 px-3 rounded-lg font-bold transition-all cursor-pointer border-none ${selectedRoleFilter === rf
                         ? 'bg-indigo-500 text-white shadow-sm'
                         : 'text-slate-400 hover:text-white hover:bg-white/5'
-                    }`}
+                      }`}
                   >
                     {rf}
                   </button>
@@ -1345,15 +1342,14 @@ const Permissions = () => {
                         return (
                           <th key={role.key} className="py-4 px-6 text-center font-khmer whitespace-nowrap font-bold min-w-[130px]">
                             <div className="flex flex-col items-center gap-1">
-                              <span className={`text-xs px-2.5 py-0.5 rounded-lg border font-bold ${
-                                isAdmin
+                              <span className={`text-xs px-2.5 py-0.5 rounded-lg border font-bold ${isAdmin
                                   ? 'bg-amber-500/15 border-amber-500/30 text-amber-300'
                                   : role.key === 'HR'
-                                  ? 'bg-blue-500/15 border-blue-500/30 text-blue-300'
-                                  : role.key === 'Manager'
-                                  ? 'bg-purple-500/15 border-purple-500/30 text-purple-300'
-                                  : 'bg-slate-500/15 border-slate-500/30 text-slate-300'
-                              }`}>
+                                    ? 'bg-blue-500/15 border-blue-500/30 text-blue-300'
+                                    : role.key === 'Manager'
+                                      ? 'bg-purple-500/15 border-purple-500/30 text-purple-300'
+                                      : 'bg-slate-500/15 border-slate-500/30 text-slate-300'
+                                }`}>
                                 {role.label}
                               </span>
                               {isAdmin && (
@@ -1632,9 +1628,8 @@ const Permissions = () => {
             {/* Custom Themed Select Trigger */}
             <div
               onClick={() => setEmpDropdownOpen(!empDropdownOpen)}
-              className={`w-full py-3 px-4 rounded-2xl border bg-slate-950/70 flex items-center justify-between cursor-pointer transition-all shadow-inner ${
-                empDropdownOpen ? 'border-indigo-500 ring-2 ring-indigo-500/20' : 'border-white/15 hover:border-white/30'
-              }`}
+              className={`w-full py-3 px-4 rounded-2xl border bg-slate-950/70 flex items-center justify-between cursor-pointer transition-all shadow-inner ${empDropdownOpen ? 'border-indigo-500 ring-2 ring-indigo-500/20' : 'border-white/15 hover:border-white/30'
+                }`}
             >
               <div className="flex items-center gap-3 overflow-hidden">
                 {selectedEmployee ? (
@@ -1726,11 +1721,10 @@ const Permissions = () => {
                         <div
                           key={emp.id || emp.staffId}
                           onClick={() => selectEmployee(emp)}
-                          className={`py-3 px-4 text-xs cursor-pointer transition-all flex items-center justify-between ${
-                            isSelected
+                          className={`py-3 px-4 text-xs cursor-pointer transition-all flex items-center justify-between ${isSelected
                               ? 'bg-indigo-600 text-white font-bold'
                               : 'text-slate-300 hover:bg-white/5 hover:text-white'
-                          }`}
+                            }`}
                         >
                           <div className="flex items-center gap-3 truncate">
                             {getEmpPhoto(emp) ? (
@@ -1959,15 +1953,13 @@ const Permissions = () => {
                         type="button"
                         disabled={saving || selectedEmployee?.role === 'Admin'}
                         onClick={handleToggleWebLogin}
-                        className={`relative inline-flex h-6 w-12 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed ${
-                          canLoginWeb ? 'bg-emerald-500' : 'bg-slate-700'
-                        }`}
+                        className={`relative inline-flex h-6 w-12 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed ${canLoginWeb ? 'bg-emerald-500' : 'bg-slate-700'
+                          }`}
                         title={canLoginWeb ? 'Disable web login' : 'Enable web login'}
                       >
                         <span
-                          className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-lg ring-0 transition duration-200 ease-in-out ${
-                            canLoginWeb ? 'translate-x-6' : 'translate-x-0'
-                          }`}
+                          className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-lg ring-0 transition duration-200 ease-in-out ${canLoginWeb ? 'translate-x-6' : 'translate-x-0'
+                            }`}
                         />
                       </button>
                     </div>
@@ -2059,13 +2051,12 @@ const Permissions = () => {
                             <CategoryIcon className="h-5 w-5" />
                           </span>
                           <span>{groupLabel}</span>
-                          <span className={`text-xs px-2.5 py-0.5 rounded-full font-mono font-bold ${
-                            allChecked
+                          <span className={`text-xs px-2.5 py-0.5 rounded-full font-mono font-bold ${allChecked
                               ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
                               : checkedCount > 0
-                              ? 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/30'
-                              : 'bg-white/5 text-slate-400'
-                          }`}>
+                                ? 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/30'
+                                : 'bg-white/5 text-slate-400'
+                            }`}>
                             {checkedCount}/{groupKeys.length}
                           </span>
                           {isGroupExpanded ? (
@@ -2118,7 +2109,7 @@ const Permissions = () => {
                                     <input
                                       type="checkbox"
                                       checked={isMainChecked}
-                                      onChange={() => {}} // Handled by container click
+                                      onChange={() => { }} // Handled by container click
                                       className="w-4 h-4 text-indigo-600 border border-white/20 rounded-md bg-slate-950 focus:ring-indigo-500 focus:ring-offset-slate-900 focus:ring-2 mt-1 cursor-pointer"
                                     />
                                     <div>
@@ -2137,11 +2128,10 @@ const Permissions = () => {
                                       <button
                                         type="button"
                                         onClick={(e) => toggleModuleDropdown(mod.key, e)}
-                                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-bold font-khmer transition-all cursor-pointer ${
-                                          isModExpanded
+                                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-bold font-khmer transition-all cursor-pointer ${isModExpanded
                                             ? 'bg-indigo-600/20 border-indigo-500/40 text-indigo-300'
                                             : 'bg-white/5 border-white/10 text-slate-400 hover:text-white hover:bg-white/10'
-                                        }`}
+                                          }`}
                                       >
                                         <span>{language === 'kh' ? 'សកម្មភាព' : 'Actions'}</span>
                                         <span className="text-[11px] font-mono px-1.5 rounded-full bg-white/10">
@@ -2177,11 +2167,10 @@ const Permissions = () => {
                                         <div
                                           key={act.key}
                                           onClick={() => handleToggleEmpPermission(act.key)}
-                                          className={`p-3 rounded-xl border transition-all cursor-pointer flex items-start justify-between gap-2.5 ${
-                                            isActChecked
+                                          className={`p-3 rounded-xl border transition-all cursor-pointer flex items-start justify-between gap-2.5 ${isActChecked
                                               ? 'bg-indigo-600/15 border-indigo-500/40 shadow-sm'
                                               : 'bg-slate-900/40 border-white/5 hover:border-white/20'
-                                          }`}
+                                            }`}
                                         >
                                           <div className="space-y-1 flex-1">
                                             <div className="flex items-center gap-1.5">
@@ -2201,7 +2190,7 @@ const Permissions = () => {
                                           <input
                                             type="checkbox"
                                             checked={isActChecked}
-                                            onChange={() => {}} // Handled by container click
+                                            onChange={() => { }} // Handled by container click
                                             className="w-4 h-4 text-indigo-600 border border-white/20 rounded-md bg-slate-950 focus:ring-indigo-500 focus:ring-offset-slate-900 focus:ring-2 mt-0.5 shrink-0 cursor-pointer"
                                           />
                                         </div>

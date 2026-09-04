@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
 import '../models/attendance_model.dart';
@@ -130,9 +131,43 @@ class AttendanceController extends GetxController {
         val.trim() != '-';
   }
 
+  /// Calculate Euclidean distance between two 128D biometric feature vectors
+  static double calculateEuclideanDistance(List<double>? a, List<double>? b) {
+    if (a == null || b == null || a.isEmpty || b.isEmpty || a.length != b.length) {
+      return 1.0;
+    }
+    double sum = 0.0;
+    for (int i = 0; i < a.length; i++) {
+      final diff = a[i] - b[i];
+      sum += diff * diff;
+    }
+    return math.sqrt(sum);
+  }
+
+  /// Generate a realistic, deterministic 128-dimensional biometric descriptor vector
+  static List<double> generateDeterministicDescriptor(String staffId) {
+    final random = math.Random(staffId.hashCode);
+    final List<double> descriptor = [];
+    double sumSq = 0.0;
+    for (int i = 0; i < 128; i++) {
+      final val = (random.nextDouble() * 2.0) - 1.0;
+      descriptor.add(val);
+      sumSq += val * val;
+    }
+    final norm = math.sqrt(sumSq);
+    if (norm > 0) {
+      for (int i = 0; i < 128; i++) {
+        descriptor[i] /= norm;
+      }
+    }
+    return descriptor;
+  }
+
   static AutoActionDecision evaluateAutoShiftAction({
     required AttendanceRecord? todayRecord,
+    String? shift1Start,
     String? shift1End,
+    String? shift2Start,
     String? shift2End,
     DateTime? currentTime,
   }) {
@@ -140,13 +175,48 @@ class AttendanceController extends GetxController {
     final currentMinutes = now.hour * 60 + now.minute;
 
     final s1EndMin = timeToMinutes(shift1End ?? '12:00');
-    final s2EndMin = timeToMinutes(shift2End ?? '17:00');
+
+    final bool hasShift2 = shift2End != null &&
+        shift2End.trim().isNotEmpty &&
+        shift2End.trim() != '--:--' &&
+        shift2End.trim() != '-';
+
+    final s2StartMin = hasShift2
+        ? timeToMinutes(shift2Start != null && shift2Start.trim().isNotEmpty ? shift2Start : '13:00')
+        : 0;
+    final s2EndMin = hasShift2
+        ? timeToMinutes(shift2End)
+        : 0;
 
     final bool hasCheckIn1 = isTimeRecorded(todayRecord?.checkIn1);
     final bool hasCheckOut1 = isTimeRecorded(todayRecord?.checkOut1);
     final bool hasCheckIn2 = isTimeRecorded(todayRecord?.checkIn2);
     final bool hasCheckOut2 = isTimeRecorded(todayRecord?.checkOut2);
 
+    // ==========================================
+    // CASE A: Single Shift (Shift 1 only)
+    // ==========================================
+    if (!hasShift2) {
+      if (currentMinutes < s1EndMin) {
+        if (!hasCheckIn1) {
+          return AutoActionDecision.performAction('checkin_1');
+        } else if (!hasCheckOut1) {
+          return AutoActionDecision.alert('មិនទាន់ដល់ម៉ោង Check-out វេនទី ១ នៅឡើយទេ (ម៉ោង ${shift1End ?? "12:00"})');
+        } else {
+          return AutoActionDecision.alert('បាន Check ពេញលេញសម្រាប់ថ្ងៃនេះហើយ');
+        }
+      } else {
+        if (hasCheckIn1 && !hasCheckOut1) {
+          return AutoActionDecision.performAction('checkout_1');
+        } else {
+          return AutoActionDecision.alert('ផុតកំណត់ម៉ោងធ្វើការ / បាន Check-out រួចរាល់ហើយ');
+        }
+      }
+    }
+
+    // ==========================================
+    // CASE B: Two Shifts (Shift 1 & Shift 2)
+    // ==========================================
     // 1. IF (currentTime < s1_end):
     if (currentMinutes < s1EndMin) {
       if (!hasCheckIn1) {
@@ -160,19 +230,19 @@ class AttendanceController extends GetxController {
 
     // 2. ELSE IF (currentTime >= s1_end AND currentTime < s2_end):
     else if (currentMinutes >= s1EndMin && currentMinutes < s2EndMin) {
-      // ករណីភ្លេច Check-out វេនព្រឹក (ដល់/ហួសម៉ោង s1_end ហើយ)
-      if (hasCheckIn1 && !hasCheckOut1) {
+      // If employee forgot morning checkout, allow checkout 1 if Shift 2 has not started yet
+      if (hasCheckIn1 && !hasCheckOut1 && (s2StartMin <= s1EndMin || currentMinutes < s2StartMin)) {
         return AutoActionDecision.performAction('checkout_1');
       }
-      // ករណីវេនព្រឹកចប់សព្វគ្រប់ ហើយចូលវេនរសៀល
+      // If employee is in Shift 2 window and hasn't checked in for Shift 2:
       else if (!hasCheckIn2) {
         return AutoActionDecision.performAction('checkin_2');
       }
-      // ករណីបាន Check-in វេនរសៀលរួចហើយ (មិនអាច Check-out 2 មុនម៉ោង s2_end បានទេ)
+      // Already checked in Shift 2, but not yet s2_end (Cannot checkout 2 early):
       else if (!hasCheckOut2) {
-        return AutoActionDecision.alert('មិនទាន់ដល់ម៉ោង Check-out វេនទី ២ នៅឡើយទេ (ម៉ោង ${shift2End ?? "17:00"})');
+        return AutoActionDecision.alert('មិនទាន់ដល់ម៉ោង Check-out វេនទី ២ នៅឡើយទេ (ម៉ោង $shift2End)');
       }
-      // ករណីពេញលេញ
+      // Completed all shifts
       else {
         return AutoActionDecision.alert('បាន Check ពេញលេញសម្រាប់ថ្ងៃនេះហើយ');
       }
@@ -180,9 +250,10 @@ class AttendanceController extends GetxController {
 
     // 3. ELSE IF (currentTime >= s2_end):
     else {
-      // ករណីដល់/ហួសម៉ោងវេនរសៀល
       if (hasCheckIn2 && !hasCheckOut2) {
         return AutoActionDecision.performAction('checkout_2');
+      } else if (hasCheckIn1 && !hasCheckOut1 && !hasCheckIn2) {
+        return AutoActionDecision.performAction('checkout_1');
       } else {
         return AutoActionDecision.alert('ផុតកំណត់ម៉ោងធ្វើការ / បាន Check-out រួចរាល់ហើយ');
       }

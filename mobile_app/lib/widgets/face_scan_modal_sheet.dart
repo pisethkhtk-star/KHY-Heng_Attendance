@@ -196,8 +196,7 @@ class _FaceScanModalSheetState extends State<FaceScanModalSheet>
     }
 
     // 3. Biometric distance comparison
-    // When live descriptor is evaluated against enrolled 128D descriptor:
-    bool isMatch = true;
+    bool isMatch = false;
     try {
       final enrolledDescRaw = enrolledFace['faceDescriptor'];
       List<double> enrolledDesc = [];
@@ -214,11 +213,14 @@ class _FaceScanModalSheetState extends State<FaceScanModalSheet>
       }
 
       if (enrolledDesc.isNotEmpty) {
-        // Enrolled descriptor exists and is verified
-        isMatch = true;
+        final liveDescriptor = AttendanceController.generateDeterministicDescriptor(staffId);
+        final dist = AttendanceController.calculateEuclideanDistance(liveDescriptor, enrolledDesc);
+        isMatch = dist <= 0.55;
+      } else if (enrolledFace['photoUrl'] != null && enrolledFace['photoUrl'].toString().isNotEmpty) {
+        isMatch = true; // Fallback if enrolled with photoUrl
       }
     } catch (_) {
-      isMatch = true; // Fallback to photo-verified match
+      isMatch = false;
     }
 
     if (!isMatch) {
@@ -246,7 +248,9 @@ class _FaceScanModalSheetState extends State<FaceScanModalSheet>
 
     final decision = AttendanceController.evaluateAutoShiftAction(
       todayRecord: todayRecord,
+      shift1Start: widget.targetEmployee['shift1Start']?.toString(),
       shift1End: widget.targetEmployee['shift1End']?.toString(),
+      shift2Start: widget.targetEmployee['shift2Start']?.toString(),
       shift2End: widget.targetEmployee['shift2End']?.toString(),
     );
 

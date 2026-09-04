@@ -215,5 +215,56 @@ void main() {
       expect(res.action, null);
       expect(res.alertMessage, 'ផុតកំណត់ម៉ោងធ្វើការ / បាន Check-out រួចរាល់ហើយ');
     });
+
+    test('User Case: Shift 2 (07:00 PM - 10:00 PM) at 8:01 PM without checkIn2 -> CHECK_IN_2', () {
+      final time = DateTime(2026, 8, 31, 20, 1); // 20:01 (8:01 PM)
+      final rec = createRecord(in1: null, out1: null, in2: null, out2: null);
+      final res = AttendanceController.evaluateAutoShiftAction(
+        todayRecord: rec,
+        shift1Start: '08:00 AM',
+        shift1End: '12:00 PM',
+        shift2Start: '07:00 PM',
+        shift2End: '10:00 PM',
+        currentTime: time,
+      );
+
+      expect(res.isSuccess, true);
+      expect(res.action, 'checkin_2');
+    });
+
+    test('User Case: Shift 2 (07:00 PM - 10:00 PM) at 10:05 PM with checkIn2 -> CHECK_OUT_2', () {
+      final time = DateTime(2026, 8, 31, 22, 5); // 22:05 (10:05 PM)
+      final rec = createRecord(in1: null, out1: null, in2: '08:01 PM', out2: null);
+      final res = AttendanceController.evaluateAutoShiftAction(
+        todayRecord: rec,
+        shift1Start: '08:00 AM',
+        shift1End: '12:00 PM',
+        shift2Start: '07:00 PM',
+        shift2End: '10:00 PM',
+        currentTime: time,
+      );
+
+      expect(res.isSuccess, true);
+      expect(res.action, 'checkout_2');
+    });
+  });
+
+  group('Biometric Euclidean Distance & Descriptor Verification', () {
+    test('calculateEuclideanDistance: identical vectors -> 0.0', () {
+      final v1 = AttendanceController.generateDeterministicDescriptor('EMP-003');
+      final v2 = AttendanceController.generateDeterministicDescriptor('EMP-003');
+      final dist = AttendanceController.calculateEuclideanDistance(v1, v2);
+
+      expect(dist, 0.0);
+    });
+
+    test('calculateEuclideanDistance: different employees -> distance > 0.55', () {
+      final v1 = AttendanceController.generateDeterministicDescriptor('EMP-001');
+      final v2 = AttendanceController.generateDeterministicDescriptor('EMP-003');
+      final dist = AttendanceController.calculateEuclideanDistance(v1, v2);
+
+      expect(dist > 0.55, true);
+    });
   });
 }
+

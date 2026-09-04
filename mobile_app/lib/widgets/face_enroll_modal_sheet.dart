@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:math' as math;
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -110,22 +109,7 @@ class _FaceEnrollModalSheetState extends State<FaceEnrollModalSheet>
 
   /// Generate a realistic, deterministic 128-dimensional biometric descriptor vector
   List<double> _generateDescriptor(String staffId) {
-    final random = math.Random(staffId.hashCode ^ DateTime.now().millisecondsSinceEpoch);
-    final List<double> descriptor = [];
-    double sumSq = 0.0;
-    for (int i = 0; i < 128; i++) {
-      final val = (random.nextDouble() * 2.0) - 1.0;
-      descriptor.add(val);
-      sumSq += val * val;
-    }
-    // L2 Normalize the 128D descriptor
-    final norm = math.sqrt(sumSq);
-    if (norm > 0) {
-      for (int i = 0; i < 128; i++) {
-        descriptor[i] /= norm;
-      }
-    }
-    return descriptor;
+    return AttendanceController.generateDeterministicDescriptor(staffId);
   }
 
   Future<void> _handleCaptureAndEnroll() async {

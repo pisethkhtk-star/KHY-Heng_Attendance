@@ -175,6 +175,10 @@ public class AttendanceController {
             m.put("department", e.getDepartmentId() != null && deptMap.containsKey(e.getDepartmentId()) ? deptMap.get(e.getDepartmentId()).getNameEn() : "-");
             m.put("position", e.getPositionId() != null && posMap.containsKey(e.getPositionId()) ? posMap.get(e.getPositionId()).getTitleEn() : "-");
             m.put("avatar", e.getPhotoUrl());
+            m.put("shift1Start", e.getShift1Start());
+            m.put("shift1End", e.getShift1End());
+            m.put("shift2Start", e.getShift2Start());
+            m.put("shift2End", e.getShift2End());
             return m;
         }).collect(Collectors.toList());
 

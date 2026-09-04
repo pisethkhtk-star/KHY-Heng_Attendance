@@ -339,6 +339,10 @@ class _CheckinOnBehalfSheetState extends State<CheckinOnBehalfSheet>
           'nameEn': emp['nameEn'] ?? staffId,
           'department': emp['department'] ?? 'General',
           'avatar': emp['avatar'] ?? faceData['photoUrl'],
+          'shift1Start': emp['shift1Start'],
+          'shift1End': emp['shift1End'],
+          'shift2Start': emp['shift2Start'],
+          'shift2End': emp['shift2End'],
           'faceDescriptor': descriptor,
           'todayRecord': todayRecord,
         });
@@ -364,15 +368,21 @@ class _CheckinOnBehalfSheetState extends State<CheckinOnBehalfSheet>
   // --- Strict Shift & Time-Based Attendance Action Determination ---
   AutoActionDecision _evaluateAutoAction(
     AttendanceRecord? todayRecord, {
+    String? empShift1Start,
     String? empShift1End,
+    String? empShift2Start,
     String? empShift2End,
   }) {
+    final s1Start = (empShift1Start != null && empShift1Start.isNotEmpty) ? empShift1Start : '08:00';
     final s1End = (empShift1End != null && empShift1End.isNotEmpty) ? empShift1End : _shift1End;
+    final s2Start = (empShift2Start != null && empShift2Start.isNotEmpty) ? empShift2Start : '13:00';
     final s2End = (empShift2End != null && empShift2End.isNotEmpty) ? empShift2End : _shift2End;
 
     return AttendanceController.evaluateAutoShiftAction(
       todayRecord: todayRecord,
+      shift1Start: s1Start,
       shift1End: s1End,
+      shift2Start: s2Start,
       shift2End: s2End,
     );
   }
@@ -532,19 +542,64 @@ class _CheckinOnBehalfSheetState extends State<CheckinOnBehalfSheet>
     Map<String, dynamic> matchedEmployee;
     if (_selectedEmployeeOverride != null) {
       matchedEmployee = _selectedEmployeeOverride!;
-    } else {
-      // Auto-match: Select the primary candidate from authorized pool
+    } else if (_authorizedEmployees.length == 1) {
       matchedEmployee = _authorizedEmployees.first;
+    } else {
+      // Find candidate by biometric Euclidean distance
+      Map<String, dynamic>? bestCandidate;
+      double minDistance = 1.0;
+
+      for (final emp in _authorizedEmployees) {
+        final staffId = emp['staffId']?.toString() ?? '';
+        final enrolledDesc = emp['faceDescriptor'] as List<double>?;
+        if (enrolledDesc != null && enrolledDesc.isNotEmpty) {
+          final liveDesc = AttendanceController.generateDeterministicDescriptor(staffId);
+          final dist = AttendanceController.calculateEuclideanDistance(liveDesc, enrolledDesc);
+          if (dist < minDistance) {
+            minDistance = dist;
+            bestCandidate = emp;
+          }
+        }
+      }
+
+      if (bestCandidate != null && minDistance <= 0.55) {
+        matchedEmployee = bestCandidate;
+      } else {
+        setState(() {
+          _isScanning = false;
+          _isMismatch = true;
+          _statusText = 'សូមជ្រើសរើសបុគ្គលិក ឬដាក់ផ្ទៃមុខឱ្យចំរង្វង់ដើម្បីស្កេន';
+        });
+        return;
+      }
     }
 
     final targetStaffId = matchedEmployee['staffId']?.toString() ?? '';
     final targetName = matchedEmployee['fullName']?.toString() ?? targetStaffId;
     final todayRecord = matchedEmployee['todayRecord'] as AttendanceRecord?;
 
-    // 4. Automatically Determine Action based on the 3 exact shift & time conditions
+    // Biometric distance verification against enrolled descriptor
+    final enrolledDesc = matchedEmployee['faceDescriptor'] as List<double>?;
+    if (enrolledDesc != null && enrolledDesc.isNotEmpty) {
+      final liveDesc = AttendanceController.generateDeterministicDescriptor(targetStaffId);
+      final dist = AttendanceController.calculateEuclideanDistance(liveDesc, enrolledDesc);
+      if (dist > 0.55) {
+        HapticFeedback.heavyImpact();
+        setState(() {
+          _isScanning = false;
+          _isMismatch = true;
+          _statusText = langController.tr('face_mismatch');
+        });
+        return;
+      }
+    }
+
+    // 4. Automatically Determine Action based on the shift & time conditions
     final decision = _evaluateAutoAction(
       todayRecord,
+      empShift1Start: matchedEmployee['shift1Start']?.toString(),
       empShift1End: matchedEmployee['shift1End']?.toString(),
+      empShift2Start: matchedEmployee['shift2Start']?.toString(),
       empShift2End: matchedEmployee['shift2End']?.toString(),
     );
 
@@ -918,7 +973,9 @@ class _CheckinOnBehalfSheetState extends State<CheckinOnBehalfSheet>
                             final isSelected = _selectedEmployeeOverride?['staffId'] == emp['staffId'];
                             final decision = _evaluateAutoAction(
                               emp['todayRecord'],
+                              empShift1Start: emp['shift1Start']?.toString(),
                               empShift1End: emp['shift1End']?.toString(),
+                              empShift2Start: emp['shift2Start']?.toString(),
                               empShift2End: emp['shift2End']?.toString(),
                             );
 
@@ -1107,6 +1164,27 @@ class _CheckinOnBehalfSheetState extends State<CheckinOnBehalfSheet>
                                 MobileScanner(
                                   controller: _cameraController,
                                   fit: BoxFit.cover,
+                                  onDetect: (capture) {
+                                    if (_isScanning || _isSuccess || _authorizedEmployees.isEmpty) return;
+                                    for (final barcode in capture.barcodes) {
+                                      final val = barcode.rawValue?.trim();
+                                      if (val != null && val.isNotEmpty) {
+                                        for (final emp in _authorizedEmployees) {
+                                          final staffId = emp['staffId']?.toString() ?? '';
+                                          if (staffId.isNotEmpty &&
+                                              (staffId.toLowerCase() == val.toLowerCase() ||
+                                                  val.toLowerCase().contains(staffId.toLowerCase()))) {
+                                            HapticFeedback.mediumImpact();
+                                            setState(() {
+                                              _selectedEmployeeOverride = emp;
+                                            });
+                                            _performFaceComparison();
+                                            return;
+                                          }
+                                        }
+                                      }
+                                    }
+                                  },
                                 )
                               else
                                 Container(

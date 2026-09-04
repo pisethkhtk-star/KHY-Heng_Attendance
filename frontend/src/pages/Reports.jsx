@@ -227,7 +227,7 @@ const Reports = () => {
         if (Array.isArray(parsed?.workingDays)) {
           defaultWorkingDays = parsed.workingDays;
         }
-      } catch (e) {}
+      } catch (e) { }
     }
 
     const logsMap = new Map();
@@ -291,7 +291,7 @@ const Reports = () => {
           if (Array.isArray(empFlexibleObj?.workingDays)) {
             empWorkingDays = empFlexibleObj.workingDays;
           }
-        } catch (e) {}
+        } catch (e) { }
       }
 
       dateList.forEach(dateStr => {
@@ -428,8 +428,8 @@ const Reports = () => {
       const deptLogs = processedLogs.filter(log => {
         const emp = log._emp || {};
         const matchesDept = String(log._deptId) === String(dept.id) ||
-                            String(emp.departmentId) === String(dept.id) ||
-                            String(emp.department?.id) === String(dept.id);
+          String(emp.departmentId) === String(dept.id) ||
+          String(emp.department?.id) === String(dept.id);
         if (!matchesDept) return false;
         if (filterBranch && emp.branch !== filterBranch) return false;
         return true;
@@ -1020,9 +1020,8 @@ const Reports = () => {
             setSelectedMetric('all');
             setCurrentPage(1);
           }}
-          className={`glass-card p-4 rounded-2xl border text-center cursor-pointer transition-all ${
-            filterLogType === 'all' ? 'border-indigo-500/80 bg-indigo-500/10 shadow-lg shadow-indigo-500/10 ring-1 ring-indigo-500/50' : 'border-white/5 hover:border-indigo-500/30'
-          }`}
+          className={`glass-card p-4 rounded-2xl border text-center cursor-pointer transition-all ${filterLogType === 'all' ? 'border-indigo-500/80 bg-indigo-500/10 shadow-lg shadow-indigo-500/10 ring-1 ring-indigo-500/50' : 'border-white/5 hover:border-indigo-500/30'
+            }`}
         >
           <span className="block text-[11px] text-slate-400 font-semibold uppercase font-khmer">Total Logs</span>
           <span className="block text-xl font-bold mt-1 text-white font-mono">{totals.totalLogs}</span>
@@ -1033,9 +1032,8 @@ const Reports = () => {
             setSelectedMetric('all');
             setCurrentPage(1);
           }}
-          className={`glass-card p-4 rounded-2xl border text-center cursor-pointer transition-all ${
-            filterLogType === 'onTime' ? 'border-emerald-500/80 bg-emerald-500/10 shadow-lg shadow-emerald-500/10 ring-1 ring-emerald-500/50' : 'border-white/5 hover:border-emerald-500/30'
-          }`}
+          className={`glass-card p-4 rounded-2xl border text-center cursor-pointer transition-all ${filterLogType === 'onTime' ? 'border-emerald-500/80 bg-emerald-500/10 shadow-lg shadow-emerald-500/10 ring-1 ring-emerald-500/50' : 'border-white/5 hover:border-emerald-500/30'
+            }`}
         >
           <span className="block text-[11px] text-emerald-400 font-semibold uppercase font-khmer">{t('normal')}</span>
           <span className="block text-xl font-bold mt-1 text-emerald-400 font-mono">{totals.totalOnTime}</span>
@@ -1046,9 +1044,8 @@ const Reports = () => {
             setSelectedMetric('late');
             setCurrentPage(1);
           }}
-          className={`glass-card p-4 rounded-2xl border text-center cursor-pointer transition-all ${
-            filterLogType === 'late' || selectedMetric === 'late' ? 'border-amber-500/80 bg-amber-500/10 shadow-lg shadow-amber-500/10 ring-1 ring-amber-500/50' : 'border-white/5 hover:border-amber-500/30'
-          }`}
+          className={`glass-card p-4 rounded-2xl border text-center cursor-pointer transition-all ${filterLogType === 'late' || selectedMetric === 'late' ? 'border-amber-500/80 bg-amber-500/10 shadow-lg shadow-amber-500/10 ring-1 ring-amber-500/50' : 'border-white/5 hover:border-amber-500/30'
+            }`}
         >
           <span className="block text-[11px] text-amber-400 font-semibold uppercase font-khmer">Late (មកយឺត)</span>
           <span className="block text-xl font-bold mt-1 text-amber-400 font-mono">{totals.totalLate}</span>
@@ -1059,9 +1056,8 @@ const Reports = () => {
             setSelectedMetric('earlyOut');
             setCurrentPage(1);
           }}
-          className={`glass-card p-4 rounded-2xl border text-center cursor-pointer transition-all ${
-            filterLogType === 'earlyOut' || selectedMetric === 'earlyOut' ? 'border-rose-500/80 bg-rose-500/10 shadow-lg shadow-rose-500/10 ring-1 ring-rose-500/50' : 'border-white/5 hover:border-rose-500/30'
-          }`}
+          className={`glass-card p-4 rounded-2xl border text-center cursor-pointer transition-all ${filterLogType === 'earlyOut' || selectedMetric === 'earlyOut' ? 'border-rose-500/80 bg-rose-500/10 shadow-lg shadow-rose-500/10 ring-1 ring-rose-500/50' : 'border-white/5 hover:border-rose-500/30'
+            }`}
         >
           <span className="block text-[11px] text-rose-400 font-semibold uppercase font-khmer">Early Out (ចេញមុន)</span>
           <span className="block text-xl font-bold mt-1 text-rose-400 font-mono">{totals.totalEarlyOut}</span>
@@ -1072,9 +1068,8 @@ const Reports = () => {
             setSelectedMetric('earlyIn');
             setCurrentPage(1);
           }}
-          className={`glass-card p-4 rounded-2xl border text-center cursor-pointer transition-all ${
-            filterLogType === 'earlyIn' || selectedMetric === 'earlyIn' ? 'border-emerald-500/80 bg-emerald-500/10 shadow-lg shadow-emerald-500/10 ring-1 ring-emerald-500/50' : 'border-white/5 hover:border-emerald-500/30'
-          }`}
+          className={`glass-card p-4 rounded-2xl border text-center cursor-pointer transition-all ${filterLogType === 'earlyIn' || selectedMetric === 'earlyIn' ? 'border-emerald-500/80 bg-emerald-500/10 shadow-lg shadow-emerald-500/10 ring-1 ring-emerald-500/50' : 'border-white/5 hover:border-emerald-500/30'
+            }`}
         >
           <span className="block text-[11px] text-emerald-400 font-semibold uppercase font-khmer">Early In (មកមុន)</span>
           <span className="block text-xl font-bold mt-1 text-emerald-400 font-mono">{totals.totalEarlyIn}</span>
@@ -1085,9 +1080,8 @@ const Reports = () => {
             setSelectedMetric('incomplete');
             setCurrentPage(1);
           }}
-          className={`glass-card p-4 rounded-2xl border text-center cursor-pointer transition-all ${
-            filterLogType === 'incomplete' || selectedMetric === 'incomplete' ? 'border-purple-500/80 bg-purple-500/10 shadow-lg shadow-purple-500/10 ring-1 ring-purple-500/50' : 'border-white/5 hover:border-purple-500/30'
-          }`}
+          className={`glass-card p-4 rounded-2xl border text-center cursor-pointer transition-all ${filterLogType === 'incomplete' || selectedMetric === 'incomplete' ? 'border-purple-500/80 bg-purple-500/10 shadow-lg shadow-purple-500/10 ring-1 ring-purple-500/50' : 'border-white/5 hover:border-purple-500/30'
+            }`}
         >
           <span className="block text-[11px] text-purple-400 font-semibold uppercase font-khmer">Incomplete (មិនគ្រប់)</span>
           <span className="block text-xl font-bold mt-1 text-purple-400 font-mono">{totals.totalIncomplete}</span>
@@ -1117,11 +1111,10 @@ const Reports = () => {
             <button
               type="button"
               onClick={() => setSelectedMetric('late')}
-              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all font-khmer cursor-pointer flex items-center gap-1.5 ${
-                selectedMetric === 'late'
-                  ? 'bg-amber-500 text-slate-950 shadow-md shadow-amber-500/30 font-black'
-                  : 'text-slate-400 hover:text-amber-300 hover:bg-white/5'
-              }`}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all font-khmer cursor-pointer flex items-center gap-1.5 ${selectedMetric === 'late'
+                ? 'bg-amber-500 text-slate-950 shadow-md shadow-amber-500/30 font-black'
+                : 'text-slate-400 hover:text-amber-300 hover:bg-white/5'
+                }`}
             >
               <span className="h-2 w-2 rounded-full bg-amber-400"></span>
               <span>Late (មកយឺត)</span>
@@ -1130,11 +1123,10 @@ const Reports = () => {
             <button
               type="button"
               onClick={() => setSelectedMetric('earlyOut')}
-              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all font-khmer cursor-pointer flex items-center gap-1.5 ${
-                selectedMetric === 'earlyOut'
-                  ? 'bg-rose-500 text-white shadow-md shadow-rose-500/30 font-black'
-                  : 'text-slate-400 hover:text-rose-300 hover:bg-white/5'
-              }`}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all font-khmer cursor-pointer flex items-center gap-1.5 ${selectedMetric === 'earlyOut'
+                ? 'bg-rose-500 text-white shadow-md shadow-rose-500/30 font-black'
+                : 'text-slate-400 hover:text-rose-300 hover:bg-white/5'
+                }`}
             >
               <span className="h-2 w-2 rounded-full bg-rose-500"></span>
               <span>Early Out (ចេញមុន)</span>
@@ -1143,11 +1135,10 @@ const Reports = () => {
             <button
               type="button"
               onClick={() => setSelectedMetric('earlyIn')}
-              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all font-khmer cursor-pointer flex items-center gap-1.5 ${
-                selectedMetric === 'earlyIn'
-                  ? 'bg-emerald-500 text-slate-950 shadow-md shadow-emerald-500/30 font-black'
-                  : 'text-slate-400 hover:text-emerald-300 hover:bg-white/5'
-              }`}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all font-khmer cursor-pointer flex items-center gap-1.5 ${selectedMetric === 'earlyIn'
+                ? 'bg-emerald-500 text-slate-950 shadow-md shadow-emerald-500/30 font-black'
+                : 'text-slate-400 hover:text-emerald-300 hover:bg-white/5'
+                }`}
             >
               <span className="h-2 w-2 rounded-full bg-emerald-400"></span>
               <span>Early In (មកមុន)</span>
@@ -1156,11 +1147,10 @@ const Reports = () => {
             <button
               type="button"
               onClick={() => setSelectedMetric('incomplete')}
-              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all font-khmer cursor-pointer flex items-center gap-1.5 ${
-                selectedMetric === 'incomplete'
-                  ? 'bg-purple-500 text-white shadow-md shadow-purple-500/30 font-black'
-                  : 'text-slate-400 hover:text-purple-300 hover:bg-white/5'
-              }`}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all font-khmer cursor-pointer flex items-center gap-1.5 ${selectedMetric === 'incomplete'
+                ? 'bg-purple-500 text-white shadow-md shadow-purple-500/30 font-black'
+                : 'text-slate-400 hover:text-purple-300 hover:bg-white/5'
+                }`}
             >
               <span className="h-2 w-2 rounded-full bg-purple-400"></span>
               <span>Incomplete (ស្កេនមិនគ្រប់)</span>
@@ -1169,11 +1159,10 @@ const Reports = () => {
             <button
               type="button"
               onClick={() => setSelectedMetric('all')}
-              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all font-khmer cursor-pointer flex items-center gap-1.5 ${
-                selectedMetric === 'all'
-                  ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30 font-black'
-                  : 'text-slate-400 hover:text-indigo-300 hover:bg-white/5'
-              }`}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all font-khmer cursor-pointer flex items-center gap-1.5 ${selectedMetric === 'all'
+                ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30 font-black'
+                : 'text-slate-400 hover:text-indigo-300 hover:bg-white/5'
+                }`}
             >
               <span className="h-2 w-2 rounded-full bg-indigo-400"></span>
               <span>All Combined (សរុបទាំងអស់)</span>
@@ -1321,11 +1310,10 @@ const Reports = () => {
                   <button
                     type="button"
                     onClick={() => setCompareMode('count')}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all font-khmer cursor-pointer ${
-                      compareMode === 'count'
-                        ? 'bg-indigo-600 text-white shadow-md shadow-indigo-500/30'
-                        : 'text-slate-400 hover:text-slate-200 hover:bg-white/5'
-                    }`}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all font-khmer cursor-pointer ${compareMode === 'count'
+                      ? 'bg-indigo-600 text-white shadow-md shadow-indigo-500/30'
+                      : 'text-slate-400 hover:text-slate-200 hover:bg-white/5'
+                      }`}
                     title={language === 'kh' ? 'ប្រៀបធៀបតាមចំនួនដង (Count)' : 'Compare by Count (Times)'}
                   >
                     <span>🔢</span>
@@ -1335,11 +1323,10 @@ const Reports = () => {
                   <button
                     type="button"
                     onClick={() => setCompareMode('hours')}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all font-khmer cursor-pointer ${
-                      compareMode === 'hours'
-                        ? 'bg-gradient-to-r from-amber-500 to-rose-500 text-white shadow-md shadow-amber-500/30 ring-1 ring-amber-400/40'
-                        : 'text-slate-400 hover:text-slate-200 hover:bg-white/5'
-                    }`}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all font-khmer cursor-pointer ${compareMode === 'hours'
+                      ? 'bg-gradient-to-r from-amber-500 to-rose-500 text-white shadow-md shadow-amber-500/30 ring-1 ring-amber-400/40'
+                      : 'text-slate-400 hover:text-slate-200 hover:bg-white/5'
+                      }`}
                     title={language === 'kh' ? 'ប្រៀបធៀបគិតជាម៉ោង (Duration / h:mn)' : 'Compare by Hours (Duration)'}
                   >
                     <ClockIcon className="w-3.5 h-3.5 text-white" />
@@ -1352,11 +1339,10 @@ const Reports = () => {
                   <button
                     type="button"
                     onClick={() => setChartOrientation('vertical')}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all font-khmer cursor-pointer ${
-                      chartOrientation === 'vertical'
-                        ? 'bg-indigo-600 text-white shadow-md shadow-indigo-500/30'
-                        : 'text-slate-400 hover:text-slate-200 hover:bg-white/5'
-                    }`}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all font-khmer cursor-pointer ${chartOrientation === 'vertical'
+                      ? 'bg-indigo-600 text-white shadow-md shadow-indigo-500/30'
+                      : 'text-slate-400 hover:text-slate-200 hover:bg-white/5'
+                      }`}
                     title={language === 'kh' ? 'បង្ហាញជាក្រាហ្វបញ្ឈរ' : 'Switch to Vertical Column Chart'}
                   >
                     <ChartBarIcon className="w-3.5 h-3.5" />
@@ -1366,11 +1352,10 @@ const Reports = () => {
                   <button
                     type="button"
                     onClick={() => setChartOrientation('horizontal')}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all font-khmer cursor-pointer ${
-                      chartOrientation === 'horizontal'
-                        ? 'bg-indigo-600 text-white shadow-md shadow-indigo-500/30'
-                        : 'text-slate-400 hover:text-slate-200 hover:bg-white/5'
-                    }`}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all font-khmer cursor-pointer ${chartOrientation === 'horizontal'
+                      ? 'bg-indigo-600 text-white shadow-md shadow-indigo-500/30'
+                      : 'text-slate-400 hover:text-slate-200 hover:bg-white/5'
+                      }`}
                     title={language === 'kh' ? 'បង្ហាញជាក្រាហ្វផ្ដេក' : 'Switch to Horizontal Bars'}
                   >
                     <Bars3BottomLeftIcon className="w-3.5 h-3.5" />
@@ -1453,14 +1438,14 @@ const Reports = () => {
 
                           {/* Bottom Labeling: Name, Staff Count, and Tier */}
                           <div className="absolute top-full left-0 right-0 pt-2 text-center flex flex-col items-center px-1">
-                            <p 
-                              className="text-xs sm:text-sm font-black font-khmer line-clamp-2 leading-snug tracking-tight" 
+                            <p
+                              className="text-xs sm:text-sm font-black font-khmer line-clamp-2 leading-snug tracking-tight"
                               title={dept.displayName}
                               style={{ color: 'var(--text-primary)' }}
                             >
                               {dept.displayName}
                             </p>
-                            <p 
+                            <p
                               className="text-[11px] font-bold font-mono mt-1"
                               style={{ color: 'var(--text-secondary)' }}
                             >
@@ -1511,19 +1496,18 @@ const Reports = () => {
                     >
                       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-2">
                         <div className="flex items-center gap-2.5">
-                          <span className={`w-6 h-6 rounded-full flex items-center justify-center font-mono font-bold text-xs ${
-                            index === 0 ? 'bg-rose-500 text-white shadow-sm shadow-rose-500/40' : (index === 1 ? 'bg-amber-500 text-slate-950 font-bold' : 'bg-slate-300 dark:bg-slate-800 text-slate-900 dark:text-slate-200')
-                          }`}>
+                          <span className={`w-6 h-6 rounded-full flex items-center justify-center font-mono font-bold text-xs ${index === 0 ? 'bg-rose-500 text-white shadow-sm shadow-rose-500/40' : (index === 1 ? 'bg-amber-500 text-slate-950 font-bold' : 'bg-slate-300 dark:bg-slate-800 text-slate-900 dark:text-slate-200')
+                            }`}>
                             {index + 1}
                           </span>
                           <div>
-                            <span 
+                            <span
                               className="font-black font-khmer text-sm"
                               style={{ color: 'var(--text-primary)' }}
                             >
                               {dept.displayName}
                             </span>
-                            <span 
+                            <span
                               className="text-xs font-mono ml-2 font-semibold"
                               style={{ color: 'var(--text-secondary)' }}
                             >
@@ -1540,7 +1524,7 @@ const Reports = () => {
                             <span className={`text-base font-black font-mono ${currentMetricConfig.text}`}>
                               {currentMetricConfig.formatValue(count)}
                             </span>
-                            <span 
+                            <span
                               className="text-xs font-mono ml-1.5 font-bold"
                               style={{ color: 'var(--text-secondary)' }}
                             >
@@ -1648,10 +1632,10 @@ const Reports = () => {
                 <th className="py-3.5 px-4 font-khmer w-12 text-center">NO.</th>
                 <th className="py-3.5 px-6 font-khmer">{t('departments')}</th>
                 <th className="py-3.5 px-4 font-khmer text-center">{language === 'kh' ? 'ចំនួនបុគ្គលិក' : 'STAFF COUNT'}</th>
-                <th className="py-3.5 px-4 font-khmer text-center text-amber-400">LATE (មកយឺត)</th>
-                <th className="py-3.5 px-4 font-khmer text-center text-rose-400">EARLY OUT (ចេញមុន)</th>
-                <th className="py-3.5 px-4 font-khmer text-center text-emerald-400">EARLY IN (មកមុន)</th>
-                <th className="py-3.5 px-4 font-khmer text-center text-purple-400">INCOMPLETE (មិនគ្រប់)</th>
+                <th className="py-3.5 px-4 font-khmer text-center text-amber-400">LATE)</th>
+                <th className="py-3.5 px-4 font-khmer text-center text-rose-400">EARLY OUT</th>
+                <th className="py-3.5 px-4 font-khmer text-center text-emerald-400">EARLY IN</th>
+                <th className="py-3.5 px-4 font-khmer text-center text-purple-400">INCOMPLETE</th>
                 <th className="py-3.5 px-4 font-khmer text-center font-bold text-white">{language === 'kh' ? 'សរុបទាំងអស់' : 'TOTAL INCIDENTS'}</th>
               </tr>
             </thead>
@@ -1705,9 +1689,9 @@ const Reports = () => {
                 <th className="py-3.5 px-4 font-khmer w-12 text-center">NO.</th>
                 <th className="py-3.5 px-6 font-khmer">{t('departments')}</th>
                 <th className="py-3.5 px-4 font-khmer text-center">{language === 'kh' ? 'ចំនួនបុគ្គលិក' : 'STAFF COUNT'}</th>
-                <th className="py-3.5 px-4 font-khmer text-center text-amber-400">LATE (មកយឺត)</th>
-                <th className="py-3.5 px-4 font-khmer text-center text-rose-400">EARLY OUT (ចេញមុន)</th>
-                <th className="py-3.5 px-4 font-khmer text-center text-emerald-400">EARLY IN (មកមុន)</th>
+                <th className="py-3.5 px-4 font-khmer text-center text-amber-400">LATE</th>
+                <th className="py-3.5 px-4 font-khmer text-center text-rose-400">EARLY OUT</th>
+                <th className="py-3.5 px-4 font-khmer text-center text-emerald-400">EARLY IN</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-white/5">
@@ -1896,11 +1880,10 @@ const Reports = () => {
                     key={item}
                     type="button"
                     onClick={() => setCurrentPage(item)}
-                    className={`h-8 min-w-[32px] px-2 rounded-lg text-xs font-mono font-bold transition-all cursor-pointer ${
-                      isCurrent
-                        ? 'bg-indigo-600 text-white shadow-md shadow-indigo-500/25 border border-indigo-500'
-                        : 'border border-white/10 bg-slate-900/60 hover:bg-slate-800 text-slate-300'
-                    }`}
+                    className={`h-8 min-w-[32px] px-2 rounded-lg text-xs font-mono font-bold transition-all cursor-pointer ${isCurrent
+                      ? 'bg-indigo-600 text-white shadow-md shadow-indigo-500/25 border border-indigo-500'
+                      : 'border border-white/10 bg-slate-900/60 hover:bg-slate-800 text-slate-300'
+                      }`}
                   >
                     {item}
                   </button>
