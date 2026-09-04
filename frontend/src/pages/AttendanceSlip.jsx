@@ -754,9 +754,10 @@ const AttendanceSlip = () => {
     }, 150);
   };
 
-  // Export Excel Function
-  const handleExportExcel = () => {
-    if (employeeSlipsData.length === 0) return;
+  // Export Excel Function (All Employees or Single Employee)
+  const handleExportExcel = (singleSlip = null) => {
+    const listToExport = singleSlip ? [singleSlip] : employeeSlipsData;
+    if (listToExport.length === 0) return;
 
     let excelHtml = `
       <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
@@ -778,7 +779,7 @@ const AttendanceSlip = () => {
       <body>
     `;
 
-    employeeSlipsData.forEach((slip) => {
+    listToExport.forEach((slip) => {
       const { emp } = slip;
       excelHtml += `
         <div style="page-break-after: always; margin-bottom: 30px;">
@@ -813,7 +814,7 @@ const AttendanceSlip = () => {
               <tr><td>ថែមម៉ោងថ្ងៃធម្មតា/Normal OT</td><td colspan="2" class="center">${slip.normalOtHours}</td></tr>
               <tr><td>ថែមម៉ោងថ្ងៃអាទិត្យ ឬបុណ្យ/Holiday OT</td><td colspan="2" class="center">${slip.holidayOtHours}</td></tr>
               <tr>
-                <td rowspan="5" style="vertical-align: middle; text-align: center; font-weight: bold; background-color: #fafafa;">ការស្នើសុំច្បាប់ឈប់សម្រាក</td>
+                <td rowspan="6" style="vertical-align: middle; text-align: center; font-weight: bold; background-color: #fafafa;">ការស្នើសុំច្បាប់ឈប់សម្រាក</td>
                 <td style="font-weight: bold; background-color: #f3f4f6;" class="center">ប្រភេទច្បាប់</td>
                 <td style="font-weight: bold; background-color: #f3f4f6;" class="center">ចំនួនថ្ងៃ</td>
               </tr>
@@ -846,11 +847,15 @@ const AttendanceSlip = () => {
 
     excelHtml += `</body></html>`;
 
+    const fileName = singleSlip
+      ? `Attendance_Slip_${singleSlip.emp.staffId || 'Employee'}_${startDate}_to_${endDate}.xls`
+      : `Attendance_Slip_Report_${startDate}_to_${endDate}.xls`;
+
     const blob = new Blob(['\uFEFF' + excelHtml], { type: 'application/vnd.ms-excel;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.setAttribute('href', url);
-    link.setAttribute('download', `Attendance_Slip_Report_${startDate}_to_${endDate}.xls`);
+    link.setAttribute('download', fileName);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -1340,12 +1345,24 @@ const AttendanceSlip = () => {
                             </td>
                           )}
                           <td className="border border-black p-3 text-center align-middle bg-white relative">
-                            {/* Individual Print Button (Screen only, hidden in print) */}
-                            <div className="no-print absolute top-2 right-2 sm:top-2.5 sm:right-2.5">
+                            {/* Individual Action Buttons (Screen only, hidden in print) */}
+                            <div className="no-print absolute top-2 right-2 sm:top-2.5 sm:right-2.5 flex items-center gap-1.5">
+                              {/* Save as Excel Button */}
+                              <button
+                                type="button"
+                                onClick={() => handleExportExcel(data)}
+                                className="flex items-center gap-1 px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold font-khmer shadow-sm hover:shadow transition-all cursor-pointer"
+                                title={locale === 'kh' ? 'ទាញយកជា Excel សម្រាប់បុគ្គលិកនេះ' : 'Download Excel for this employee'}
+                              >
+                                <ArrowDownTrayIcon className="w-3.5 h-3.5" />
+                                <span>Excel</span>
+                              </button>
+
+                              {/* Print Button */}
                               <button
                                 type="button"
                                 onClick={() => handlePrintSingleEmployee(emp.staffId)}
-                                className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white rounded-lg text-xs font-bold font-khmer shadow-sm hover:shadow transition-all cursor-pointer"
+                                className="flex items-center gap-1 px-2.5 py-1.5 bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white rounded-lg text-xs font-bold font-khmer shadow-sm hover:shadow transition-all cursor-pointer"
                                 title={locale === 'kh' ? 'បោះពុម្ពប័ណ្ណបុគ្គលិកនេះ' : 'Print this employee slip'}
                               >
                                 <PrinterIcon className="w-3.5 h-3.5" />
