@@ -142,10 +142,20 @@ const AttendanceEarlyOut = () => {
     fetchLogs();
   }, [startDate, endDate, selectedStaffId, filterDept]);
 
+  const empMap = useMemo(() => {
+    const map = new Map();
+    employees.forEach(e => {
+      if (e.staffId) map.set(e.staffId.trim().toUpperCase(), e);
+    });
+    return map;
+  }, [employees]);
+
   // Compute early minutes and formatted check details for each log
   const processedLogs = useMemo(() => {
     return logs.map(log => {
-      const emp = log.employee || {};
+      const rawStaffId = (log.staffId || log.employee?.staffId || '').trim().toUpperCase();
+      const matchedEmp = empMap.get(rawStaffId) || {};
+      const emp = { ...matchedEmp, ...(log.employee || {}) };
       const s1EndStr = emp.shift1End || '12:00';
       const s2EndStr = emp.shift2End || '17:00';
 

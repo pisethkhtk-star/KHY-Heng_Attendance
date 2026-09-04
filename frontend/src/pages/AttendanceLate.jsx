@@ -146,10 +146,20 @@ const AttendanceLate = () => {
     fetchLogs();
   }, [startDate, endDate, selectedStaffId, filterDept]);
 
+  const empMap = useMemo(() => {
+    const map = new Map();
+    employees.forEach(e => {
+      if (e.staffId) map.set(e.staffId.trim().toUpperCase(), e);
+    });
+    return map;
+  }, [employees]);
+
   // Compute late minutes and formatted check details for each log
   const processedLogs = useMemo(() => {
     return logs.map(log => {
-      const emp = log.employee || {};
+      const rawStaffId = (log.staffId || log.employee?.staffId || '').trim().toUpperCase();
+      const matchedEmp = empMap.get(rawStaffId) || {};
+      const emp = { ...matchedEmp, ...(log.employee || {}) };
       const s1StartStr = emp.shift1Start || '08:00';
       const s2StartStr = emp.shift2Start || '13:00';
 
