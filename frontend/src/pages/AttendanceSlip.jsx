@@ -754,10 +754,34 @@ const AttendanceSlip = () => {
     }, 150);
   };
 
+  // Helper: convert any image URL/Asset to base64 Data URI
+  const getBase64FromUrl = async (url) => {
+    if (!url) return '';
+    if (typeof url === 'string' && url.startsWith('data:image')) return url;
+    try {
+      const response = await fetch(url);
+      const blob = await response.blob();
+      return new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result);
+        reader.onerror = () => resolve('');
+        reader.readAsDataURL(blob);
+      });
+    } catch (e) {
+      console.warn('Failed to convert image to base64 for Excel:', e);
+      return '';
+    }
+  };
+
   // Export Excel Function (All Employees or Single Employee)
-  const handleExportExcel = (singleSlip = null) => {
+  const handleExportExcel = async (singleSlip = null) => {
     const listToExport = singleSlip ? [singleSlip] : employeeSlipsData;
     if (listToExport.length === 0) return;
+
+    // Convert logo and signatures to base64 for embedding in Excel
+    const logoBase64 = showLogo ? await getBase64FromUrl(effectiveLogo) : '';
+    const prepSignBase64 = showPreparedSignature ? await getBase64FromUrl(effectivePreparedSignature) : '';
+    const appSignBase64 = (showApprovedSignature && approvedSignatureUrl) ? await getBase64FromUrl(approvedSignatureUrl) : '';
 
     let excelHtml = `
       <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
@@ -778,13 +802,13 @@ const AttendanceSlip = () => {
         </xml>
         <![endif]-->
         <style>
-          body { font-family: 'Khmer OS Battambang', 'Battambang', Calibri, 'Segoe UI', Tahoma, sans-serif; font-size: 10pt; }
-          .main-table { border-collapse: collapse; width: 100%; margin: 0 auto 20px auto; }
-          .main-table th, .main-table td { border: 1px solid #000000; padding: 6px 10px; font-size: 10pt; color: #000000; }
+          body { font-family: 'Khmer OS Battambang', 'Battambang', Calibri, 'Segoe UI', Tahoma, sans-serif; font-size: 10pt; color: #000000; }
+          .main-table { border-collapse: collapse; width: 100%; max-width: 650px; margin: 0 auto; border: 1.5px solid #000000; }
+          .main-table th, .main-table td { border: 1px solid #000000; padding: 5px 8px; font-size: 10pt; color: #000000; }
           .th-orange { background-color: #f59e0b; font-weight: bold; text-align: center; }
           .th-green { background-color: #84cc16; font-weight: bold; text-align: center; }
           .center { text-align: center; }
-          .right { text-align: right; }
+          .left { text-align: left; }
           .bold { font-weight: bold; }
         </style>
       </head>
@@ -799,138 +823,206 @@ const AttendanceSlip = () => {
 
       excelHtml += `
         <div style="page-break-after: always; margin-bottom: 40px;">
-          <div style="text-align: center; margin-bottom: 15px;">
-            ${projectTitleKh ? `<div style="font-family: 'Khmer OS Muol Light', 'Khmer OS Muol', 'Moul', serif; font-size: 16pt; font-weight: bold; margin-bottom: 3px;">${projectTitleKh}</div>` : ''}
-            <div style="font-size: 14pt; font-weight: bold;">${projectName}</div>
-          </div>
-
           <table class="main-table">
-            <!-- 3 Defined Columns for consistent layout -->
             <colgroup>
-              <col style="width: 45%;" />
-              <col style="width: 27%;" />
-              <col style="width: 28%;" />
+              <col style="width: 42%;" />
+              <col style="width: 29%;" />
+              <col style="width: 29%;" />
             </colgroup>
 
-            <!-- Employee Info Rows -->
             <tbody>
+              <!-- Row 1: Logo (Left) and Title (Right) -->
               <tr>
-                <td style="font-weight: bold; text-align: right;">ឈ្មោះបុគ្គលិក / Employee Name:</td>
-                <td colspan="2" style="text-align: right;">${empFullName}</td>
-              </tr>
-              <tr>
-                <td style="font-weight: bold; text-align: right;">ភេទ / Sex:</td>
-                <td colspan="2" style="text-align: right;">${emp.gender || 'Male'}</td>
-              </tr>
-              <tr>
-                <td style="font-weight: bold; text-align: right;">អត្តលេខ / ID:</td>
-                <td colspan="2" style="text-align: right;">${emp.staffId || ''}</td>
-              </tr>
-              <tr>
-                <td style="font-weight: bold; text-align: right;">តួនាទី / Position:</td>
-                <td colspan="2" style="text-align: right;">${posTitle}</td>
-              </tr>
-              <tr>
-                <td style="font-weight: bold; text-align: right;">នាយកដ្ឋាន / Department:</td>
-                <td colspan="2" style="text-align: right;">${deptName}</td>
+                <td style="border: 1px solid #000000; padding: 6px; text-align: center; vertical-align: middle;">
+                  ${logoBase64 ? `<img src="${logoBase64}" width="130" style="max-height: 65px; object-fit: contain; margin: 0 auto; display: block;" />` : ''}
+                </td>
+                <td colspan="2" style="border: 1px solid #000000; padding: 8px; text-align: center; vertical-align: middle;">
+                  ${projectTitleKh ? `<div style="font-family: 'Khmer OS Muol Light', 'Khmer OS Muol', 'Moul', serif; font-size: 16pt; font-weight: bold; margin-bottom: 3px; color: #000000;">${projectTitleKh}</div>` : ''}
+                  <div style="font-size: 13pt; font-weight: bold; color: #000000;">${projectName}</div>
+                </td>
               </tr>
 
-              <!-- Attendance Metrics Header -->
+              <!-- Employee Information Rows -->
               <tr>
-                <td class="th-orange">បរិយាយ</td>
-                <td class="th-orange">ចំនួនថ្ងៃ</td>
-                <td class="th-orange">ចំនួនម៉ោង</td>
+                <td style="border: 1px solid #000000; font-weight: bold; text-align: left; padding: 5px 8px;">
+                  ឈ្មោះបុគ្គលិក / Employee Name:
+                </td>
+                <td colspan="2" style="border: 1px solid #000000; text-align: center; padding: 5px 8px;">
+                  ${empFullName}
+                </td>
+              </tr>
+              <tr>
+                <td style="border: 1px solid #000000; font-weight: bold; text-align: left; padding: 5px 8px;">
+                  ភេទ / Sex:
+                </td>
+                <td colspan="2" style="border: 1px solid #000000; text-align: center; padding: 5px 8px;">
+                  ${emp.gender === 'Female' ? 'Female' : 'Male'}
+                </td>
+              </tr>
+              <tr>
+                <td style="border: 1px solid #000000; font-weight: bold; text-align: left; padding: 5px 8px;">
+                  អត្តលេខ / ID:
+                </td>
+                <td colspan="2" style="border: 1px solid #000000; text-align: center; font-weight: bold; padding: 5px 8px;">
+                  ${emp.staffId || ''}
+                </td>
+              </tr>
+              <tr>
+                <td style="border: 1px solid #000000; font-weight: bold; text-align: left; padding: 5px 8px;">
+                  តួនាទី / Position:
+                </td>
+                <td colspan="2" style="border: 1px solid #000000; text-align: center; padding: 5px 8px;">
+                  ${posTitle}
+                </td>
+              </tr>
+              <tr>
+                <td style="border: 1px solid #000000; font-weight: bold; text-align: left; padding: 5px 8px;">
+                  នាយកដ្ឋាន / Department:
+                </td>
+                <td colspan="2" style="border: 1px solid #000000; text-align: center; padding: 5px 8px;">
+                  ${deptName}
+                </td>
+              </tr>
+
+              <!-- Attendance Metrics Header (Orange) -->
+              <tr>
+                <td style="border: 1px solid #000000; background-color: #f59e0b; font-weight: bold; text-align: center; padding: 5px 8px;">
+                  បរិយាយ
+                </td>
+                <td style="border: 1px solid #000000; background-color: #f59e0b; font-weight: bold; text-align: center; padding: 5px 8px;">
+                  ចំនួនថ្ងៃ
+                </td>
+                <td style="border: 1px solid #000000; background-color: #f59e0b; font-weight: bold; text-align: center; padding: 5px 8px;">
+                  ចំនួនម៉ោង
+                </td>
               </tr>
 
               <!-- Attendance Metrics Rows -->
               <tr>
-                <td class="center">មកយឺតពេលព្រឹក/Late Morning</td>
-                <td class="center">${slip.lateMorningDays}</td>
-                <td class="center">${slip.lateMorningTime}</td>
+                <td style="border: 1px solid #000000; text-align: left; padding: 5px 8px;">មកយឺតពេលព្រឹក/Late Morning</td>
+                <td style="border: 1px solid #000000; text-align: center; font-weight: bold; padding: 5px 8px;">${slip.lateMorningDays}</td>
+                <td style="border: 1px solid #000000; text-align: center; padding: 5px 8px;">${slip.lateMorningTime}</td>
               </tr>
               <tr>
-                <td class="center">មកយឺតពេលថ្ងៃ/Late Afternoon</td>
-                <td class="center">${slip.lateAfternoonDays}</td>
-                <td class="center">${slip.lateAfternoonTime}</td>
+                <td style="border: 1px solid #000000; text-align: left; padding: 5px 8px;">មកយឺតពេលថ្ងៃ/Late Afternoon</td>
+                <td style="border: 1px solid #000000; text-align: center; font-weight: bold; padding: 5px 8px;">${slip.lateAfternoonDays}</td>
+                <td style="border: 1px solid #000000; text-align: center; padding: 5px 8px;">${slip.lateAfternoonTime}</td>
               </tr>
               <tr>
-                <td class="center">ចេញលឿនព្រឹក/Early Morning</td>
-                <td class="center">${slip.earlyMorningDays}</td>
-                <td class="center">${slip.earlyMorningTime}</td>
+                <td style="border: 1px solid #000000; text-align: left; padding: 5px 8px;">ចេញលឿនព្រឹក/Early Morning</td>
+                <td style="border: 1px solid #000000; text-align: center; font-weight: bold; padding: 5px 8px;">${slip.earlyMorningDays}</td>
+                <td style="border: 1px solid #000000; text-align: center; padding: 5px 8px;">${slip.earlyMorningTime}</td>
               </tr>
               <tr>
-                <td class="center">ចេញលឿនល្ងាច/Early Afternoon</td>
-                <td class="center">${slip.earlyAfternoonDays}</td>
-                <td class="center">${slip.earlyAfternoonTime}</td>
+                <td style="border: 1px solid #000000; text-align: left; padding: 5px 8px;">ចេញលឿនល្ងាច/Early Afternoon</td>
+                <td style="border: 1px solid #000000; text-align: center; font-weight: bold; padding: 5px 8px;">${slip.earlyAfternoonDays}</td>
+                <td style="border: 1px solid #000000; text-align: center; padding: 5px 8px;">${slip.earlyAfternoonTime}</td>
               </tr>
               <tr>
-                <td class="center">ភ្លេចស្កេន Check-in</td>
-                <td class="center">${slip.missedCheckinDays}</td>
-                <td class="center">0</td>
+                <td style="border: 1px solid #000000; text-align: left; padding: 5px 8px;">ភ្លេចស្កេន Check-in</td>
+                <td style="border: 1px solid #000000; text-align: center; font-weight: bold; padding: 5px 8px;">${slip.missedCheckinDays}</td>
+                <td style="border: 1px solid #000000; text-align: center; padding: 5px 8px;">0</td>
               </tr>
 
               <!-- Overtime Section -->
               <tr>
-                <td colspan="3" class="th-green">ធ្វើការថែមម៉ោង/Overtime</td>
+                <td colspan="3" style="border: 1px solid #000000; background-color: #84cc16; font-weight: bold; text-align: center; padding: 5px 8px;">
+                  ធ្វើការថែមម៉ោង/Overtime
+                </td>
               </tr>
               <tr>
-                <td class="center">ថែមម៉ោងថ្ងៃធម្មតា/Normal OT</td>
-                <td colspan="2" class="center">${slip.normalOtHours}</td>
+                <td style="border: 1px solid #000000; background-color: #f59e0b; font-weight: bold; text-align: center; padding: 5px 8px;">
+                  បរិយាយ
+                </td>
+                <td colspan="2" style="border: 1px solid #000000; background-color: #f59e0b; font-weight: bold; text-align: center; padding: 5px 8px;">
+                  ចំនួនម៉ោង
+                </td>
               </tr>
               <tr>
-                <td class="center">ថែមម៉ោងថ្ងៃអាទិត្យ ឬបុណ្យ/Holiday OT</td>
-                <td colspan="2" class="center">${slip.holidayOtHours}</td>
+                <td style="border: 1px solid #000000; text-align: left; padding: 5px 8px;">ថែមម៉ោងថ្ងៃធម្មតា/Normal OT</td>
+                <td colspan="2" style="border: 1px solid #000000; text-align: center; font-weight: bold; padding: 5px 8px;">${slip.normalOtHours}</td>
+              </tr>
+              <tr>
+                <td style="border: 1px solid #000000; text-align: left; padding: 5px 8px;">ថែមម៉ោងថ្ងៃអាទិត្យ ឬបុណ្យ/Holiday OT</td>
+                <td colspan="2" style="border: 1px solid #000000; text-align: center; font-weight: bold; padding: 5px 8px;">${slip.holidayOtHours}</td>
               </tr>
 
               <!-- Leave Requests Section -->
               <tr>
-                <td rowspan="6" style="vertical-align: middle; text-align: center; font-weight: bold; background-color: #ffffff;">ការស្នើសុំច្បាប់ឈប់សម្រាក</td>
-                <td style="font-weight: bold; text-align: center;">ប្រភេទច្បាប់</td>
-                <td style="font-weight: bold; text-align: center;">ចំនួនថ្ងៃ</td>
+                <td rowspan="6" style="border: 1px solid #000000; vertical-align: middle; text-align: center; font-weight: bold; background-color: #ffffff; padding: 6px 8px;">
+                  ការស្នើសុំច្បាប់ឈប់សម្រាក
+                </td>
+                <td style="border: 1px solid #000000; font-weight: bold; text-align: center; padding: 4px 6px;">
+                  ប្រភេទច្បាប់
+                </td>
+                <td style="border: 1px solid #000000; font-weight: bold; text-align: center; padding: 4px 6px;">
+                  ចំនួនថ្ងៃ
+                </td>
               </tr>
               <tr>
-                <td class="center">ច្បាប់ឈប់សម្រាកប្រចាំឆ្នាំ/Annual Leave</td>
-                <td class="center">${slip.annualLeaveDays}</td>
+                <td style="border: 1px solid #000000; text-align: center; font-size: 8.5pt; padding: 3px 5px;">
+                  ច្បាប់ឈប់សម្រាកប្រចាំឆ្នាំ/Annual Leave
+                </td>
+                <td style="border: 1px solid #000000; text-align: center; font-weight: bold; padding: 3px 5px;">
+                  ${slip.annualLeaveDays}
+                </td>
               </tr>
               <tr>
-                <td class="center">ច្បាប់ឈឺ/Sick Leave</td>
-                <td class="center">${slip.sickLeaveDays}</td>
+                <td style="border: 1px solid #000000; text-align: center; font-size: 8.5pt; padding: 3px 5px;">
+                  ច្បាប់ឈឺ/Sick Leave
+                </td>
+                <td style="border: 1px solid #000000; text-align: center; font-weight: bold; padding: 3px 5px;">
+                  ${slip.sickLeaveDays}
+                </td>
               </tr>
               <tr>
-                <td class="center">ច្បាប់ពិសេស/Special Leave</td>
-                <td class="center">${slip.specialLeaveDays}</td>
+                <td style="border: 1px solid #000000; text-align: center; font-size: 8.5pt; padding: 3px 5px;">
+                  ច្បាប់ពិសេស/Special Leave
+                </td>
+                <td style="border: 1px solid #000000; text-align: center; font-weight: bold; padding: 3px 5px;">
+                  ${slip.specialLeaveDays}
+                </td>
               </tr>
               <tr>
-                <td class="center">ML (Maternity Leave)</td>
-                <td class="center">${slip.maternityLeaveDays}</td>
+                <td style="border: 1px solid #000000; text-align: center; font-size: 8.5pt; padding: 3px 5px;">
+                  ML (Maternity Leave)
+                </td>
+                <td style="border: 1px solid #000000; text-align: center; font-weight: bold; padding: 3px 5px;">
+                  ${slip.maternityLeaveDays}
+                </td>
               </tr>
               <tr>
-                <td class="center">ច្បាប់មិនគិតប្រាក់ឈ្នួល/Unpaid</td>
-                <td class="center">${slip.unpaidLeaveDays}</td>
+                <td style="border: 1px solid #000000; text-align: center; font-size: 8.5pt; padding: 3px 5px;">
+                  ច្បាប់មិនគិតប្រាក់ឈ្នួល/Unpaid
+                </td>
+                <td style="border: 1px solid #000000; text-align: center; font-weight: bold; padding: 3px 5px;">
+                  ${slip.unpaidLeaveDays}
+                </td>
               </tr>
             </tbody>
           </table>
 
-          <!-- Signatures Section -->
-          <table style="border: none; width: 100%; margin-top: 15px; border-collapse: collapse;">
+          <!-- Signatures Section below table -->
+          <table style="border: none; width: 100%; max-width: 650px; margin: 15px auto 0 auto; border-collapse: collapse;">
             <tr style="border: none;">
-              <td style="border: none; width: 50%; font-weight: bold; text-align: left; padding: 2px 4px; font-size: 10pt;">រៀបចំដោយ</td>
-              <td style="border: none; width: 50%; font-weight: bold; text-align: right; padding: 2px 4px; font-size: 10pt;">យល់ព្រមដោយ</td>
-            </tr>
-            <tr style="border: none;">
-              <td style="border: none; height: 35px;" colspan="2"></td>
-            </tr>
-            <tr style="border: none;">
-              <td style="border: none; font-weight: bold; text-align: left; padding: 2px 4px; font-size: 10pt;">${preparedByName}</td>
-              <td style="border: none; text-align: right; padding: 2px 4px; font-size: 10pt;"></td>
-            </tr>
-            <tr style="border: none;">
-              <td style="border: none; text-align: left; padding: 2px 4px; font-size: 10pt; color: #444;">-------------------------</td>
-              <td style="border: none; text-align: right; padding: 2px 4px; font-size: 10pt; color: #444;">-------------------------</td>
-            </tr>
-            <tr style="border: none;">
-              <td style="border: none; text-align: left; padding: 2px 4px; font-size: 10pt; padding-left: 120px;">${preparedDate}</td>
-              <td style="border: none; text-align: right; padding: 2px 4px; font-size: 10pt;">${approvedDate}</td>
+              <td style="border: none; width: 50%; text-align: center; vertical-align: top; padding: 0 10px;">
+                <div style="font-weight: bold; font-size: 11pt; margin-bottom: 2px;">រៀបចំដោយ</div>
+                <div style="height: 48px; display: flex; align-items: center; justify-content: center; margin: 2px auto;">
+                  ${prepSignBase64 ? `<img src="${prepSignBase64}" height="42" style="max-height: 42px; object-fit: contain; margin: 0 auto; display: block;" />` : `<div style="height: 42px;"></div>`}
+                </div>
+                <div style="font-weight: bold; font-size: 10pt; margin-top: 2px;">${preparedByName}</div>
+                <div style="color: #000000; font-size: 10pt; margin: 2px 0;">-----------------------------------</div>
+                <div style="font-size: 10pt;">${preparedDate}</div>
+              </td>
+              <td style="border: none; width: 50%; text-align: center; vertical-align: top; padding: 0 10px;">
+                <div style="font-weight: bold; font-size: 11pt; margin-bottom: 2px;">យល់ព្រមដោយ</div>
+                <div style="height: 48px; display: flex; align-items: center; justify-content: center; margin: 2px auto;">
+                  ${appSignBase64 ? `<img src="${appSignBase64}" height="42" style="max-height: 42px; object-fit: contain; margin: 0 auto; display: block;" />` : `<div style="height: 42px;"></div>`}
+                </div>
+                <div style="font-weight: bold; font-size: 10pt; margin-top: 2px;">${approvedByName || '&nbsp;'}</div>
+                <div style="color: #000000; font-size: 10pt; margin: 2px 0;">-----------------------------------</div>
+                <div style="font-size: 10pt;">${approvedDate}</div>
+              </td>
             </tr>
           </table>
         </div>
