@@ -88,7 +88,7 @@ const Employees = () => {
   const [shift2End, setShift2End] = useState('17:00');
   const [enableShift2, setEnableShift2] = useState(true);
   const [isFlexible, setIsFlexible] = useState(false);
-  const [workingDays, setWorkingDays] = useState([1, 2, 3, 4, 5]);
+  const [workingDays, setWorkingDays] = useState([1, 2, 3, 4, 5, 6]);
   const [flexibleSchedule, setFlexibleSchedule] = useState({});
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -549,14 +549,14 @@ const Employees = () => {
           ? JSON.parse(dHours.flexibleSchedule)
           : dHours.flexibleSchedule;
         setFlexibleSchedule(parsed || {});
-        setWorkingDays(Array.isArray(parsed?.workingDays) ? parsed.workingDays : [1, 2, 3, 4, 5]);
+        setWorkingDays(Array.isArray(parsed?.workingDays) ? parsed.workingDays : [1, 2, 3, 4, 5, 6]);
       } catch (e) {
         setFlexibleSchedule({});
-        setWorkingDays([1, 2, 3, 4, 5]);
+        setWorkingDays([1, 2, 3, 4, 5, 6]);
       }
     } else {
       setFlexibleSchedule({});
-      setWorkingDays([1, 2, 3, 4, 5]);
+      setWorkingDays([1, 2, 3, 4, 5, 6]);
     }
     setEmail('');
     setPassword('');
@@ -675,14 +675,14 @@ const Employees = () => {
           ? JSON.parse(emp.flexibleSchedule)
           : emp.flexibleSchedule;
         setFlexibleSchedule(parsed || {});
-        setWorkingDays(Array.isArray(parsed?.workingDays) ? parsed.workingDays : [1, 2, 3, 4, 5]);
+        setWorkingDays(Array.isArray(parsed?.workingDays) ? parsed.workingDays : [1, 2, 3, 4, 5, 6]);
       } catch (e) {
         setFlexibleSchedule({});
-        setWorkingDays([1, 2, 3, 4, 5]);
+        setWorkingDays([1, 2, 3, 4, 5, 6]);
       }
     } else {
       setFlexibleSchedule({});
-      setWorkingDays([1, 2, 3, 4, 5]);
+      setWorkingDays([1, 2, 3, 4, 5, 6]);
     }
     setEmail(emp.email || '');
     setPassword(''); // leave blank

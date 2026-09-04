@@ -14,7 +14,7 @@ const WorkHours = () => {
   const [enableShift2, setEnableShift2] = useState(true);
   const [isFlexible, setIsFlexible] = useState(false);
   const [lateGraceMinutes, setLateGraceMinutes] = useState(0);
-  const [workingDays, setWorkingDays] = useState([1, 2, 3, 4, 5]);
+  const [workingDays, setWorkingDays] = useState([1, 2, 3, 4, 5, 6]);
   const [flexibleSchedule, setFlexibleSchedule] = useState({});
 
   const [loading, setLoading] = useState(true);
@@ -42,10 +42,10 @@ const WorkHours = () => {
               ? JSON.parse(res.data.flexibleSchedule)
               : res.data.flexibleSchedule;
             setFlexibleSchedule(parsed || {});
-            setWorkingDays(Array.isArray(parsed?.workingDays) ? parsed.workingDays : [1, 2, 3, 4, 5]);
+            setWorkingDays(Array.isArray(parsed?.workingDays) ? parsed.workingDays : [1, 2, 3, 4, 5, 6]);
           } catch (e) {
             setFlexibleSchedule({});
-            setWorkingDays([1, 2, 3, 4, 5]);
+            setWorkingDays([1, 2, 3, 4, 5, 6]);
           }
         }
       }
