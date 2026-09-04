@@ -894,17 +894,62 @@ const Employees = () => {
     document.body.removeChild(link);
   };
 
+  const isStaffIdVal = (val) => {
+    if (!val) return false;
+    const s = String(val).trim();
+    if (!s) return false;
+    // Don't match pure digits (sequence numbers 1, 2, 3...)
+    if (/^\d+$/.test(s)) return false;
+    // Don't match dates YYYY-MM-DD or DD/MM/YYYY
+    if (/^\d{4}-\d{2}-\d{2}$/.test(s) || /^\d{1,2}[-/]\d{1,2}[-/]\d{2,4}$/.test(s)) return false;
+    // Don't match times HH:mm
+    if (/^\d{1,2}:\d{2}/.test(s)) return false;
+    // Don't match names with spaces like "ON VANDA"
+    if (s.includes(' ')) return false;
+
+    const lower = s.toLowerCase();
+    const commonWords = new Set([
+      'no', 'no.', 'name', 'date', 'sex', 'gender', 'role', 'status', 'dept', 'pos', 'note',
+      'time', 'in', 'out', 'remark', 'department', 'position', 'branch', 'email', 'title',
+      'active', 'male', 'female', 'yes', 'true', 'false', 'លរ', 'ល.រ', 'ឈ្មោះ', 'ភេទ', 'កាលបរិច្ឆេទ'
+    ]);
+    if (commonWords.has(lower)) return false;
+
+    if (s.length < 2 || s.length > 20) return false;
+
+    const hasLetter = /[A-Za-z\u1780-\u17FF]/.test(s);
+    const hasDigit = /\d/.test(s);
+    const hasSeparator = /[-_/]/.test(s);
+
+    if ((hasLetter && hasDigit) || (hasLetter && hasSeparator) || (/^[A-Za-z]{1,4}\d{1,6}$/i.test(s))) {
+      return /^[A-Za-z0-9\u1780-\u17FF\-_/]+$/.test(s);
+    }
+    return false;
+  };
+
   const detectColumnForField = (colName) => {
     if (!colName) return null;
     const clean = String(colName).trim().toLowerCase().replace(/[\s_\-():]/g, '');
 
-    // Staff ID
+    // Sequence / Index column (No / # / ល.រ) - NEVER Staff ID
     if (
-      clean.includes('staffid') || clean === 'id' || clean.includes('empid') ||
-      clean.includes('employeeid') || clean.includes('empno') || clean.includes('code') ||
-      clean.includes('cardno') || clean.includes('badge') ||
+      clean === 'no' || clean === 'no.' || clean === 'លរ' || clean === 'ល.រ' ||
+      clean === '#' || clean === 'n°' || clean === 'index' || clean === 'seq' ||
+      clean === 'item' || clean === 'num' || clean === 'number' || clean === 'លេខរៀង'
+    ) {
+      return 'rowNo';
+    }
+
+    // Staff ID (Emp ID, Code, Badge, etc.)
+    if (
+      clean.includes('staffid') || clean.includes('staff') ||
+      clean.includes('empid') || clean.includes('emp_id') || clean.includes('employeeid') ||
+      clean.includes('empno') || clean === 'id' || clean.includes('idcard') ||
+      clean.includes('code') || clean.includes('cardno') || clean.includes('badge') ||
+      clean.includes('userid') || clean.includes('user_id') || clean.includes('enroll') ||
+      clean.includes('acno') || clean.includes('pin') ||
       clean.includes('អត្តលេខ') || clean.includes('លេខសម្គាល់') || clean.includes('កូដ') ||
-      clean === 'លរ' || clean === 'ល.រ' || clean === 'no' || clean === 'no.'
+      clean.includes('លេខកូដ') || clean.includes('លេខកាត') || clean.includes('លេខប័ណ្ណ')
     ) {
       return 'staffId';
     }
@@ -1205,7 +1250,7 @@ const Employees = () => {
         // Smart Header Row Detection (within first 15 rows)
         const headerKeywords = [
           'staff', 'id', 'code', 'emp', 'name', 'gender', 'sex', 'dept', 'pos', 'title', 'branch',
-          'email', 'mail', 'role', 'status', 'date', 'no', 'ល.រ', 'លរ', 'អត្តលេខ', 'លេខសម្គាល់', 'កូដ',
+          'email', 'mail', 'role', 'status', 'date', 'អត្តលេខ', 'លេខសម្គាល់', 'កូដ',
           'ឈ្មោះ', 'ភេទ', 'ផ្នែក', 'នាយកដ្ឋាន', 'តួនាទី', 'មុខតំណែង', 'សាខា', 'អ៊ីមែល', 'អុីមែល', 'ស្ថានភាព'
         ];
 
@@ -1215,6 +1260,17 @@ const Employees = () => {
         for (let r = 0; r < Math.min(sheetData.length, 15); r++) {
           const row = sheetData[r];
           if (!Array.isArray(row) || row.length === 0) continue;
+
+          // If this row contains actual employee IDs or names, it's a DATA ROW, not header!
+          const hasDataValues = row.some(cell => isStaffIdVal(cell));
+          if (hasDataValues) {
+            // If we haven't found a header yet, the row above this (if any) or this row index is the boundary
+            if (maxScore < 2 && r > 0) {
+              bestHeaderIdx = r - 1;
+            }
+            break;
+          }
+
           let score = 0;
           row.forEach(cell => {
             const cellStr = String(cell || '').trim().toLowerCase();
@@ -1241,7 +1297,7 @@ const Employees = () => {
         });
         setAvailableHeaders(detectedColList);
 
-        // Auto-map fields
+        // Auto-map fields based on header keywords
         const newMapping = {
           staffId: '',
           nameEn: '',
@@ -1258,14 +1314,66 @@ const Employees = () => {
 
         detectedColList.forEach(colName => {
           const matchedField = detectColumnForField(colName);
-          if (matchedField && !newMapping[matchedField]) {
+          if (matchedField && matchedField !== 'rowNo' && !newMapping[matchedField]) {
             newMapping[matchedField] = colName;
           }
         });
 
-        // If nameEn not mapped but generic name found, ensure nameEn gets it
+        // 2. Intelligent Content-Based Column Detection (Inspect actual data cells)
+        const sampleRows = sheetData.slice(bestHeaderIdx + 1, bestHeaderIdx + 26)
+          .filter(r => Array.isArray(r) && r.some(c => String(c || '').trim() !== ''));
+
+        let contentStaffIdCol = null;
+        let contentNameCol = null;
+        let maxIdScore = 0;
+
+        detectedColList.forEach((colName, cIdx) => {
+          let idMatchCount = 0;
+          let nameMatchCount = 0;
+          let totalCells = 0;
+
+          sampleRows.forEach((row) => {
+            const val = String(row[cIdx] || '').trim();
+            if (!val) return;
+            totalCells++;
+
+            if (isStaffIdVal(val)) {
+              idMatchCount++;
+            }
+
+            // Name pattern: English letters or Khmer with spaces, length 3 to 40
+            if (/^[A-Za-z\u1780-\u17FF\s.]{3,40}$/.test(val) && val.includes(' ') && !/\d/.test(val)) {
+              nameMatchCount++;
+            }
+          });
+
+          // If high ID match count (e.g. S-J0P, S08, P-05, H-06, U-107, K24, etc.)
+          if (totalCells > 0 && (idMatchCount / totalCells >= 0.35) && idMatchCount > maxIdScore) {
+            maxIdScore = idMatchCount;
+            contentStaffIdCol = colName;
+          }
+
+          // If high name match count (e.g. ON VANDA, KONG CHRUY, etc.)
+          if (totalCells > 0 && (nameMatchCount / totalCells >= 0.35) && !contentNameCol) {
+            contentNameCol = colName;
+          }
+        });
+
+        // Content detection overrides or fills staffId and nameEn
+        if (contentStaffIdCol) {
+          newMapping.staffId = contentStaffIdCol;
+        }
+
+        if (contentNameCol && (!newMapping.nameEn || newMapping.nameEn === newMapping.staffId)) {
+          newMapping.nameEn = contentNameCol;
+        }
+
+        // If nameEn not mapped but generic name or nameKh found
         if (!newMapping.nameEn && newMapping.nameKh) {
           newMapping.nameEn = newMapping.nameKh;
+        }
+        if (!newMapping.nameKh && newMapping.nameEn) {
+          newMapping.nameKh = newMapping.nameEn;
         }
 
         setColumnMapping(newMapping);

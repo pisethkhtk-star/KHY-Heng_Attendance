@@ -626,17 +626,58 @@ const Attendance = () => {
     document.body.removeChild(link);
   };
 
+  const isStaffIdVal = (val) => {
+    if (!val) return false;
+    const s = String(val).trim();
+    if (!s) return false;
+    if (/^\d+$/.test(s)) return false;
+    if (/^\d{4}-\d{2}-\d{2}$/.test(s) || /^\d{1,2}[-/]\d{1,2}[-/]\d{2,4}$/.test(s)) return false;
+    if (/^\d{1,2}:\d{2}/.test(s)) return false;
+    if (s.includes(' ')) return false;
+
+    const lower = s.toLowerCase();
+    const commonWords = new Set([
+      'no', 'no.', 'name', 'date', 'sex', 'gender', 'role', 'status', 'dept', 'pos', 'note',
+      'time', 'in', 'out', 'remark', 'department', 'position', 'branch', 'email', 'title',
+      'active', 'male', 'female', 'yes', 'true', 'false', 'លរ', 'ល.រ', 'ឈ្មោះ', 'ភេទ', 'កាលបរិច្ឆេទ'
+    ]);
+    if (commonWords.has(lower)) return false;
+
+    if (s.length < 2 || s.length > 20) return false;
+
+    const hasLetter = /[A-Za-z\u1780-\u17FF]/.test(s);
+    const hasDigit = /\d/.test(s);
+    const hasSeparator = /[-_/]/.test(s);
+
+    if ((hasLetter && hasDigit) || (hasLetter && hasSeparator) || (/^[A-Za-z]{1,4}\d{1,6}$/i.test(s))) {
+      return /^[A-Za-z0-9\u1780-\u17FF\-_/]+$/.test(s);
+    }
+    return false;
+  };
+
   const detectAttendanceCol = (colName) => {
     if (!colName) return null;
     const clean = String(colName).trim().toLowerCase().replace(/[\s_\-():]/g, '');
 
+    // Sequence / Index column (No / # / ល.រ) - NEVER Staff ID
+    if (
+      clean === 'no' || clean === 'no.' || clean === 'លរ' || clean === 'ល.រ' ||
+      clean === '#' || clean === 'n°' || clean === 'index' || clean === 'seq' ||
+      clean === 'item' || clean === 'num' || clean === 'number' || clean === 'លេខរៀង'
+    ) {
+      return 'rowNo';
+    }
+
     // Staff ID
     if (
-      clean.includes('staffid') || clean === 'id' || clean.includes('empid') ||
-      clean.includes('employeeid') || clean.includes('empno') || clean.includes('code') ||
-      clean.includes('cardno') || clean.includes('badge') ||
+      clean.includes('staffid') || clean.includes('staff') ||
+      clean.includes('empid') || clean.includes('emp_id') || clean.includes('employeeid') ||
+      clean.includes('empno') || clean === 'id' || clean.includes('idcard') ||
+      clean.includes('code') || clean.includes('cardno') || clean.includes('badge') ||
+      clean.includes('userid') || clean.includes('user_id') || clean.includes('enroll') ||
+      clean.includes('acno') || clean.includes('pin') ||
       clean.includes('អត្តលេខ') || clean.includes('លេខសម្គាល់') || clean.includes('កូដ') ||
-      clean === 'លរ' || clean === 'ល.រ' || clean === 'no' || clean === 'no.'
+      clean.includes('លេខកូដ') || clean.includes('លេខកាត') || clean.includes('លេខប័ណ្ណ')
     ) {
       return 'staffId';
     }
@@ -844,6 +885,16 @@ const Attendance = () => {
         for (let r = 0; r < Math.min(sheetData.length, 15); r++) {
           const row = sheetData[r];
           if (!Array.isArray(row) || row.length === 0) continue;
+
+          // If this row contains actual employee IDs, it's a DATA ROW, not header!
+          const hasDataValues = row.some(cell => isStaffIdVal(cell));
+          if (hasDataValues) {
+            if (maxScore < 2 && r > 0) {
+              bestHeaderIdx = r - 1;
+            }
+            break;
+          }
+
           let score = 0;
           row.forEach(cell => {
             const cellStr = String(cell || '').trim().toLowerCase();
@@ -881,10 +932,41 @@ const Attendance = () => {
 
         detectedColList.forEach(colName => {
           const matchedField = detectAttendanceCol(colName);
-          if (matchedField && !newMapping[matchedField]) {
+          if (matchedField && matchedField !== 'rowNo' && !newMapping[matchedField]) {
             newMapping[matchedField] = colName;
           }
         });
+
+        // Content-based inspection for staffId and date
+        const sampleRows = sheetData.slice(bestHeaderIdx + 1, bestHeaderIdx + 26)
+          .filter(r => Array.isArray(r) && r.some(c => String(c || '').trim() !== ''));
+
+        let contentStaffIdCol = null;
+        let maxIdScore = 0;
+
+        detectedColList.forEach((colName, cIdx) => {
+          let idMatchCount = 0;
+          let totalCells = 0;
+
+          sampleRows.forEach((row) => {
+            const val = String(row[cIdx] || '').trim();
+            if (!val) return;
+            totalCells++;
+
+            if (isStaffIdVal(val)) {
+              idMatchCount++;
+            }
+          });
+
+          if (totalCells > 0 && (idMatchCount / totalCells >= 0.35) && idMatchCount > maxIdScore) {
+            maxIdScore = idMatchCount;
+            contentStaffIdCol = colName;
+          }
+        });
+
+        if (contentStaffIdCol) {
+          newMapping.staffId = contentStaffIdCol;
+        }
 
         setColumnMapping(newMapping);
         applyMappingAndBuildAttendanceRows(sheetData, bestHeaderIdx, newMapping);
