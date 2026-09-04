@@ -2,7 +2,8 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import api from '../utils/api';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
-import { MagnifyingGlassIcon, PencilIcon, PlusIcon, TrashIcon, ArrowDownTrayIcon, ChevronDownIcon, ChevronUpIcon, XMarkIcon } from '@heroicons/react/24/outline';
+import { MagnifyingGlassIcon, PencilIcon, PlusIcon, TrashIcon, ArrowDownTrayIcon, ChevronDownIcon, ChevronUpIcon, XMarkIcon, ArrowUpTrayIcon, DocumentArrowUpIcon, CheckCircleIcon, ExclamationTriangleIcon } from '@heroicons/react/24/outline';
+import * as XLSX from 'xlsx';
 
 import { formatTime12Hour, formatDateDDMMYYYY } from '../utils/dateUtils';
 
@@ -136,6 +137,29 @@ const Attendance = () => {
   const [employeesList, setEmployeesList] = useState([]);
   const [submitting, setSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
+
+  // Excel Import States
+  const [showExcelModal, setShowExcelModal] = useState(false);
+  const [excelFile, setExcelFile] = useState(null);
+  const [excelFileName, setExcelFileName] = useState('');
+  const [excelRows, setExcelRows] = useState([]);
+  const [excelImportLoading, setExcelImportLoading] = useState(false);
+  const [excelImportResult, setExcelImportResult] = useState(null);
+  const [excelError, setExcelError] = useState('');
+  const [rawSheetData, setRawSheetData] = useState([]);
+  const [availableHeaders, setAvailableHeaders] = useState([]);
+  const [headerRowIdx, setHeaderRowIdx] = useState(0);
+  const [columnMapping, setColumnMapping] = useState({
+    staffId: '',
+    attendanceDate: '',
+    checkin1: '',
+    checkout1: '',
+    checkin2: '',
+    checkout2: '',
+    note: '',
+  });
+  const [showMappingPanel, setShowMappingPanel] = useState(false);
+  const excelFileInputRef = useRef(null);
 
   // Filters & Pagination State
   const [currentPage, setCurrentPage] = useState(1);
@@ -602,6 +626,338 @@ const Attendance = () => {
     document.body.removeChild(link);
   };
 
+  const detectAttendanceCol = (colName) => {
+    if (!colName) return null;
+    const clean = String(colName).trim().toLowerCase().replace(/[\s_\-():]/g, '');
+
+    // Staff ID
+    if (
+      clean.includes('staffid') || clean === 'id' || clean.includes('empid') ||
+      clean.includes('employeeid') || clean.includes('empno') || clean.includes('code') ||
+      clean.includes('cardno') || clean.includes('badge') ||
+      clean.includes('អត្តលេខ') || clean.includes('លេខសម្គាល់') || clean.includes('កូដ') ||
+      clean === 'លរ' || clean === 'ល.រ' || clean === 'no' || clean === 'no.'
+    ) {
+      return 'staffId';
+    }
+
+    // Attendance Date
+    if (
+      clean.includes('date') || clean.includes('day') || clean.includes('attendancedate') ||
+      clean.includes('កាលបរិច្ឆេទ') || clean.includes('ថ្ងៃ') || clean.includes('ថ្ងៃខែ')
+    ) {
+      return 'attendanceDate';
+    }
+
+    // Checkin 1
+    if (
+      clean.includes('checkin1') || clean.includes('in1') || clean.includes('checkin') ||
+      clean.includes('ម៉ោងចូល១') || clean.includes('ម៉ោងចូល1') || clean.includes('ចូល១') || clean.includes('ចូល1')
+    ) {
+      return 'checkin1';
+    }
+
+    // Checkout 1
+    if (
+      clean.includes('checkout1') || clean.includes('out1') ||
+      clean.includes('ម៉ោងចេញ១') || clean.includes('ម៉ោងចេញ1') || clean.includes('ចេញ១') || clean.includes('ចេញ1')
+    ) {
+      return 'checkout1';
+    }
+
+    // Checkin 2
+    if (
+      clean.includes('checkin2') || clean.includes('in2') ||
+      clean.includes('ម៉ោងចូល២') || clean.includes('ម៉ោងចូល2') || clean.includes('ចូល២') || clean.includes('ចូល2')
+    ) {
+      return 'checkin2';
+    }
+
+    // Checkout 2
+    if (
+      clean.includes('checkout2') || clean.includes('out2') || clean.includes('checkout') ||
+      clean.includes('ម៉ោងចេញ២') || clean.includes('ម៉ោងចេញ2') || clean.includes('ចេញ២') || clean.includes('ចេញ2')
+    ) {
+      return 'checkout2';
+    }
+
+    // Note
+    if (clean.includes('note') || clean.includes('remark') || clean.includes('description') || clean.includes('កំណត់សម្គាល់') || clean.includes('ផ្សេងៗ')) {
+      return 'note';
+    }
+
+    return null;
+  };
+
+  const formatDateForBackend = (val) => {
+    if (!val) return new Date().toISOString().split('T')[0];
+    if (val instanceof Date && !isNaN(val)) {
+      return val.toISOString().split('T')[0];
+    }
+    const str = String(val).trim();
+    if (/^\d{4}-\d{2}-\d{2}$/.test(str)) return str;
+    const dmy = str.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})$/);
+    if (dmy) {
+      const day = dmy[1].padStart(2, '0');
+      const month = dmy[2].padStart(2, '0');
+      const year = dmy[3];
+      return `${year}-${month}-${day}`;
+    }
+    const parsed = new Date(str);
+    if (!isNaN(parsed.getTime())) {
+      return parsed.toISOString().split('T')[0];
+    }
+    return new Date().toISOString().split('T')[0];
+  };
+
+  const formatTimeVal = (val) => {
+    if (!val) return '';
+    const str = String(val).trim();
+    if (!str || str === '-' || str === '--:--') return '';
+    const match = str.match(/(\d{1,2}):(\d{2})/);
+    if (match) {
+      return `${match[1].padStart(2, '0')}:${match[2]}`;
+    }
+    return '';
+  };
+
+  const applyMappingAndBuildAttendanceRows = (data, hIdx, mapping) => {
+    if (!data || data.length <= hIdx + 1) {
+      setExcelRows([]);
+      return;
+    }
+
+    const headers = data[hIdx] || [];
+    const getColIndex = (fieldKey) => {
+      const colName = mapping[fieldKey];
+      if (!colName) return -1;
+      return headers.findIndex(h => String(h || '').trim() === colName);
+    };
+
+    const idxStaffId = getColIndex('staffId');
+    const idxDate = getColIndex('attendanceDate');
+    const idxCheckin1 = getColIndex('checkin1');
+    const idxCheckout1 = getColIndex('checkout1');
+    const idxCheckin2 = getColIndex('checkin2');
+    const idxCheckout2 = getColIndex('checkout2');
+    const idxNote = getColIndex('note');
+
+    const dataRows = data.slice(hIdx + 1);
+    const processed = [];
+
+    dataRows.forEach((row) => {
+      if (!Array.isArray(row)) return;
+      const hasContent = row.some(cell => String(cell || '').trim() !== '');
+      if (!hasContent) return;
+
+      const getVal = (idx) => (idx >= 0 && idx < row.length ? String(row[idx] || '').trim() : '');
+
+      let rawStaffId = getVal(idxStaffId);
+      let rawDate = getVal(idxDate);
+      const rawIn1 = getVal(idxCheckin1);
+      const rawOut1 = getVal(idxCheckout1);
+      const rawIn2 = getVal(idxCheckin2);
+      const rawOut2 = getVal(idxCheckout2);
+      const rawNote = getVal(idxNote);
+
+      const warnings = [];
+      if (!rawStaffId) {
+        warnings.push(locale === 'kh' ? 'ខ្វះ Staff ID' : 'Missing Staff ID');
+      }
+
+      let matchedEmp = rawStaffId ? empMap.get(rawStaffId) : null;
+      if (rawStaffId && !matchedEmp) {
+        const lowerId = rawStaffId.toLowerCase();
+        for (const [k, v] of empMap.entries()) {
+          if (k.toLowerCase() === lowerId) {
+            matchedEmp = v;
+            rawStaffId = v.staffId;
+            break;
+          }
+        }
+        if (!matchedEmp) {
+          warnings.push(locale === 'kh' ? `រកមិនឃើញបុគ្គលិក (${rawStaffId})` : `Employee not found (${rawStaffId})`);
+        }
+      }
+
+      if (!rawDate) {
+        rawDate = new Date().toISOString().split('T')[0];
+      } else {
+        rawDate = formatDateForBackend(rawDate);
+      }
+
+      const hasAnyTime = Boolean(rawIn1 || rawOut1 || rawIn2 || rawOut2);
+      if (!hasAnyTime) {
+        warnings.push(locale === 'kh' ? 'គ្មានម៉ោងចូល/ចេញ' : 'No check-in/out times');
+      }
+
+      processed.push({
+        rowIndex: processed.length + 1,
+        staffId: rawStaffId,
+        empName: matchedEmp ? (matchedEmp.nameEn || matchedEmp.nameKh) : '-',
+        departmentName: matchedEmp?.department?.nameEn || matchedEmp?.department?.nameKh || '-',
+        attendanceDate: rawDate,
+        checkin1: formatTimeVal(rawIn1),
+        checkout1: formatTimeVal(rawOut1),
+        checkin2: formatTimeVal(rawIn2),
+        checkout2: formatTimeVal(rawOut2),
+        note: rawNote,
+        isValid: warnings.length === 0,
+        warnings,
+      });
+    });
+
+    setExcelRows(processed);
+  };
+
+  const parseAttendanceExcelFile = (file) => {
+    if (!file) return;
+    setExcelFile(file);
+    setExcelFileName(file.name);
+    setExcelError('');
+    setExcelImportResult(null);
+
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+      try {
+        const data = new Uint8Array(evt.target.result);
+        const workbook = XLSX.read(data, { type: 'array', cellDates: true });
+        const firstSheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[firstSheetName];
+
+        const sheetData = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: '', raw: false });
+
+        if (!sheetData || sheetData.length === 0) {
+          setExcelError(locale === 'kh' ? 'ឯកសារ Excel គ្មានទិន្នន័យទេ' : 'Excel file contains no data');
+          setExcelRows([]);
+          return;
+        }
+
+        const headerKeywords = [
+          'staff', 'id', 'code', 'emp', 'date', 'day', 'checkin', 'checkout', 'in', 'out', 'note',
+          'អត្តលេខ', 'លេខសម្គាល់', 'កូដ', 'កាលបរិច្ឆេទ', 'ថ្ងៃ', 'ម៉ោងចូល', 'ម៉ោងចេញ', 'ចូល', 'ចេញ', 'កំណត់សម្គាល់'
+        ];
+
+        let bestHeaderIdx = 0;
+        let maxScore = -1;
+
+        for (let r = 0; r < Math.min(sheetData.length, 15); r++) {
+          const row = sheetData[r];
+          if (!Array.isArray(row) || row.length === 0) continue;
+          let score = 0;
+          row.forEach(cell => {
+            const cellStr = String(cell || '').trim().toLowerCase();
+            if (cellStr) {
+              headerKeywords.forEach(kw => {
+                if (cellStr.includes(kw)) score += 2;
+              });
+            }
+          });
+          if (score > maxScore && score >= 2) {
+            maxScore = score;
+            bestHeaderIdx = r;
+          }
+        }
+
+        setHeaderRowIdx(bestHeaderIdx);
+        setRawSheetData(sheetData);
+
+        const rawHeaders = sheetData[bestHeaderIdx] || [];
+        const detectedColList = rawHeaders.map((h, i) => {
+          const cleanH = String(h || '').trim();
+          return cleanH || `Column ${String.fromCharCode(65 + i)}`;
+        });
+        setAvailableHeaders(detectedColList);
+
+        const newMapping = {
+          staffId: '',
+          attendanceDate: '',
+          checkin1: '',
+          checkout1: '',
+          checkin2: '',
+          checkout2: '',
+          note: '',
+        };
+
+        detectedColList.forEach(colName => {
+          const matchedField = detectAttendanceCol(colName);
+          if (matchedField && !newMapping[matchedField]) {
+            newMapping[matchedField] = colName;
+          }
+        });
+
+        setColumnMapping(newMapping);
+        applyMappingAndBuildAttendanceRows(sheetData, bestHeaderIdx, newMapping);
+      } catch (err) {
+        console.error('Error parsing Excel:', err);
+        setExcelError(locale === 'kh' ? 'មានបញ្ហាក្នុងការអានឯកសារ Excel' : 'Failed to parse Excel file');
+      }
+    };
+    reader.readAsArrayBuffer(file);
+  };
+
+  const handleDownloadAttendanceTemplate = () => {
+    const todayStr = new Date().toISOString().split('T')[0];
+    const templateData = [
+      {
+        'Staff ID': employeesList[0]?.staffId || 'EMP-001',
+        'Date': todayStr,
+        'Check-in 1': '08:00',
+        'Check-out 1': '12:00',
+        'Check-in 2': '13:00',
+        'Check-out 2': '17:00',
+        'Note': 'Normal work'
+      },
+      {
+        'Staff ID': employeesList[1]?.staffId || 'EMP-002',
+        'Date': todayStr,
+        'Check-in 1': '07:55',
+        'Check-out 1': '12:05',
+        'Check-in 2': '13:02',
+        'Check-out 2': '17:01',
+        'Note': ''
+      }
+    ];
+
+    const ws = XLSX.utils.json_to_sheet(templateData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Attendance_Template');
+    XLSX.writeFile(wb, 'Attendance_Import_Template.xlsx');
+  };
+
+  const handleInsertAllAttendance = async () => {
+    const validRows = excelRows.filter(r => r.isValid);
+    if (validRows.length === 0) {
+      setExcelError(locale === 'kh' ? 'គ្មានទិន្នន័យត្រឹមត្រូវសម្រាប់បញ្ចូលទេ' : 'No valid records ready to insert');
+      return;
+    }
+
+    setExcelImportLoading(true);
+    setExcelError('');
+    try {
+      const payload = validRows.map(r => ({
+        staffId: r.staffId,
+        attendanceDate: r.attendanceDate,
+        checkin1: r.checkin1,
+        checkout1: r.checkout1,
+        checkin2: r.checkin2,
+        checkout2: r.checkout2,
+        note: r.note,
+      }));
+
+      const res = await api.post('/attendances/batch', payload);
+      setExcelImportResult(res.data);
+      playSound('success');
+      await fetchLogs();
+    } catch (err) {
+      console.error('Error inserting excel attendance:', err);
+      setExcelError(err.response?.data?.message || (locale === 'kh' ? 'មានបញ្ហាក្នុងការបញ្ចូលទិន្នន័យ' : 'Failed to insert attendance records'));
+      playSound('error');
+    } finally {
+      setExcelImportLoading(false);
+    }
+  };
+
   return (
     <div className="space-y-6 text-slate-100">
       {/* Title Block */}
@@ -620,6 +976,24 @@ const Attendance = () => {
             <ArrowDownTrayIcon className="h-4 w-4 stroke-[2.5]" />
             <span>{t('exportExcel')}</span>
           </button>
+
+          {hasPermission('add_attendance') && (
+            <button
+              type="button"
+              onClick={() => {
+                setShowExcelModal(true);
+                setExcelFile(null);
+                setExcelFileName('');
+                setExcelRows([]);
+                setExcelError('');
+                setExcelImportResult(null);
+              }}
+              className="flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-500 border border-emerald-400/40 text-white rounded-2xl font-bold text-sm transition-all shadow-md shadow-emerald-600/20 hover:shadow-lg cursor-pointer font-khmer"
+            >
+              <ArrowUpTrayIcon className="h-4 w-4 stroke-[2.5]" />
+              <span>{locale === 'kh' ? 'នាំចូល Excel' : 'Import Excel'}</span>
+            </button>
+          )}
 
           {hasPermission('add_attendance') && (
             <button
@@ -1119,6 +1493,461 @@ const Attendance = () => {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Excel Import Modal */}
+      {showExcelModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-slate-950/80 backdrop-blur-md overflow-y-auto">
+          <div className="bg-slate-900 border border-white/10 rounded-2xl w-full max-w-5xl shadow-2xl overflow-hidden flex flex-col max-h-[92vh] animate-in fade-in zoom-in duration-200">
+            {/* Modal Header */}
+            <div className="px-6 py-4 bg-slate-950/60 border-b border-white/10 flex flex-wrap items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">
+                  <DocumentArrowUpIcon className="h-6 w-6" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-white font-khmer">
+                    {locale === 'kh' ? 'នាំចូលទិន្នន័យវត្តមានតាមរយៈ Excel' : 'Import Attendance Logs via Excel'}
+                  </h3>
+                  <p className="text-xs text-slate-400">
+                    {locale === 'kh' ? 'ជ្រើសរើសឯកសារ Excel (.xlsx, .xls) ដើម្បីបញ្ចូលកំណត់ត្រាវត្តមាន' : 'Select an Excel file (.xlsx, .xls) to batch import attendance records'}
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleDownloadAttendanceTemplate}
+                  className="flex items-center gap-2 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 border border-white/10 text-slate-200 hover:text-white rounded-xl text-xs font-semibold transition-all cursor-pointer font-khmer"
+                >
+                  <ArrowDownTrayIcon className="h-4 w-4 text-emerald-400" />
+                  <span>{locale === 'kh' ? 'ទាញយកទម្រង់គំរូ' : 'Download Template'}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowExcelModal(false);
+                    setExcelFile(null);
+                    setExcelFileName('');
+                    setExcelRows([]);
+                    setExcelError('');
+                    setExcelImportResult(null);
+                  }}
+                  className="p-1.5 text-slate-400 hover:text-white hover:bg-white/5 rounded-lg transition-colors cursor-pointer border-none outline-none"
+                >
+                  <XMarkIcon className="h-5 w-5" />
+                </button>
+              </div>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-6 overflow-y-auto space-y-4 flex-1">
+              {/* File Upload Zone */}
+              <input
+                type="file"
+                ref={excelFileInputRef}
+                accept=".xlsx, .xls, .csv"
+                className="hidden"
+                onChange={(e) => {
+                  if (e.target.files && e.target.files[0]) {
+                    parseAttendanceExcelFile(e.target.files[0]);
+                  }
+                }}
+              />
+
+              {!excelFileName ? (
+                <div
+                  onClick={() => excelFileInputRef.current && excelFileInputRef.current.click()}
+                  className="border-2 border-dashed border-emerald-500/40 hover:border-emerald-400 bg-emerald-950/10 hover:bg-emerald-950/20 rounded-2xl p-8 flex flex-col items-center justify-center text-center cursor-pointer transition-all group"
+                >
+                  <div className="p-4 rounded-full bg-emerald-500/10 text-emerald-400 group-hover:scale-110 transition-transform mb-3">
+                    <ArrowUpTrayIcon className="h-8 w-8" />
+                  </div>
+                  <p className="text-sm font-semibold text-white font-khmer mb-1">
+                    {locale === 'kh' ? 'ចុចទីនេះដើម្បីជ្រើសរើសឯកសារ Excel ឬទម្លាក់ឯកសារនៅទីនេះ' : 'Click to select an Excel file or drag & drop here'}
+                  </p>
+                  <p className="text-xs text-slate-400">
+                    {locale === 'kh' ? 'ទ្រទ្រង់ឯកសារ .xlsx, .xls, .csv' : 'Supports .xlsx, .xls, .csv files'}
+                  </p>
+                  <div className="mt-4 flex flex-wrap justify-center gap-2 text-[11px] text-slate-400">
+                    <span className="px-2 py-0.5 rounded-md bg-slate-800 border border-white/5">Staff ID</span>
+                    <span className="px-2 py-0.5 rounded-md bg-slate-800 border border-white/5">Date</span>
+                    <span className="px-2 py-0.5 rounded-md bg-slate-800 border border-white/5">Check-in 1</span>
+                    <span className="px-2 py-0.5 rounded-md bg-slate-800 border border-white/5">Check-out 1</span>
+                    <span className="px-2 py-0.5 rounded-md bg-slate-800 border border-white/5">Check-in 2</span>
+                    <span className="px-2 py-0.5 rounded-md bg-slate-800 border border-white/5">Check-out 2</span>
+                    <span className="px-2 py-0.5 rounded-md bg-slate-800 border border-white/5">Note</span>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex flex-wrap items-center justify-between gap-3 p-4 bg-slate-950/50 border border-white/10 rounded-xl">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 rounded-lg bg-emerald-500/20 text-emerald-400">
+                      <DocumentArrowUpIcon className="h-5 w-5" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold text-white">{excelFileName}</p>
+                      <p className="text-xs text-slate-400 font-khmer">
+                        {locale === 'kh' ? `រកឃើញទិន្នន័យសរុប ${excelRows.length} ជួរ` : `Found ${excelRows.length} records in total`}
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => excelFileInputRef.current && excelFileInputRef.current.click()}
+                    className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold rounded-lg transition-colors cursor-pointer font-khmer"
+                  >
+                    {locale === 'kh' ? 'ជ្រើសរើសឯកសារផ្សេង' : 'Change File'}
+                  </button>
+                </div>
+              )}
+
+              {/* Error Message */}
+              {excelError && (
+                <div className="p-3.5 bg-rose-500/10 border border-rose-500/20 text-rose-400 rounded-xl text-xs flex items-center gap-2">
+                  <ExclamationTriangleIcon className="h-4 w-4 shrink-0" />
+                  <span>{excelError}</span>
+                </div>
+              )}
+
+              {/* Success Result Message */}
+              {excelImportResult && (
+                <div className="p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-xl space-y-2">
+                  <div className="flex items-center gap-2 text-emerald-400 font-semibold text-sm font-khmer">
+                    <CheckCircleIcon className="h-5 w-5" />
+                    <span>
+                      {locale === 'kh'
+                        ? `បានដំណើរការដោយជោគជ័យចំនួន ${(excelImportResult.insertedCount || 0) + (excelImportResult.updatedCount || 0)} កំណត់ត្រា!`
+                        : `Successfully processed ${(excelImportResult.insertedCount || 0) + (excelImportResult.updatedCount || 0)} attendance records!`}
+                    </span>
+                  </div>
+                  <div className="flex flex-wrap gap-3 text-xs text-slate-300">
+                    <span>{locale === 'kh' ? 'បង្កើតថ្មី៖' : 'Inserted:'} <strong className="text-emerald-400">{excelImportResult.insertedCount || 0}</strong></span>
+                    <span>{locale === 'kh' ? 'កែប្រែបន្ថែម៖' : 'Updated:'} <strong className="text-indigo-400">{excelImportResult.updatedCount || 0}</strong></span>
+                    {excelImportResult.skippedCount > 0 && (
+                      <span className="text-amber-400">{locale === 'kh' ? 'រំលង៖' : 'Skipped:'} <strong>{excelImportResult.skippedCount}</strong></span>
+                    )}
+                  </div>
+                  {Array.isArray(excelImportResult.errors) && excelImportResult.errors.length > 0 && (
+                    <div className="mt-2 text-[11px] text-slate-400 max-h-24 overflow-y-auto space-y-1 pl-6 list-disc">
+                      {excelImportResult.errors.map((err, i) => (
+                        <div key={i} className="text-amber-300/80">• {err}</div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Stats Bar */}
+              {excelRows.length > 0 && (
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div className="p-3 bg-slate-950/40 border border-white/5 rounded-xl">
+                    <span className="text-xs text-slate-400 block font-khmer">{locale === 'kh' ? 'ជួរសរុប' : 'Total Rows'}</span>
+                    <span className="text-lg font-bold text-white">{excelRows.length}</span>
+                  </div>
+                  <div className="p-3 bg-emerald-950/20 border border-emerald-500/20 rounded-xl">
+                    <span className="text-xs text-emerald-400 block font-khmer">{locale === 'kh' ? 'ត្រៀមបញ្ចូល (ត្រឹមត្រូវ)' : 'Ready to Insert'}</span>
+                    <span className="text-lg font-bold text-emerald-400">
+                      {excelRows.filter(r => r.isValid).length}
+                    </span>
+                  </div>
+                  <div className="p-3 bg-amber-950/20 border border-amber-500/20 rounded-xl">
+                    <span className="text-xs text-amber-400 block font-khmer">{locale === 'kh' ? 'មានបញ្ហា / មិនស្គាល់' : 'Warnings / Unmatched'}</span>
+                    <span className="text-lg font-bold text-amber-400">
+                      {excelRows.filter(r => !r.isValid).length}
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              {/* Mapping Controls & Header Info */}
+              {availableHeaders.length > 0 && (
+                <div className="bg-slate-950/40 border border-white/10 rounded-xl p-3.5 space-y-3">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div className="flex items-center gap-2 text-xs">
+                      <span className="font-semibold text-emerald-400 font-khmer">
+                        {locale === 'kh' ? 'ជួរឈរដែលបានចាប់ (Detected Columns):' : 'Detected Columns:'}
+                      </span>
+                      <span className="text-slate-300 text-[11px]">
+                        {availableHeaders.slice(0, 7).join(', ')}{availableHeaders.length > 7 ? '...' : ''}
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setShowMappingPanel(!showMappingPanel)}
+                      className="px-2.5 py-1 bg-indigo-600/30 hover:bg-indigo-600/50 border border-indigo-500/40 text-indigo-200 rounded-lg text-xs font-semibold cursor-pointer transition-colors font-khmer flex items-center gap-1.5"
+                    >
+                      <PencilIcon className="h-3.5 w-3.5" />
+                      <span>{showMappingPanel ? (locale === 'kh' ? 'លាក់ការផ្គូផ្គង' : 'Hide Mapping') : (locale === 'kh' ? 'កែសម្រួលផ្គូផ្គងជួរឈរ (Edit Mapping)' : 'Edit Column Mapping')}</span>
+                    </button>
+                  </div>
+
+                  {/* Dropdowns for Column Mapping */}
+                  {showMappingPanel && (
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-3 border-t border-white/5 text-xs">
+                      <div>
+                        <label className="block text-[11px] text-slate-400 mb-1 font-khmer">Staff ID</label>
+                        <select
+                          value={columnMapping.staffId}
+                          onChange={(e) => {
+                            const updated = { ...columnMapping, staffId: e.target.value };
+                            setColumnMapping(updated);
+                            applyMappingAndBuildAttendanceRows(rawSheetData, headerRowIdx, updated);
+                          }}
+                          className="w-full py-1.5 px-2 bg-slate-900 border border-white/15 text-white rounded-lg text-xs outline-none"
+                        >
+                          <option value="">-- {locale === 'kh' ? 'ជ្រើសរើស' : 'Select'} --</option>
+                          {availableHeaders.map(h => (
+                            <option key={h} value={h}>{h}</option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block text-[11px] text-slate-400 mb-1 font-khmer">{locale === 'kh' ? 'កាលបរិច្ឆេទ (Date)' : 'Date'}</label>
+                        <select
+                          value={columnMapping.attendanceDate}
+                          onChange={(e) => {
+                            const updated = { ...columnMapping, attendanceDate: e.target.value };
+                            setColumnMapping(updated);
+                            applyMappingAndBuildAttendanceRows(rawSheetData, headerRowIdx, updated);
+                          }}
+                          className="w-full py-1.5 px-2 bg-slate-900 border border-white/15 text-white rounded-lg text-xs outline-none"
+                        >
+                          <option value="">-- {locale === 'kh' ? 'ជ្រើសរើស' : 'Select'} --</option>
+                          {availableHeaders.map(h => (
+                            <option key={h} value={h}>{h}</option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block text-[11px] text-slate-400 mb-1 font-khmer">Check In 1</label>
+                        <select
+                          value={columnMapping.checkin1}
+                          onChange={(e) => {
+                            const updated = { ...columnMapping, checkin1: e.target.value };
+                            setColumnMapping(updated);
+                            applyMappingAndBuildAttendanceRows(rawSheetData, headerRowIdx, updated);
+                          }}
+                          className="w-full py-1.5 px-2 bg-slate-900 border border-white/15 text-white rounded-lg text-xs outline-none"
+                        >
+                          <option value="">-- {locale === 'kh' ? 'ជ្រើសរើស' : 'Select'} --</option>
+                          {availableHeaders.map(h => (
+                            <option key={h} value={h}>{h}</option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block text-[11px] text-slate-400 mb-1 font-khmer">Check Out 1</label>
+                        <select
+                          value={columnMapping.checkout1}
+                          onChange={(e) => {
+                            const updated = { ...columnMapping, checkout1: e.target.value };
+                            setColumnMapping(updated);
+                            applyMappingAndBuildAttendanceRows(rawSheetData, headerRowIdx, updated);
+                          }}
+                          className="w-full py-1.5 px-2 bg-slate-900 border border-white/15 text-white rounded-lg text-xs outline-none"
+                        >
+                          <option value="">-- {locale === 'kh' ? 'ជ្រើសរើស' : 'Select'} --</option>
+                          {availableHeaders.map(h => (
+                            <option key={h} value={h}>{h}</option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block text-[11px] text-slate-400 mb-1 font-khmer">Check In 2</label>
+                        <select
+                          value={columnMapping.checkin2}
+                          onChange={(e) => {
+                            const updated = { ...columnMapping, checkin2: e.target.value };
+                            setColumnMapping(updated);
+                            applyMappingAndBuildAttendanceRows(rawSheetData, headerRowIdx, updated);
+                          }}
+                          className="w-full py-1.5 px-2 bg-slate-900 border border-white/15 text-white rounded-lg text-xs outline-none"
+                        >
+                          <option value="">-- {locale === 'kh' ? 'ជ្រើសរើស' : 'Select'} --</option>
+                          {availableHeaders.map(h => (
+                            <option key={h} value={h}>{h}</option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block text-[11px] text-slate-400 mb-1 font-khmer">Check Out 2</label>
+                        <select
+                          value={columnMapping.checkout2}
+                          onChange={(e) => {
+                            const updated = { ...columnMapping, checkout2: e.target.value };
+                            setColumnMapping(updated);
+                            applyMappingAndBuildAttendanceRows(rawSheetData, headerRowIdx, updated);
+                          }}
+                          className="w-full py-1.5 px-2 bg-slate-900 border border-white/15 text-white rounded-lg text-xs outline-none"
+                        >
+                          <option value="">-- {locale === 'kh' ? 'ជ្រើសរើស' : 'Select'} --</option>
+                          {availableHeaders.map(h => (
+                            <option key={h} value={h}>{h}</option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div className="col-span-2">
+                        <label className="block text-[11px] text-slate-400 mb-1 font-khmer">{locale === 'kh' ? 'កំណត់សម្គាល់ (Note)' : 'Note'}</label>
+                        <select
+                          value={columnMapping.note}
+                          onChange={(e) => {
+                            const updated = { ...columnMapping, note: e.target.value };
+                            setColumnMapping(updated);
+                            applyMappingAndBuildAttendanceRows(rawSheetData, headerRowIdx, updated);
+                          }}
+                          className="w-full py-1.5 px-2 bg-slate-900 border border-white/15 text-white rounded-lg text-xs outline-none"
+                        >
+                          <option value="">-- {locale === 'kh' ? 'ជ្រើសរើស' : 'Select'} --</option>
+                          {availableHeaders.map(h => (
+                            <option key={h} value={h}>{h}</option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Table Preview */}
+              {excelRows.length > 0 && (
+                <div className="border border-white/10 rounded-xl overflow-hidden">
+                  <div className="px-4 py-2.5 bg-slate-950/80 border-b border-white/10 flex items-center justify-between">
+                    <h4 className="text-xs font-semibold text-slate-300 font-khmer">
+                      {locale === 'kh' ? 'ទិដ្ឋភាពទូទៅនៃទិន្នន័យ (Data Preview)' : 'Data Preview'}
+                    </h4>
+                    <span className="text-[11px] text-slate-400">
+                      {excelRows.filter(r => r.isValid).length} / {excelRows.length} {locale === 'kh' ? 'ជួរត្រឹមត្រូវ' : 'valid'}
+                    </span>
+                  </div>
+
+                  <div className="overflow-x-auto max-h-[320px]">
+                    <table className="w-full text-left text-xs text-slate-300">
+                      <thead className="bg-slate-950 text-slate-400 text-[11px] uppercase tracking-wider sticky top-0 z-10 border-b border-white/10">
+                        <tr>
+                          <th className="px-3 py-2 text-center w-12">#</th>
+                          <th className="px-3 py-2">Staff ID</th>
+                          <th className="px-3 py-2">Employee</th>
+                          <th className="px-3 py-2">Department</th>
+                          <th className="px-3 py-2">Date</th>
+                          <th className="px-3 py-2">In 1</th>
+                          <th className="px-3 py-2">Out 1</th>
+                          <th className="px-3 py-2">In 2</th>
+                          <th className="px-3 py-2">Out 2</th>
+                          <th className="px-3 py-2">Note</th>
+                          <th className="px-3 py-2 text-center">Status</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-white/5 bg-slate-900/50">
+                        {excelRows.map((r, idx) => (
+                          <tr
+                            key={idx}
+                            className={`hover:bg-white/5 transition-colors ${
+                              !r.isValid ? 'bg-amber-500/5' : ''
+                            }`}
+                          >
+                            <td className="px-3 py-2 text-center text-slate-500 font-mono">{r.rowIndex}</td>
+                            <td className="px-3 py-2 font-mono font-semibold text-white">{r.staffId || '-'}</td>
+                            <td className="px-3 py-2 font-medium text-slate-200">{r.empName || '-'}</td>
+                            <td className="px-3 py-2 text-indigo-300">{r.departmentName || '-'}</td>
+                            <td className="px-3 py-2 font-mono">{formatDateDDMMYYYY(r.attendanceDate)}</td>
+                            <td className="px-3 py-2 text-emerald-400 font-mono">{r.checkin1 || '-'}</td>
+                            <td className="px-3 py-2 text-amber-400 font-mono">{r.checkout1 || '-'}</td>
+                            <td className="px-3 py-2 text-emerald-400 font-mono">{r.checkin2 || '-'}</td>
+                            <td className="px-3 py-2 text-amber-400 font-mono">{r.checkout2 || '-'}</td>
+                            <td className="px-3 py-2 text-slate-400 max-w-[140px] truncate">{r.note || '-'}</td>
+                            <td className="px-3 py-2 text-center">
+                              {r.isValid ? (
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-khmer">
+                                  <CheckCircleIcon className="h-3 w-3" />
+                                  <span>{locale === 'kh' ? 'ត្រៀម' : 'Ready'}</span>
+                                </span>
+                              ) : (
+                                <span
+                                  title={r.warnings.join(', ')}
+                                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/10 text-amber-400 border border-amber-500/20 cursor-help font-khmer"
+                                >
+                                  <ExclamationTriangleIcon className="h-3 w-3" />
+                                  <span>{r.warnings[0] || (locale === 'kh' ? 'ព្រមាន' : 'Warning')}</span>
+                                </span>
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="px-6 py-4 bg-slate-950/80 border-t border-white/10 flex flex-wrap items-center justify-between gap-3">
+              <div className="text-xs text-slate-400 font-khmer">
+                {excelRows.length > 0 && !excelImportResult && (
+                  <span>
+                    {locale === 'kh'
+                      ? `មានទិន្នន័យត្រឹមត្រូវ ${excelRows.filter(r => r.isValid).length} កំណត់ត្រា ត្រៀមបញ្ចូល`
+                      : `${excelRows.filter(r => r.isValid).length} valid attendance record(s) ready to insert`}
+                  </span>
+                )}
+              </div>
+
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowExcelModal(false);
+                    setExcelFile(null);
+                    setExcelFileName('');
+                    setExcelRows([]);
+                    setExcelError('');
+                    setExcelImportResult(null);
+                  }}
+                  className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-semibold transition-colors cursor-pointer font-khmer border-none"
+                >
+                  {excelImportResult ? (locale === 'kh' ? 'រួចរាល់ / បិទ' : 'Done / Close') : t('cancel')}
+                </button>
+
+                {/* THE INSERT ALL BUTTON */}
+                <button
+                  type="button"
+                  id="btn-insert-all-attendance"
+                  onClick={handleInsertAllAttendance}
+                  disabled={
+                    excelImportLoading ||
+                    excelRows.filter(r => r.isValid).length === 0 ||
+                    excelImportResult !== null
+                  }
+                  className="flex items-center gap-2 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 disabled:opacity-40 disabled:cursor-not-allowed text-white px-5 py-2.5 rounded-xl font-bold text-sm transition-all shadow-md shadow-emerald-500/25 font-khmer cursor-pointer border-none outline-none"
+                >
+                  {excelImportLoading ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                      <span>{locale === 'kh' ? 'កំពុងបញ្ចូល...' : 'Inserting...'}</span>
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircleIcon className="h-5 w-5" />
+                      <span>
+                        {locale === 'kh'
+                          ? `Insert all (${excelRows.filter(r => r.isValid).length})`
+                          : `Insert all (${excelRows.filter(r => r.isValid).length})`}
+                      </span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}

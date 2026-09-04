@@ -139,6 +139,8 @@ public class EmployeeController {
         private String gender;
         private UUID positionId;
         private UUID departmentId;
+        private String departmentName;
+        private String positionTitle;
         private String branch;
         private String joinDate;
         private String status;
@@ -224,6 +226,150 @@ public class EmployeeController {
                 .collect(Collectors.toMap(EmployeeFaceData::getStaffId, EmployeeFaceData::getPhotoUrl, (a, b) -> a));
 
         return ResponseEntity.status(HttpStatus.CREATED).body(enrichEmployee(saved, deptMap, posMap, faceDataMap));
+    }
+
+    @PostMapping("/batch")
+    @PreAuthorize("@perm.has('add_employee')")
+    public ResponseEntity<?> batchCreateEmployees(@RequestBody List<EmployeeCreateDto> dtoList) {
+        if (dtoList == null || dtoList.isEmpty()) {
+            return ResponseEntity.badRequest().body(Map.of("message", "Employee list is empty"));
+        }
+
+        List<Department> allDepts = new ArrayList<>(departmentRepository.findAll());
+        List<Position> allPositions = new ArrayList<>(positionRepository.findAll());
+
+        int insertedCount = 0;
+        int skippedCount = 0;
+        List<String> errors = new ArrayList<>();
+
+        for (int i = 0; i < dtoList.size(); i++) {
+            EmployeeCreateDto dto = dtoList.get(i);
+            String staffId = dto.getStaffId() != null ? dto.getStaffId().trim() : "";
+            String nameEn = dto.getNameEn() != null ? dto.getNameEn().trim() : "";
+            String nameKh = dto.getNameKh() != null && !dto.getNameKh().isBlank() ? dto.getNameKh().trim() : nameEn;
+            String email = dto.getEmail() != null ? dto.getEmail().trim() : "";
+
+            if (staffId.isEmpty() || nameEn.isEmpty() || email.isEmpty()) {
+                skippedCount++;
+                errors.add("Row " + (i + 1) + ": Missing required fields (Staff ID, Name EN, or Email)");
+                continue;
+            }
+
+            if (employeeRepository.findByStaffId(staffId).isPresent()) {
+                skippedCount++;
+                errors.add("Row " + (i + 1) + " (" + staffId + "): Staff ID already exists");
+                continue;
+            }
+
+            if (employeeRepository.findByEmail(email).isPresent()) {
+                skippedCount++;
+                errors.add("Row " + (i + 1) + " (" + email + "): Email already exists");
+                continue;
+            }
+
+            // Resolve department
+            UUID deptId = dto.getDepartmentId();
+            if (deptId == null && dto.getDepartmentName() != null && !dto.getDepartmentName().isBlank()) {
+                final String dName = dto.getDepartmentName().trim().toLowerCase();
+                Department matchedDept = allDepts.stream()
+                        .filter(d -> (d.getNameEn() != null && d.getNameEn().equalsIgnoreCase(dName)) ||
+                                     (d.getNameKh() != null && d.getNameKh().equalsIgnoreCase(dName)))
+                        .findFirst()
+                        .orElse(null);
+                if (matchedDept == null) {
+                    matchedDept = departmentRepository.save(Department.builder()
+                            .nameEn(dto.getDepartmentName().trim())
+                            .nameKh(dto.getDepartmentName().trim())
+                            .description("Imported from Excel")
+                            .build());
+                    allDepts.add(matchedDept);
+                }
+                deptId = matchedDept.getId();
+            }
+            if (deptId == null && !allDepts.isEmpty()) {
+                deptId = allDepts.get(0).getId();
+            }
+
+            // Resolve position
+            UUID posId = dto.getPositionId();
+            if (posId == null && dto.getPositionTitle() != null && !dto.getPositionTitle().isBlank()) {
+                final String pTitle = dto.getPositionTitle().trim().toLowerCase();
+                Position matchedPos = allPositions.stream()
+                        .filter(p -> (p.getTitleEn() != null && p.getTitleEn().equalsIgnoreCase(pTitle)) ||
+                                     (p.getTitleKh() != null && p.getTitleKh().equalsIgnoreCase(pTitle)))
+                        .findFirst()
+                        .orElse(null);
+                if (matchedPos == null) {
+                    matchedPos = positionRepository.save(Position.builder()
+                            .titleEn(dto.getPositionTitle().trim())
+                            .titleKh(dto.getPositionTitle().trim())
+                            .departmentId(deptId)
+                            .build());
+                    allPositions.add(matchedPos);
+                }
+                posId = matchedPos.getId();
+            }
+            if (posId == null && !allPositions.isEmpty()) {
+                posId = allPositions.get(0).getId();
+            }
+
+            Role role = parseRole(dto.getRole());
+            Status status = parseStatus(dto.getStatus());
+            LocalDate join = LocalDate.now();
+            if (dto.getJoinDate() != null && !dto.getJoinDate().isBlank()) {
+                try {
+                    join = LocalDate.parse(dto.getJoinDate().trim());
+                } catch (Exception ignored) {
+                    try {
+                        String[] parts = dto.getJoinDate().trim().split("[-/]");
+                        if (parts.length == 3) {
+                            if (parts[0].length() == 4) {
+                                join = LocalDate.of(Integer.parseInt(parts[0]), Integer.parseInt(parts[1]), Integer.parseInt(parts[2]));
+                            } else if (parts[2].length() == 4) {
+                                join = LocalDate.of(Integer.parseInt(parts[2]), Integer.parseInt(parts[1]), Integer.parseInt(parts[0]));
+                            }
+                        }
+                    } catch (Exception ex) {}
+                }
+            }
+
+            String rawPass = (dto.getPassword() != null && !dto.getPassword().isBlank()) ? dto.getPassword().trim() : "12345678";
+
+            Employee emp = Employee.builder()
+                    .staffId(staffId)
+                    .nameEn(nameEn)
+                    .nameKh(nameKh)
+                    .gender(dto.getGender() != null && !dto.getGender().isBlank() ? dto.getGender() : "Male")
+                    .positionId(posId)
+                    .departmentId(deptId)
+                    .branch(dto.getBranch() != null ? dto.getBranch() : "")
+                    .joinDate(join)
+                    .status(status)
+                    .shift1Start(dto.getShift1Start() != null && !dto.getShift1Start().isBlank() ? dto.getShift1Start() : "08:00")
+                    .shift1End(dto.getShift1End() != null && !dto.getShift1End().isBlank() ? dto.getShift1End() : "12:00")
+                    .shift2Start(dto.getShift2Start() != null ? dto.getShift2Start() : "13:00")
+                    .shift2End(dto.getShift2End() != null ? dto.getShift2End() : "17:00")
+                    .isFlexible(dto.getIsFlexible() != null ? dto.getIsFlexible() : false)
+                    .flexibleSchedule(dto.getFlexibleSchedule() != null ? dto.getFlexibleSchedule() : "{}")
+                    .address(dto.getAddress() != null ? dto.getAddress() : "")
+                    .idCardPassport(dto.getIdCardPassport() != null ? dto.getIdCardPassport() : "")
+                    .email(email)
+                    .password(passwordEncoder.encode(rawPass))
+                    .role(role)
+                    .photoUrl(dto.getProfilePhoto())
+                    .build();
+
+            employeeRepository.save(emp);
+            insertedCount++;
+        }
+
+        return ResponseEntity.ok(Map.of(
+                "success", true,
+                "message", "Successfully inserted " + insertedCount + " employee(s)",
+                "insertedCount", insertedCount,
+                "skippedCount", skippedCount,
+                "errors", errors
+        ));
     }
 
     @PutMapping("/{id}")

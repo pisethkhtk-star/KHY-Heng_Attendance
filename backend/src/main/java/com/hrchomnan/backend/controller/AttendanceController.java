@@ -362,6 +362,110 @@ public class AttendanceController {
         ));
     }
 
+    @PostMapping("/batch")
+    @PreAuthorize("@perm.has('add_attendance') or hasAnyRole('Admin', 'HR')")
+    public ResponseEntity<?> batchCreateAttendances(@RequestBody List<Map<String, Object>> dtoList) {
+        if (dtoList == null || dtoList.isEmpty()) {
+            return ResponseEntity.badRequest().body(Map.of("message", "Attendance list is empty"));
+        }
+
+        Map<String, Employee> empMap = employeeRepository.findAll().stream()
+                .collect(Collectors.toMap(e -> e.getStaffId().trim().toLowerCase(), e -> e, (a, b) -> a));
+
+        int insertedCount = 0;
+        int updatedCount = 0;
+        int skippedCount = 0;
+        List<String> errors = new ArrayList<>();
+
+        for (int i = 0; i < dtoList.size(); i++) {
+            Map<String, Object> item = dtoList.get(i);
+            String rawStaffId = item.get("staffId") != null ? item.get("staffId").toString().trim() : "";
+            String rawDateStr = item.get("attendanceDate") != null ? item.get("attendanceDate").toString().trim() : "";
+
+            if (rawStaffId.isEmpty() || rawDateStr.isEmpty()) {
+                skippedCount++;
+                errors.add("Row " + (i + 1) + ": Missing Staff ID or Date");
+                continue;
+            }
+
+            Employee emp = empMap.get(rawStaffId.toLowerCase());
+            if (emp == null) {
+                skippedCount++;
+                errors.add("Row " + (i + 1) + " (" + rawStaffId + "): Employee not found");
+                continue;
+            }
+
+            LocalDate attDate;
+            try {
+                attDate = LocalDate.parse(rawDateStr);
+            } catch (Exception ex) {
+                try {
+                    String[] parts = rawDateStr.split("[-/]");
+                    if (parts.length == 3) {
+                        if (parts[0].length() == 4) {
+                            attDate = LocalDate.of(Integer.parseInt(parts[0]), Integer.parseInt(parts[1]), Integer.parseInt(parts[2]));
+                        } else if (parts[2].length() == 4) {
+                            attDate = LocalDate.of(Integer.parseInt(parts[2]), Integer.parseInt(parts[1]), Integer.parseInt(parts[0]));
+                        } else {
+                            skippedCount++;
+                            errors.add("Row " + (i + 1) + ": Invalid date format " + rawDateStr);
+                            continue;
+                        }
+                    } else {
+                        skippedCount++;
+                        errors.add("Row " + (i + 1) + ": Invalid date format " + rawDateStr);
+                        continue;
+                    }
+                } catch (Exception e2) {
+                    skippedCount++;
+                    errors.add("Row " + (i + 1) + ": Invalid date format " + rawDateStr);
+                    continue;
+                }
+            }
+
+            String checkin1 = item.get("checkin1") != null ? item.get("checkin1").toString().trim() : null;
+            String checkout1 = item.get("checkout1") != null ? item.get("checkout1").toString().trim() : null;
+            String checkin2 = item.get("checkin2") != null ? item.get("checkin2").toString().trim() : null;
+            String checkout2 = item.get("checkout2") != null ? item.get("checkout2").toString().trim() : null;
+            String note = item.get("note") != null ? item.get("note").toString().trim() : null;
+
+            Optional<Attendance> existingOpt = attendanceRepository.findByStaffIdAndAttendanceDate(emp.getStaffId(), attDate);
+            if (existingOpt.isPresent()) {
+                Attendance existing = existingOpt.get();
+                if (checkin1 != null && !checkin1.isBlank()) existing.setCheckin1(checkin1);
+                if (checkout1 != null && !checkout1.isBlank()) existing.setCheckout1(checkout1);
+                if (checkin2 != null && !checkin2.isBlank()) existing.setCheckin2(checkin2);
+                if (checkout2 != null && !checkout2.isBlank()) existing.setCheckout2(checkout2);
+                if (note != null && !note.isBlank()) existing.setNote(note);
+                calculateLateAndEarlyLeave(existing, emp);
+                attendanceRepository.save(existing);
+                updatedCount++;
+            } else {
+                Attendance newAtt = Attendance.builder()
+                        .staffId(emp.getStaffId())
+                        .attendanceDate(attDate)
+                        .checkin1(checkin1)
+                        .checkout1(checkout1)
+                        .checkin2(checkin2)
+                        .checkout2(checkout2)
+                        .note(note)
+                        .build();
+                calculateLateAndEarlyLeave(newAtt, emp);
+                attendanceRepository.save(newAtt);
+                insertedCount++;
+            }
+        }
+
+        return ResponseEntity.ok(Map.of(
+                "success", true,
+                "message", "Successfully processed " + (insertedCount + updatedCount) + " attendance record(s)",
+                "insertedCount", insertedCount,
+                "updatedCount", updatedCount,
+                "skippedCount", skippedCount,
+                "errors", errors
+        ));
+    }
+
     @PutMapping("/{id}")
     @PreAuthorize("@perm.has('edit_attendance')")
     public ResponseEntity<?> updateAttendance(@PathVariable UUID id, @RequestBody Attendance updated) {

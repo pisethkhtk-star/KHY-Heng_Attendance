@@ -4,7 +4,7 @@ services:
     container_name: hr_attendance_postgres
     restart: unless-stopped
     environment:
-      POSTGRES_DB: ${POSTGRES_DB:-employee_attendance_db}
+      POSTGRES_DB: ${POSTGRES_DB:-khyheng_att}
       POSTGRES_USER: ${DB_USERNAME:-postgres}
       POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
       TZ: ${TZ:-Asia/Phnom_Penh}
@@ -13,7 +13,7 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME:-postgres} -d ${POSTGRES_DB:-employee_attendance_db}"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME:-postgres} -d ${POSTGRES_DB:-khyheng_att}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -28,7 +28,7 @@ services:
     container_name: hr_attendance_backend
     restart: unless-stopped
     environment:
-      DATABASE_URL: ${DATABASE_URL:-jdbc:postgresql://postgres:5432/employee_attendance_db}
+      DATABASE_URL: ${DATABASE_URL:-jdbc:postgresql://postgres:5432/khyheng_att}
       DB_USERNAME: ${DB_USERNAME:-postgres}
       DB_PASSWORD: ${DB_PASSWORD:-postgres}
       JWT_SECRET: ${JWT_SECRET:-your-super-secret-jwt-key-change-this}
