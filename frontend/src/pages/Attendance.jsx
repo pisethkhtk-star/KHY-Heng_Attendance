@@ -690,40 +690,46 @@ const Attendance = () => {
       return 'attendanceDate';
     }
 
-    // Checkin 1
+    // Checkin 2 (Shift 2 In) - MUST BE CHECKED BEFORE Checkin 1
     if (
-      clean.includes('checkin1') || clean.includes('in1') || clean.includes('checkin') ||
-      clean.includes('ម៉ោងចូល១') || clean.includes('ម៉ោងចូល1') || clean.includes('ចូល១') || clean.includes('ចូល1')
-    ) {
-      return 'checkin1';
-    }
-
-    // Checkout 1
-    if (
-      clean.includes('checkout1') || clean.includes('out1') ||
-      clean.includes('ម៉ោងចេញ១') || clean.includes('ម៉ោងចេញ1') || clean.includes('ចេញ១') || clean.includes('ចេញ1')
-    ) {
-      return 'checkout1';
-    }
-
-    // Checkin 2
-    if (
-      clean.includes('checkin2') || clean.includes('in2') ||
-      clean.includes('ម៉ោងចូល២') || clean.includes('ម៉ោងចូល2') || clean.includes('ចូល២') || clean.includes('ចូល2')
+      clean.includes('checkin2') || clean.includes('in2') || clean.includes('timein2') ||
+      clean.includes('ម៉ោងចូល២') || clean.includes('ម៉ោងចូល2') || clean.includes('ចូល២') || clean.includes('ចូល2') ||
+      clean.includes('ចូលរសៀល') || clean.includes('រសៀលចូល')
     ) {
       return 'checkin2';
     }
 
-    // Checkout 2
+    // Checkout 2 (Shift 2 Out) - MUST BE CHECKED BEFORE Checkout 1
     if (
-      clean.includes('checkout2') || clean.includes('out2') || clean.includes('checkout') ||
-      clean.includes('ម៉ោងចេញ២') || clean.includes('ម៉ោងចេញ2') || clean.includes('ចេញ២') || clean.includes('ចេញ2')
+      clean.includes('checkout2') || clean.includes('out2') || clean.includes('timeout2') ||
+      clean.includes('ម៉ោងចេញ២') || clean.includes('ម៉ោងចេញ2') || clean.includes('ចេញ២') || clean.includes('ចេញ2') ||
+      clean.includes('ចេញរសៀល') || clean.includes('រសៀលចេញ')
     ) {
       return 'checkout2';
     }
 
+    // Checkin 1 (Shift 1 In)
+    if (
+      clean.includes('checkin1') || clean.includes('in1') || clean.includes('timein1') ||
+      clean.includes('checkin') || clean.includes('timein') || clean === 'in' ||
+      clean.includes('ម៉ោងចូល១') || clean.includes('ម៉ោងចូល1') || clean.includes('ចូល១') || clean.includes('ចូល1') ||
+      clean.includes('ចូលព្រឹក') || clean.includes('ព្រឹកចូល') || clean.includes('ម៉ោងចូល') || clean === 'ចូល'
+    ) {
+      return 'checkin1';
+    }
+
+    // Checkout 1 (Shift 1 Out)
+    if (
+      clean.includes('checkout1') || clean.includes('out1') || clean.includes('timeout1') ||
+      clean.includes('checkout') || clean.includes('timeout') || clean === 'out' ||
+      clean.includes('ម៉ោងចេញ១') || clean.includes('ម៉ោងចេញ1') || clean.includes('ចេញ១') || clean.includes('ចេញ1') ||
+      clean.includes('ចេញព្រឹក') || clean.includes('ព្រឹកចេញ') || clean.includes('ម៉ោងចេញ') || clean === 'ចេញ'
+    ) {
+      return 'checkout1';
+    }
+
     // Note
-    if (clean.includes('note') || clean.includes('remark') || clean.includes('description') || clean.includes('កំណត់សម្គាល់') || clean.includes('ផ្សេងៗ')) {
+    if (clean.includes('note') || clean.includes('remark') || clean.includes('description') || clean.includes('កំណត់សម្គាល់') || clean.includes('ផ្សេងៗ') || clean.includes('សម្គាល់')) {
       return 'note';
     }
 
@@ -751,14 +757,50 @@ const Attendance = () => {
     return new Date().toISOString().split('T')[0];
   };
 
-  const formatTimeVal = (val) => {
-    if (!val) return '';
+  const formatTimeVal = (val, isAfternoon = false) => {
+    if (val === null || val === undefined) return '';
+
+    // 1. If it's an Excel fractional time number (e.g. 0.3541666 = 08:30, 0.722222 = 17:20)
+    if (typeof val === 'number') {
+      if (val >= 0 && val < 1) {
+        const totalMinutes = Math.round(val * 24 * 60);
+        const h = Math.floor(totalMinutes / 60) % 24;
+        const m = totalMinutes % 60;
+        return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+      }
+    }
+
+    // 2. If it's a Date object
+    if (val instanceof Date && !isNaN(val)) {
+      const h = val.getHours();
+      const m = val.getMinutes();
+      return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+    }
+
     const str = String(val).trim();
     if (!str || str === '-' || str === '--:--') return '';
-    const match = str.match(/(\d{1,2}):(\d{2})/);
-    if (match) {
-      return `${match[1].padStart(2, '0')}:${match[2]}`;
+
+    // 3. Match time string (e.g. "08:28", "8:28 AM", "05:20 PM", "17:20", "5:20")
+    const ampmMatch = str.match(/(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(am|pm)?/i);
+    if (ampmMatch) {
+      let hours = parseInt(ampmMatch[1], 10);
+      const minutes = ampmMatch[2];
+      const ampm = ampmMatch[4] ? ampmMatch[4].toUpperCase() : null;
+
+      if (ampm === 'PM' && hours < 12) {
+        hours += 12;
+      } else if (ampm === 'AM' && hours === 12) {
+        hours = 0;
+      } else if (!ampm && isAfternoon) {
+        // If afternoon shift and 1 <= hours <= 7 (e.g. 1:00 -> 13:00, 5:20 -> 17:20)
+        if (hours >= 1 && hours <= 7) {
+          hours += 12;
+        }
+      }
+
+      return `${String(hours).padStart(2, '0')}:${minutes}`;
     }
+
     return '';
   };
 
@@ -827,7 +869,12 @@ const Attendance = () => {
         rawDate = formatDateForBackend(rawDate);
       }
 
-      const hasAnyTime = Boolean(rawIn1 || rawOut1 || rawIn2 || rawOut2);
+      const in1 = formatTimeVal(rawIn1, false);
+      const out1 = formatTimeVal(rawOut1, false);
+      const in2 = formatTimeVal(rawIn2, true);
+      const out2 = formatTimeVal(rawOut2, true);
+
+      const hasAnyTime = Boolean(in1 || out1 || in2 || out2);
       if (!hasAnyTime) {
         warnings.push(locale === 'kh' ? 'គ្មានម៉ោងចូល/ចេញ' : 'No check-in/out times');
       }
@@ -838,10 +885,10 @@ const Attendance = () => {
         empName: matchedEmp ? (matchedEmp.nameEn || matchedEmp.nameKh) : '-',
         departmentName: matchedEmp?.department?.nameEn || matchedEmp?.department?.nameKh || '-',
         attendanceDate: rawDate,
-        checkin1: formatTimeVal(rawIn1),
-        checkout1: formatTimeVal(rawOut1),
-        checkin2: formatTimeVal(rawIn2),
-        checkout2: formatTimeVal(rawOut2),
+        checkin1: in1,
+        checkout1: out1,
+        checkin2: in2,
+        checkout2: out2,
         note: rawNote,
         isValid: warnings.length === 0,
         warnings,
