@@ -1879,7 +1879,7 @@ const AttendanceSlip = () => {
                 </div>
 
                 {/* ================= PAGE 2: CHECKIN LATE REPORT (A4 Page 2) ================= */}
-                {showDetailedBreakdown && (
+                {showDetailedBreakdown && data.incidentList.length > 0 && (
                   <>
                     {/* Visual Label (Page 2) in UI (hidden in print) */}
                     <div className="no-print flex items-center justify-between text-xs text-slate-400 font-semibold mt-4 px-1">

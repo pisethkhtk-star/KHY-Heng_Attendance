@@ -262,9 +262,17 @@ html.light select option {
   color: #1E293B !important;
 }
 
-html:not(.light) select option {
-  background-color: #151D30 !important;
-  color: #F3F4F6 !important;
+/* Khmer Font Utilities */
+.font-khmer {
+  font-family: 'Kantumruy Pro', 'Khmer OS Battambang', 'Battambang', 'Segoe UI', Tahoma, sans-serif !important;
+}
+
+.font-muol, .slip-title-muol {
+  font-family: 'Moul', 'Khmer OS Muol Light', 'Khmer OS Muol', 'Kantumruy Pro', serif !important;
+}
+
+.font-battambang {
+  font-family: 'Battambang', 'Khmer OS Battambang', 'Kantumruy Pro', 'Segoe UI', Tahoma, sans-serif !important;
 }
 
 /* Print Overrides */
