@@ -302,14 +302,14 @@ const Dashboard = () => {
                 ) : (
                   todayLogs.map((log) => (
                     <tr key={log.id} className="transition-colors">
-                      <td className="py-4 px-6 font-semibold text-[var(--text-primary)]">{log.employee.staffId}</td>
+                      <td className="py-4 px-6 font-semibold text-[var(--text-primary)]">{log.employee?.staffId || '-'}</td>
                       <td className="py-4 px-6">
                         <div>
                           <p className="font-semibold text-[var(--text-primary)]">
-                            {getLocalizedName(log.employee.nameEn, log.employee.nameKh)}
+                            {getLocalizedName(log.employee?.nameEn, log.employee?.nameKh)}
                           </p>
                           <p className="text-xs text-[var(--text-secondary)] mt-0.5">
-                            {getLocalizedName(log.employee.department.nameEn, log.employee.department.nameKh)} • {getLocalizedName(log.employee.position.titleEn, log.employee.position.titleKh)}
+                            {getLocalizedName(log.employee?.department?.nameEn, log.employee?.department?.nameKh) || '-'} • {getLocalizedName(log.employee?.position?.titleEn, log.employee?.position?.titleKh) || '-'}
                           </p>
                         </div>
                       </td>

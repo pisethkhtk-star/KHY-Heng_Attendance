@@ -152,6 +152,11 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
           resource: "reports",
         },
         {
+          path: "/reports/attendance-slip",
+          name: t("attendanceSlipReport") || (isKhmer ? "ប័ណ្ណវត្តមាន (Attendance Slip)" : "Attendance Slip"),
+          resource: "reports",
+        },
+        {
           path: "/reports/leave",
           name: t("leaveReport") || "Leave Report",
           resource: "leave_reports",

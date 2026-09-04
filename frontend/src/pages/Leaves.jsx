@@ -8,8 +8,8 @@ import { formatDateDDMMYYYY } from '../utils/dateUtils';
 const Leaves = () => {
   const { user } = useAuth();
   const { t, getLocalizedName, locale } = useLanguage();
-  const canApprove = ['Admin', 'HR', 'Manager'].includes(user.role);
-  const showActions = canApprove || user.role === 'Employee';
+  const canApprove = ['Admin', 'HR', 'Manager'].includes(user?.role);
+  const showActions = canApprove || user?.role === 'Employee';
 
   const [leaves, setLeaves] = useState([]);
   const [employees, setEmployees] = useState([]);

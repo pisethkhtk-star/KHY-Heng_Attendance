@@ -24,6 +24,7 @@ import Leaves from './pages/Leaves';
 import Overtime from './pages/Overtime';
 import Reports from './pages/Reports';
 import LeaveReport from './pages/LeaveReport';
+import AttendanceSlip from './pages/AttendanceSlip';
 import Kiosk from './pages/Kiosk';
 import KioskSettings from './pages/KioskSettings';
 import Permissions from './pages/Permissions';
@@ -161,6 +162,14 @@ function App() {
                 element={
                   <ProtectedRoute resource="reports">
                     <LeaveReport />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="reports/attendance-slip"
+                element={
+                  <ProtectedRoute resource="reports">
+                    <AttendanceSlip />
                   </ProtectedRoute>
                 }
               />

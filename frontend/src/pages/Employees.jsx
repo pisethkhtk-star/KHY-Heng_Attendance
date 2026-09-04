@@ -13,7 +13,7 @@ import faceDataService from '../services/FaceDataService';
 const Employees = () => {
   const { user } = useAuth();
   const { t, getLocalizedName, locale } = useLanguage();
-  const isReadOnly = user.role === 'Manager';
+  const isReadOnly = user?.role === 'Manager';
 
   // Data States
   const [employees, setEmployees] = useState([]);
@@ -583,9 +583,9 @@ const Employees = () => {
 
   const canViewQr = (emp) => {
     if (!user || !emp) return false;
-    const myRole = user.role;
-    const targetRole = emp.role || 'Employee';
-    const isSelf = (user.staffId && user.staffId === emp.staffId) || (user.id && user.id === emp.id);
+    const myRole = user?.role;
+    const targetRole = emp?.role || 'Employee';
+    const isSelf = (user?.staffId && user?.staffId === emp?.staffId) || (user?.id && user?.id === emp?.id);
 
     // Rule 1: Role Admin can view QR of ALL roles
     if (myRole === 'Admin') return true;
@@ -609,9 +609,9 @@ const Employees = () => {
 
   const canEditEmployee = (emp) => {
     if (!user || !emp) return false;
-    const myRole = user.role;
-    const targetRole = emp.role || 'Employee';
-    const isSelf = (user.staffId && user.staffId === emp.staffId) || (user.id && user.id === emp.id);
+    const myRole = user?.role;
+    const targetRole = emp?.role || 'Employee';
+    const isSelf = (user?.staffId && user?.staffId === emp?.staffId) || (user?.id && user?.id === emp?.id);
 
     if (isSelf) return true;
     if (myRole === 'Admin') return true;
@@ -624,11 +624,11 @@ const Employees = () => {
   const canEditPassword = (emp) => {
     if (!user) return false;
     if (!editId) {
-      return user.role === 'Admin' || user.role === 'HR';
+      return user?.role === 'Admin' || user?.role === 'HR';
     }
-    const myRole = user.role;
+    const myRole = user?.role;
     const targetRole = emp?.role || role || 'Employee';
-    const isSelf = (user.staffId && user.staffId === emp?.staffId) || (user.id && user.id === emp?.id);
+    const isSelf = (user?.staffId && user?.staffId === emp?.staffId) || (user?.id && user?.id === emp?.id);
 
     // Admin can edit password of all roles
     if (myRole === 'Admin') return true;
@@ -1626,7 +1626,7 @@ const Employees = () => {
                                 ID: <span className="text-indigo-400 font-semibold">{emp.staffId}</span>{emp.role ? ` • ${emp.role}` : ''}
                               </p>
                               <p className="text-xs font-semibold text-indigo-400">
-                                {getLocalizedName(emp.department.nameEn, emp.department.nameKh)} • {getLocalizedName(emp.position.titleEn, emp.position.titleKh)}
+                                {getLocalizedName(emp.department?.nameEn, emp.department?.nameKh) || '-'} • {getLocalizedName(emp.position?.titleEn, emp.position?.titleKh) || '-'}
                               </p>
                             </div>
                           </div>
@@ -2123,17 +2123,18 @@ const Employees = () => {
                   </label>
                   <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-7 gap-2.5 p-3.5 bg-slate-950/60 border border-white/10 rounded-xl">
                     {WEEKDAYS.map(day => {
-                      const isChecked = workingDays.includes(day.key);
+                      const currentWorkingDays = Array.isArray(workingDays) ? workingDays : [1, 2, 3, 4, 5, 6];
+                      const isChecked = currentWorkingDays.includes(day.key);
                       return (
                         <label key={day.key} className="flex items-center gap-2 text-xs text-slate-200 cursor-pointer select-none font-semibold">
                           <input
                             type="checkbox"
                             checked={isChecked}
                             onChange={() => {
-                              if (workingDays.includes(day.key)) {
-                                setWorkingDays(workingDays.filter(d => d !== day.key));
+                              if (currentWorkingDays.includes(day.key)) {
+                                setWorkingDays(currentWorkingDays.filter(d => d !== day.key));
                               } else {
-                                setWorkingDays([...workingDays, day.key]);
+                                setWorkingDays([...currentWorkingDays, day.key]);
                               }
                             }}
                             className="rounded border-white/20 bg-slate-900 text-indigo-600 focus:ring-indigo-500 focus:ring-offset-0 focus:ring-offset-transparent cursor-pointer h-4 w-4"
