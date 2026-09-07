@@ -1,14 +1,29 @@
-# 🇰🇭 ប្រព័ន្ធគ្រប់គ្រងវត្តមានបុគ្គលិក (Employee Attendance & Leave System)
+# 🇰🇭 ប្រព័ន្ធគ្រប់គ្រងវត្តមានបុគ្គលិក (HR Chomnan - Attendance & Leave System)
 
-A premium, modern, and responsive **Employee Attendance and Leave Management System** built with **React (Vite)**, **Node.js (Express)**, **Prisma ORM**, and **PostgreSQL**. Features localized language switching (Khmer/English), interactive charts, QR code check-ins, face scanning integration, work shift compliance tracking, and customized leave allowances.
+A premium, modern, and responsive **Employee Attendance and Leave Management System** built with **Java 21 (Spring Boot 3)**, **React (Vite)**, **PostgreSQL 16**, and **Flutter (Mobile App)**. Features localized language switching (Khmer/English), interactive charts, QR code check-ins, face scanning integration, work shift compliance tracking, and customized leave allowances.
+
+---
+
+## ⚡ Quick Start on Kali Linux (One-Command Deploy)
+
+ប្រសិនបើអ្នកចង់ Host លើ **Kali Linux** ដោយប្រើតែ command មួយគត់៖
+
+```bash
+chmod +x deploy-kali.sh && sudo ./deploy-kali.sh
+```
+*Script នេះនឹងធ្វើការ Setup Docker, Configure Environment, Build Containers និង Launch ប្រព័ន្ធទាំងមូលដោយស្វ័យប្រវត្តិ។*
+
+សម្រាប់ព័ត៌មានលម្អិតបន្ថែម សូមមើល [KALI_HOSTING_GUIDE.md](file:///d:/IT/project/New%20folder/KHY-Heng_Attendance/KALI_HOSTING_GUIDE.md)។
 
 ---
 
 ## 🛠️ Tech Stack & Architecture
 
-- **Frontend**: React (Vite), TailwindCSS, Heroicons, Leaflet (Map Integration)
-- **Backend**: Node.js, Express, Prisma ORM, PostgreSQL
-- **Database**: PostgreSQL (Relational schema)
+- **Backend**: Java 21, Spring Boot 3, Spring Security (JWT), Hibernate/JPA, Gradle
+- **Frontend**: React, Vite, TailwindCSS, Heroicons, Leaflet (Map Geofencing)
+- **Mobile App**: Flutter (Dart)
+- **Database**: PostgreSQL 16 (Relational DB)
+- **Containerization**: Docker & Docker Compose, Nginx Reverse Proxy
 - **Features**:
   - 🌐 Multi-language support (Khmer / English)
   - 📸 Profile Photo Upload & Face Descriptor Scan enrollment
