@@ -1,5 +1,7 @@
 import 'package:firebase_remote_config/firebase_remote_config.dart';
 import 'package:flutter/foundation.dart';
+import 'package:get/get.dart';
+import '../../views/maintenance_screen.dart';
 
 class RemoteConfigService {
   static final RemoteConfigService _instance = RemoteConfigService._internal();
@@ -31,6 +33,10 @@ class RemoteConfigService {
       // Realtime listener (ចាប់ការកែប្រែភ្លាមៗពី Firebase Console)
       _remoteConfig.onConfigUpdated.listen((event) async {
         await _remoteConfig.activate();
+        debugPrint('Remote Config updated in real-time! isMaintenanceMode: $isMaintenanceMode');
+        if (isMaintenanceMode) {
+          Get.offAll(() => const MaintenanceScreen());
+        }
       });
     } catch (e) {
       debugPrint('Error initializing Remote Config: $e');

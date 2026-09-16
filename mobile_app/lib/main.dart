@@ -15,7 +15,6 @@ import 'controllers/leave_controller.dart';
 import 'controllers/overtime_controller.dart';
 import 'controllers/notification_controller.dart';
 import 'views/splash_screen.dart';
-import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
 import 'core/services/remote_config_service.dart';

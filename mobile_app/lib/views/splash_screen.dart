@@ -3,6 +3,8 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:get/get.dart';
 import '../core/constants/app_colors.dart';
 import '../controllers/auth_controller.dart';
+import '../core/services/remote_config_service.dart';
+import 'maintenance_screen.dart';
 import 'login_screen.dart';
 import 'main_layout.dart';
 
@@ -19,6 +21,14 @@ class _SplashScreenState extends State<SplashScreen> {
     super.initState();
     Future.delayed(const Duration(seconds: 2), () {
       if (mounted) {
+        // 1. Check if Firebase Remote Config has Maintenance Mode enabled
+        final remoteConfig = RemoteConfigService();
+        if (remoteConfig.isMaintenanceMode) {
+          Get.offAll(() => const MaintenanceScreen());
+          return;
+        }
+
+        // 2. Normal auth flow
         final authController = Get.find<AuthController>();
         if (authController.isAuthenticated) {
           Get.offAll(() => const MainLayout());
