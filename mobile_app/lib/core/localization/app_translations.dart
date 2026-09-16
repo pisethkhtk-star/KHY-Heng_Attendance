@@ -77,6 +77,15 @@ class AppTranslations {
       'no': 'No',
       'success': 'Success',
       'error': 'Error',
+      'change_profile_photo': 'Change Profile Photo',
+      'take_photo': 'Take Photo',
+      'choose_from_gallery': 'Choose from Gallery',
+      'remove_photo': 'Remove Photo',
+      'uploading_photo': 'Uploading photo...',
+      'photo_updated_success': 'Profile photo updated successfully',
+      'photo_update_failed': 'Failed to update profile photo',
+      'remove_photo_confirm': 'Are you sure you want to remove your profile photo?',
+      'photo_removed_success': 'Profile photo removed successfully',
 
       // Scanner translations
       'scanner_title': 'Attendance Scanner',
@@ -232,6 +241,15 @@ class AppTranslations {
       'no': 'ទេ',
       'success': 'ជោគជ័យ',
       'error': 'កំហុស',
+      'change_profile_photo': 'ប្ដូររូបភាពប្រវត្តិរូប',
+      'take_photo': 'ថតរូបភាពថ្មី',
+      'choose_from_gallery': 'ជ្រើសរើសពីរូបភាព (Gallery)',
+      'remove_photo': 'លុបរូបភាពចេញ',
+      'uploading_photo': 'កំពុងបញ្ចូលរូបភាព...',
+      'photo_updated_success': 'បានប្ដូររូបភាពប្រវត្តិរូបដោយជោគជ័យ',
+      'photo_update_failed': 'មិនអាចប្ដូររូបភាពបានទេ',
+      'remove_photo_confirm': 'តើអ្នកប្រាកដជាចង់លុបរូបភាពប្រវត្តិរូបនេះមែនទេ?',
+      'photo_removed_success': 'បានលុបរូបភាពប្រវត្តិរូបដោយជោគជ័យ',
 
       // Leave Duration Translations
       'leave_duration': 'រយៈពេលសុំច្បាប់',

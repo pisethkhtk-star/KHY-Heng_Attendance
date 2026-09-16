@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "519004002974",
+    "project_id": "khy-heng",
+    "storage_bucket": "khy-heng.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:519004002974:android:31c51146680b66369cb98f",
+        "android_client_info": {
+          "package_name": "com.hrchomnan.mobile_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBWevBcKbvzOBDqx1znDX2WIdZepMiOHhU"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

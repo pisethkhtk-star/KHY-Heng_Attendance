@@ -14,6 +14,7 @@ import {
   UserGroupIcon,
   GlobeAltIcon,
   CheckBadgeIcon,
+  BanknotesIcon,
 } from '@heroicons/react/24/outline';
 import { LOGO_TEXT } from '../utils/constants';
 import appIcon from '../assets/app_icon.png';
@@ -23,7 +24,7 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
   const { t, locale, language } = useLanguage();
   const isKhmer = locale === 'kh' || language === 'kh';
   const location = useLocation();
-  const [openMenus, setOpenMenus] = useState({ Approvals: true, Attendance: true, Leave: true, Setup: true, WebManage: true, Reports: true });
+  const [openMenus, setOpenMenus] = useState({ Approvals: true, Attendance: true, Leave: true, Setup: true, WebManage: true, Reports: true, Payroll: true });
 
   const menuItems = [
     {
@@ -160,6 +161,34 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
           path: "/reports/leave",
           name: t("leaveReport") || "Leave Report",
           resource: "leave_reports",
+        },
+      ]
+    },
+    {
+      key: "Payroll",
+      name: t("payrollGroup") || (isKhmer ? "ប្រព័ន្ធបើកប្រាក់ខែ (Payroll)" : "Payroll"),
+      icon: BanknotesIcon,
+      resource: "payroll",
+      subItems: [
+        {
+          path: "/payroll/run",
+          name: isKhmer ? "គណនាប្រាក់ខែ (Payroll Run)" : "Payroll Run",
+          resource: "payroll",
+        },
+        {
+          path: "/payroll/salary-structure",
+          name: isKhmer ? "រចនាសម្ព័ន្ធប្រាក់ខែ (Salary Profiles)" : "Salary Profiles",
+          resource: "payroll",
+        },
+        {
+          path: "/payroll/payslips",
+          name: isKhmer ? "ប័ណ្ណបើកប្រាក់ខែ (Payslips)" : "Payslips",
+          resource: "payroll",
+        },
+        {
+          path: "/payroll/settings",
+          name: isKhmer ? "ការកំណត់ NSSF & កាំពន្ធ (Settings)" : "NSSF & Tax Settings",
+          resource: "payroll",
         },
       ]
     },

@@ -594,4 +594,210 @@ public class LeaveController {
 
         return map;
     }
+
+    @PostMapping("/batch")
+    @PreAuthorize("@perm.has('leaves') or hasAnyRole('Admin', 'HR')")
+    public ResponseEntity<?> batchCreateLeaves(@RequestBody List<Map<String, Object>> dtoList, Authentication authentication) {
+        if (dtoList == null || dtoList.isEmpty()) {
+            return ResponseEntity.badRequest().body(Map.of("message", "Leave list is empty"));
+        }
+
+        Map<String, Employee> empMap = employeeRepository.findAll().stream()
+                .collect(Collectors.toMap(e -> e.getStaffId().trim().toLowerCase(), e -> e, (a, b) -> a));
+
+        List<LeaveType> leaveTypes = leaveTypeRepository.findAll();
+        Map<String, LeaveType> typeMap = new HashMap<>();
+        for (LeaveType lt : leaveTypes) {
+            if (lt.getCode() != null) typeMap.put(lt.getCode().trim().toLowerCase(), lt);
+            if (lt.getNameEn() != null) typeMap.put(lt.getNameEn().trim().toLowerCase(), lt);
+            if (lt.getNameKh() != null) typeMap.put(lt.getNameKh().trim().toLowerCase(), lt);
+        }
+
+        String currentUserName = authentication != null ? authentication.getName() : "Admin";
+
+        int insertedCount = 0;
+        int updatedCount = 0;
+        int skippedCount = 0;
+        List<String> errors = new ArrayList<>();
+
+        for (int i = 0; i < dtoList.size(); i++) {
+            Map<String, Object> item = dtoList.get(i);
+            String rawStaffId = item.get("staffId") != null ? item.get("staffId").toString().trim() : "";
+            String rawDateStr = item.get("leaveDate") != null ? item.get("leaveDate").toString().trim() : "";
+            String rawEndDateStr = item.get("endDate") != null ? item.get("endDate").toString().trim() : "";
+
+            if (rawStaffId.isEmpty() || rawDateStr.isEmpty()) {
+                skippedCount++;
+                errors.add("Row " + (i + 1) + ": Missing Staff ID or Leave Date");
+                continue;
+            }
+
+            Employee emp = empMap.get(rawStaffId.toLowerCase());
+            if (emp == null) {
+                skippedCount++;
+                errors.add("Row " + (i + 1) + " (" + rawStaffId + "): Employee not found");
+                continue;
+            }
+
+            LocalDate startDate = parseFlexibleDate(rawDateStr);
+            if (startDate == null) {
+                skippedCount++;
+                errors.add("Row " + (i + 1) + ": Invalid leave date format '" + rawDateStr + "'");
+                continue;
+            }
+
+            LocalDate endDate = startDate;
+            if (!rawEndDateStr.isEmpty()) {
+                LocalDate parsedEnd = parseFlexibleDate(rawEndDateStr);
+                if (parsedEnd != null && !parsedEnd.isBefore(startDate)) {
+                    endDate = parsedEnd;
+                }
+            }
+
+            String rawType = item.get("leaveType") != null ? item.get("leaveType").toString().trim() : "AL";
+            LeaveType matchedType = typeMap.get(rawType.toLowerCase());
+            String resolvedTypeCode = matchedType != null ? matchedType.getCode() : (rawType.isEmpty() ? "AL" : rawType);
+
+            String rawDuration = item.get("durationType") != null ? item.get("durationType").toString().trim() : "Full Day";
+            String durType = "Full Day";
+            if (rawDuration.toLowerCase().contains("morn") || rawDuration.toLowerCase().contains("ព្រឹក")) {
+                durType = "Morning";
+            } else if (rawDuration.toLowerCase().contains("after") || rawDuration.toLowerCase().contains("រសៀល")) {
+                durType = "Afternoon";
+            }
+
+            BigDecimal amountDaysPerDay = ("Morning".equalsIgnoreCase(durType) || "Afternoon".equalsIgnoreCase(durType))
+                    ? new BigDecimal("0.5")
+                    : BigDecimal.ONE;
+
+            if (item.get("amountDays") != null) {
+                try {
+                    double dVal = Double.parseDouble(item.get("amountDays").toString().trim());
+                    if (dVal > 0) amountDaysPerDay = BigDecimal.valueOf(dVal);
+                } catch (Exception ignored) {}
+            }
+
+            String reason = item.get("reason") != null ? item.get("reason").toString().trim() : "";
+            String rawStatus = item.get("status") != null ? item.get("status").toString().trim() : "Approved";
+            LeaveStatus status = LeaveStatus.Approved;
+            try {
+                if (rawStatus.equalsIgnoreCase("pending") || rawStatus.contains("រង់ចាំ")) {
+                    status = LeaveStatus.Pending;
+                } else if (rawStatus.equalsIgnoreCase("rejected") || rawStatus.contains("បដិសេធ")) {
+                    status = LeaveStatus.Rejected;
+                } else {
+                    status = LeaveStatus.Approved;
+                }
+            } catch (Exception ignored) {}
+
+            String creator = item.get("createdBy") != null && !item.get("createdBy").toString().isBlank()
+                    ? item.get("createdBy").toString().trim()
+                    : currentUserName;
+
+            LocalDate curr = startDate;
+            while (!curr.isAfter(endDate)) {
+                final LocalDate d = curr;
+                Optional<Leave> existingOpt = leaveRepository.findByStaffId(emp.getStaffId()).stream()
+                        .filter(l -> d.equals(l.getLeaveDate()))
+                        .findFirst();
+
+                String finalReason = reason;
+                if ("Morning".equalsIgnoreCase(durType) || "Afternoon".equalsIgnoreCase(durType)) {
+                    finalReason = (!reason.isBlank()) ? reason + " (" + durType + ")" : "(" + durType + ")";
+                }
+
+                if (existingOpt.isPresent()) {
+                    Leave existing = existingOpt.get();
+                    existing.setLeaveType(resolvedTypeCode);
+                    existing.setAmountDays(amountDaysPerDay);
+                    existing.setReason(finalReason);
+                    existing.setStatus(status);
+                    if (status == LeaveStatus.Approved) {
+                        existing.setApprovedAt(LocalDateTime.now());
+                        existing.setManagerName(currentUserName);
+                    }
+                    leaveRepository.save(existing);
+                    updatedCount++;
+                } else {
+                    Leave newLeave = Leave.builder()
+                            .staffId(emp.getStaffId())
+                            .leaveDate(d)
+                            .leaveType(resolvedTypeCode)
+                            .amountDays(amountDaysPerDay)
+                            .reason(finalReason)
+                            .status(status)
+                            .requestedAt(LocalDateTime.now())
+                            .approvedAt(status == LeaveStatus.Approved ? LocalDateTime.now() : null)
+                            .managerName(status == LeaveStatus.Approved ? currentUserName : null)
+                            .createdBy(creator)
+                            .build();
+                    leaveRepository.save(newLeave);
+                    insertedCount++;
+                }
+
+                // Sync attendance record if approved
+                if (status == LeaveStatus.Approved) {
+                    try {
+                        Optional<Attendance> existingAtt = attendanceRepository.findByStaffIdAndAttendanceDate(emp.getStaffId(), d);
+                        String noteText = "Leave: " + resolvedTypeCode + " (" + durType + ")";
+                        Attendance att = existingAtt.orElseGet(() -> Attendance.builder()
+                                .staffId(emp.getStaffId())
+                                .attendanceDate(d)
+                                .build());
+
+                        String newNote = (att.getNote() != null && !att.getNote().isBlank())
+                                ? (att.getNote().contains(noteText) ? att.getNote() : att.getNote() + " | " + noteText)
+                                : noteText;
+                        att.setNote(newNote);
+
+                        if ("Morning".equalsIgnoreCase(durType)) {
+                            att.setCheckin1(null);
+                            att.setCheckout1(null);
+                        } else if ("Afternoon".equalsIgnoreCase(durType)) {
+                            att.setCheckin2(null);
+                            att.setCheckout2(null);
+                        } else {
+                            att.setCheckin1(null);
+                            att.setCheckout1(null);
+                            att.setCheckin2(null);
+                            att.setCheckout2(null);
+                        }
+                        attendanceRepository.save(att);
+                    } catch (Exception attEx) {
+                        log.warn("Failed to sync leave with attendance for date {}: {}", d, attEx.getMessage());
+                    }
+                }
+
+                curr = curr.plusDays(1);
+            }
+        }
+
+        return ResponseEntity.ok(Map.of(
+                "message", "Batch leave import completed",
+                "insertedCount", insertedCount,
+                "updatedCount", updatedCount,
+                "skippedCount", skippedCount,
+                "errors", errors
+        ));
+    }
+
+    private LocalDate parseFlexibleDate(String rawDateStr) {
+        if (rawDateStr == null || rawDateStr.isBlank()) return null;
+        rawDateStr = rawDateStr.trim();
+        try {
+            return LocalDate.parse(rawDateStr);
+        } catch (Exception ex) {
+            try {
+                String[] parts = rawDateStr.split("[-/.]");
+                if (parts.length == 3) {
+                    if (parts[0].length() == 4) {
+                        return LocalDate.of(Integer.parseInt(parts[0]), Integer.parseInt(parts[1]), Integer.parseInt(parts[2]));
+                    } else if (parts[2].length() == 4) {
+                        return LocalDate.of(Integer.parseInt(parts[2]), Integer.parseInt(parts[1]), Integer.parseInt(parts[0]));
+                    }
+                }
+            } catch (Exception ignored) {}
+        }
+        return null;
+    }
 }

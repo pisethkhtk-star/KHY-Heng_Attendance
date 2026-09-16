@@ -33,6 +33,10 @@ import LeaveAllowances from './pages/LeaveAllowances'; // verified
 import WorkHours from './pages/WorkHours'; // verified
 import ApprovalManage from './pages/ApprovalManage';
 import TelegramSettings from './pages/TelegramSettings';
+import PayrollRun from './pages/PayrollRun';
+import PayrollSalaryStructure from './pages/PayrollSalaryStructure';
+import PayrollPayslips from './pages/PayrollPayslips';
+import PayrollSettings from './pages/PayrollSettings';
 
 const AppLayout = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -275,6 +279,44 @@ function App() {
                 element={
                   <ProtectedRoute roles={['Admin']}>
                     <Permissions />
+                  </ProtectedRoute>
+                }
+              />
+
+              {/* Payroll System Routes (Permission-guarded) */}
+              <Route
+                path="payroll"
+                element={<Navigate to="/payroll/run" replace />}
+              />
+              <Route
+                path="payroll/run"
+                element={
+                  <ProtectedRoute resource="payroll">
+                    <PayrollRun />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="payroll/salary-structure"
+                element={
+                  <ProtectedRoute resource="payroll">
+                    <PayrollSalaryStructure />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="payroll/payslips"
+                element={
+                  <ProtectedRoute resource="payroll">
+                    <PayrollPayslips />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="payroll/settings"
+                element={
+                  <ProtectedRoute resource="payroll">
+                    <PayrollSettings />
                   </ProtectedRoute>
                 }
               />

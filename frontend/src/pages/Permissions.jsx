@@ -28,7 +28,8 @@ import {
   TrashIcon,
   ArrowDownTrayIcon,
   MapPinIcon,
-  CameraIcon
+  CameraIcon,
+  BanknotesIcon
 } from '@heroicons/react/24/outline';
 import faceDataService from '../services/FaceDataService';
 
@@ -477,6 +478,22 @@ const Permissions = () => {
           labelKh: 'របាយការណ៍សុំច្បាប់ (Leave Report)',
           descEn: 'Review company leave requests, allowances and balance usage',
           descKh: 'ពិនិត្យមើលរបាយការណ៍ប្រើប្រាស់ច្បាប់ និងកូតាច្បាប់នៅសល់',
+          actions: []
+        }
+      ]
+    },
+    {
+      key: 'payroll_group',
+      labelEn: 'Payroll & Compensation',
+      labelKh: 'ប្រព័ន្ធបើកប្រាក់ខែ & បុគ្គលិក',
+      icon: BanknotesIcon,
+      modules: [
+        {
+          key: 'payroll',
+          labelEn: 'Payroll System',
+          labelKh: 'ប្រព័ន្ធបើកប្រាក់ខែ (Payroll System)',
+          descEn: 'Calculate monthly payroll, manage salary profiles, view payslips and bank export',
+          descKh: 'គណនាប្រាក់ខែប្រចាំខែ គ្រប់គ្រងរចនាសម្ព័ន្ធប្រាក់ខែ ប័ណ្ណបើកប្រាក់ខែ និង Export ធនាគារ',
           actions: []
         }
       ]

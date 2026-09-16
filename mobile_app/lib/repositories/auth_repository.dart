@@ -22,6 +22,7 @@ abstract class IAuthRepository {
   Future<AuthResponse> login(String email, String password);
   Future<AuthResponse> loginWithQRCode(String qrToken);
   Future<List<dynamic>> fetchKioskSettings();
+  Future<AuthResponse> updateAvatar(String? avatarBase64);
 }
 
 class AuthRepository implements IAuthRepository {
@@ -119,5 +120,44 @@ class AuthRepository implements IAuthRepository {
       if (data['data'] != null && data['data'] is List) return data['data'];
     }
     return [];
+  }
+
+  @override
+  Future<AuthResponse> updateAvatar(String? avatarBase64) async {
+    final body = {'avatar': avatarBase64 ?? ''};
+    final response = await _apiClient.put(
+      '/auth/avatar',
+      body: body,
+      headers: {'Content-Type': 'application/json'},
+    );
+
+    if (response != null) {
+      try {
+        final data = jsonDecode(response.body);
+        if (response.statusCode == 200 && data['user'] != null) {
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setString('user_data', jsonEncode(data['user']));
+          return AuthResponse(
+            success: true,
+            user: UserModel.fromJson(data['user']),
+            message: data['message'] ?? 'Avatar updated successfully',
+          );
+        } else {
+          return AuthResponse(
+            success: false,
+            message: data['message'] ?? 'Server error (${response.statusCode})',
+          );
+        }
+      } catch (_) {
+        return AuthResponse(
+          success: false,
+          message: 'Server error (${response.statusCode})',
+        );
+      }
+    }
+    return AuthResponse(
+      success: false,
+      message: 'Failed to connect to backend server. Please verify network/IP.',
+    );
   }
 }

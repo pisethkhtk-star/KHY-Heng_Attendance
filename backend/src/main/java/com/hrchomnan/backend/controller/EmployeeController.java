@@ -458,6 +458,29 @@ public class EmployeeController {
         return ResponseEntity.ok(enrichEmployee(saved, deptMap, posMap, faceDataMap));
     }
 
+    @PutMapping("/{id}/avatar")
+    @PreAuthorize("@perm.canEditEmployee(#id)")
+    public ResponseEntity<?> updateAvatar(@PathVariable UUID id, @RequestBody Map<String, String> body) {
+        Optional<Employee> empOpt = employeeRepository.findById(id);
+        if (empOpt.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("message", "Employee not found"));
+        }
+        Employee emp = empOpt.get();
+        String avatar = body.get("avatar") != null ? body.get("avatar") : body.get("photoUrl");
+        emp.setPhotoUrl(avatar);
+        Employee saved = employeeRepository.save(emp);
+
+        Map<UUID, Department> deptMap = departmentRepository.findAll().stream()
+                .collect(Collectors.toMap(Department::getId, d -> d, (a, b) -> a));
+        Map<UUID, Position> posMap = positionRepository.findAll().stream()
+                .collect(Collectors.toMap(Position::getId, p -> p, (a, b) -> a));
+        Map<String, String> faceDataMap = employeeFaceDataRepository.findAll().stream()
+                .filter(f -> f.getStaffId() != null && f.getPhotoUrl() != null)
+                .collect(Collectors.toMap(EmployeeFaceData::getStaffId, EmployeeFaceData::getPhotoUrl, (a, b) -> a));
+
+        return ResponseEntity.ok(enrichEmployee(saved, deptMap, posMap, faceDataMap));
+    }
+
     @DeleteMapping("/{id}")
     @PreAuthorize("@perm.has('delete_employee')")
     public ResponseEntity<?> deleteEmployee(@PathVariable UUID id) {

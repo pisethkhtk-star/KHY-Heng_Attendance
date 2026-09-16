@@ -148,6 +148,19 @@ class HttpApiClient implements BaseApiClient {
   }
 
   @override
+  Future<http.Response?> put(String path, {dynamic body, Map<String, String>? headers}) async {
+    final encodedBody = body is String ? body : jsonEncode(body);
+    return await _requestWithFallback(
+      (url, requestHeaders) => http.put(
+        _buildUri(url, path),
+        headers: requestHeaders,
+        body: encodedBody,
+      ),
+      customHeaders: headers,
+    );
+  }
+
+  @override
   Future<http.Response?> delete(String path, {Map<String, String>? headers}) async {
     return await _requestWithFallback(
       (url, requestHeaders) => http.delete(

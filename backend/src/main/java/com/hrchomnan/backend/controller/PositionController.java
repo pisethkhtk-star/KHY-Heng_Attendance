@@ -120,6 +120,14 @@ public class PositionController {
     @PreAuthorize("@perm.has('delete_position')")
     public ResponseEntity<?> deletePosition(@PathVariable UUID id) {
         if (positionRepository.existsById(id)) {
+            // Detach employees assigned to this position
+            employeeRepository.findAll().stream()
+                    .filter(e -> id.equals(e.getPositionId()))
+                    .forEach(e -> {
+                        e.setPositionId(null);
+                        employeeRepository.save(e);
+                    });
+
             positionRepository.deleteById(id);
             return ResponseEntity.ok(Map.of("message", "Position deleted successfully"));
         }

@@ -137,6 +137,9 @@ const AttendanceSlip = () => {
   // Display toggles
   const [showDetailedBreakdown, setShowDetailedBreakdown] = useState(true);
 
+  // Print Layout ('a4_full' | 'a4_two_slips' | 'a5')
+  const [printLayout, setPrintLayout] = useState('a4_full');
+
   // Hidden file input refs
   const preparedSignatureInputRef = useRef(null);
   const approvedSignatureInputRef = useRef(null);
@@ -169,6 +172,7 @@ const AttendanceSlip = () => {
         if (parsed.customLogoUrl !== undefined) setCustomLogoUrl(parsed.customLogoUrl);
         if (parsed.showLogo !== undefined) setShowLogo(parsed.showLogo);
         if (parsed.showDetailedBreakdown !== undefined) setShowDetailedBreakdown(parsed.showDetailedBreakdown);
+        if (parsed.printLayout !== undefined) setPrintLayout(parsed.printLayout);
       }
     } catch (e) {
       console.warn('Error reading slip settings from localStorage:', e);
@@ -193,6 +197,7 @@ const AttendanceSlip = () => {
         customLogoUrl,
         showLogo,
         showDetailedBreakdown,
+        printLayout,
         ...updatedValues,
       };
       localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(config));
@@ -552,7 +557,7 @@ const AttendanceSlip = () => {
             ? JSON.parse(companyWorkHours.flexibleSchedule)
             : companyWorkHours.flexibleSchedule;
           if (Array.isArray(parsed?.workingDays)) empWorkingDays = parsed.workingDays;
-        } catch (e) {}
+        } catch (e) { }
       }
       if (emp.flexibleSchedule) {
         try {
@@ -562,7 +567,7 @@ const AttendanceSlip = () => {
           if (Array.isArray(empFlexibleObj?.workingDays)) {
             empWorkingDays = empFlexibleObj.workingDays;
           }
-        } catch (e) {}
+        } catch (e) { }
       }
 
       // Check Shift 2 enabled
@@ -732,6 +737,19 @@ const AttendanceSlip = () => {
     if (selectedStaffId !== 'ALL') return employeeSlipsData;
     return employeeSlipsData.slice((currentPage - 1) * slipsPerPage, currentPage * slipsPerPage);
   }, [employeeSlipsData, currentPage, slipsPerPage, selectedStaffId]);
+
+  // Current render list for slips (in a4_two_slips mode, printing single employee prints 2 copies on 1 page)
+  const currentRenderList = useMemo(() => {
+    if (printingSingleStaffId) {
+      const target = employeeSlipsData.find(d => d.emp.staffId === printingSingleStaffId);
+      if (!target) return [];
+      if (printLayout === 'a4_two_slips') {
+        return [target, target];
+      }
+      return [target];
+    }
+    return selectedStaffId === 'ALL' ? employeeSlipsData : paginatedSlips;
+  }, [printingSingleStaffId, employeeSlipsData, selectedStaffId, paginatedSlips, printLayout]);
 
   // Effective logo and signature source
   const effectiveLogo = customLogoUrl || khyhengLogoDefault;
@@ -1091,6 +1109,16 @@ const AttendanceSlip = () => {
         .slip-card-box * {
           font-family: 'Khmer OS Battambang', 'Battambang', 'Kantumruy Pro', sans-serif;
         }
+        .slip-card-box,
+        .slip-page-1,
+        .slip-page-2 {
+          background-color: #ffffff !important;
+          color: #000000 !important;
+        }
+        .slip-page-2 table,
+        .slip-page-2 td {
+          color: #000000;
+        }
         .slip-title-muol {
           font-family: 'Khmer OS Muol Light', 'Khmer OS Muol', 'Moul', serif !important;
           font-size: 18pt !important;
@@ -1098,8 +1126,8 @@ const AttendanceSlip = () => {
         }
         @media print {
           @page {
-            size: A4 portrait;
-            margin: 8mm 8mm 8mm 8mm;
+            size: ${printLayout === 'a5' ? 'A5 portrait' : 'A4 portrait'};
+            margin: ${printLayout === 'a4_full' ? '7mm 8mm 7mm 8mm' : (printLayout === 'a5' ? '5mm 6mm 5mm 6mm' : '5mm 8mm 5mm 8mm')};
           }
           *, *::before, *::after {
             -webkit-print-color-adjust: exact !important;
@@ -1148,37 +1176,145 @@ const AttendanceSlip = () => {
             margin: 0 !important;
             padding: 0 !important;
           }
-          .slip-page-1 {
-            display: block !important;
+          .page-break-after-two {
+            page-break-after: always !important;
+            break-after: page !important;
+          }
+
+          /* ===== LAYOUT 1: A4 FULL PAGE (Fills entire A4 page with zero empty blank space) ===== */
+          .slip-page-1.layout-a4-full {
+            display: flex !important;
+            flex-direction: column !important;
+            justify-content: space-between !important;
             width: 100% !important;
             max-width: 100% !important;
+            height: 280mm !important;
+            min-height: 280mm !important;
+            max-height: 280mm !important;
             page-break-before: auto !important;
             page-break-after: always !important;
             break-after: page !important;
             page-break-inside: avoid !important;
             break-inside: avoid !important;
-            margin: 0 0 0 0 !important;
+            margin: 0 !important;
             border: 2px solid #000000 !important;
             border-radius: 0 !important;
-            padding: 16px 20px !important;
+            padding: 14px 18px 16px 18px !important;
             background: #ffffff !important;
+            box-sizing: border-box !important;
           }
-          .slip-page-2 {
-            display: block !important;
+          .slip-page-1.layout-a4-full .slip-table th,
+          .slip-page-1.layout-a4-full .slip-table td {
+            padding: 5px 8px !important;
+            font-size: 10.5pt !important;
+          }
+          .slip-page-1.layout-a4-full .slip-table th {
+            font-size: 11pt !important;
+            padding: 6.5px 8px !important;
+          }
+          .slip-page-1.layout-a4-full .slip-title-muol {
+            font-size: 19pt !important;
+          }
+          .slip-page-1.layout-a4-full .slip-logo-img {
+            height: 65px !important;
+          }
+          .slip-page-1.layout-a4-full .slip-signatures {
+            margin-top: auto !important;
+            padding-top: 14px !important;
+          }
+          .slip-page-1.layout-a4-full .slip-signature-img {
+            height: 48px !important;
+          }
+
+          /* ===== LAYOUT 2: A4 TWO SLIPS PER PAGE (2 Slips on 1 A4 sheet with cut line) ===== */
+          .slip-page-1.layout-a4-two-slips {
+            display: flex !important;
+            flex-direction: column !important;
+            justify-content: space-between !important;
             width: 100% !important;
             max-width: 100% !important;
-            page-break-before: always !important;
-            break-before: page !important;
+            height: 139mm !important;
+            min-height: 139mm !important;
+            max-height: 139mm !important;
+            margin: 0 !important;
+            border: 1.5px solid #000000 !important;
+            border-radius: 0 !important;
+            padding: 5px 10px 5px 10px !important;
+            background: #ffffff !important;
+            box-sizing: border-box !important;
+            page-break-inside: avoid !important;
+            break-inside: avoid !important;
+          }
+          .slip-page-1.layout-a4-two-slips .slip-table th,
+          .slip-page-1.layout-a4-two-slips .slip-table td {
+            padding: 2px 5px !important;
+            font-size: 8.5pt !important;
+            line-height: 1.2 !important;
+          }
+          .slip-page-1.layout-a4-two-slips .slip-table th {
+            font-size: 9pt !important;
+            padding: 2.5px 5px !important;
+          }
+          .slip-page-1.layout-a4-two-slips .slip-title-muol {
+            font-size: 13pt !important;
+          }
+          .slip-page-1.layout-a4-two-slips .slip-logo-img {
+            height: 38px !important;
+          }
+          .slip-page-1.layout-a4-two-slips .slip-signatures {
+            margin-top: 3px !important;
+            padding-top: 2px !important;
+          }
+          .slip-page-1.layout-a4-two-slips .slip-signature-img {
+            height: 28px !important;
+          }
+
+          /* ===== LAYOUT 3: A5 PAPER SIZE (Exact A5 Sheet) ===== */
+          .slip-page-1.layout-a5 {
+            display: flex !important;
+            flex-direction: column !important;
+            justify-content: space-between !important;
+            width: 100% !important;
+            max-width: 100% !important;
+            height: 198mm !important;
+            min-height: 198mm !important;
+            max-height: 198mm !important;
+            page-break-before: auto !important;
             page-break-after: always !important;
             break-after: page !important;
             page-break-inside: avoid !important;
             break-inside: avoid !important;
-            margin: 0 0 0 0 !important;
-            border: 2px solid #000000 !important;
+            margin: 0 !important;
+            border: 1.5px solid #000000 !important;
             border-radius: 0 !important;
-            padding: 24px 20px !important;
+            padding: 8px 12px 10px 12px !important;
             background: #ffffff !important;
+            box-sizing: border-box !important;
           }
+          .slip-page-1.layout-a5 .slip-table th,
+          .slip-page-1.layout-a5 .slip-table td {
+            padding: 3px 6px !important;
+            font-size: 9.5pt !important;
+          }
+          .slip-page-1.layout-a5 .slip-table th {
+            font-size: 10pt !important;
+            padding: 4px 6px !important;
+          }
+          .slip-page-1.layout-a5 .slip-title-muol {
+            font-size: 15pt !important;
+          }
+          .slip-page-1.layout-a5 .slip-logo-img {
+            height: 48px !important;
+          }
+          .slip-page-1.layout-a5 .slip-signatures {
+            margin-top: 5px !important;
+            padding-top: 3px !important;
+          }
+          .slip-page-1.layout-a5 .slip-signature-img {
+            height: 32px !important;
+          }
+
+          /* Common Print Styles */
           .slip-card-box {
             background: #ffffff !important;
             color: #000000 !important;
@@ -1195,16 +1331,21 @@ const AttendanceSlip = () => {
             page-break-inside: avoid !important;
             break-inside: avoid !important;
           }
-          .slip-table th, .slip-table td {
-            border: 1px solid #000000 !important;
-            color: #000000 !important;
-            font-family: 'Khmer OS Battambang', 'Battambang', 'Kantumruy Pro', sans-serif !important;
-            font-size: 10pt !important;
-            padding: 4.5px 8px !important;
-          }
-          .slip-table th {
-            font-size: 10.5pt !important;
-            padding: 6px 8px !important;
+          .slip-page-2 {
+            display: block !important;
+            width: 100% !important;
+            max-width: 100% !important;
+            page-break-before: always !important;
+            break-before: page !important;
+            page-break-after: always !important;
+            break-after: page !important;
+            page-break-inside: avoid !important;
+            break-inside: avoid !important;
+            margin: 0 0 0 0 !important;
+            border: 2px solid #000000 !important;
+            border-radius: 0 !important;
+            padding: 24px 20px !important;
+            background: #ffffff !important;
           }
         }
       `}</style>
@@ -1231,6 +1372,32 @@ const AttendanceSlip = () => {
 
         {/* Action Buttons */}
         <div className="flex items-center gap-2.5 flex-wrap">
+          {/* Print Layout Selector */}
+          <div className="flex items-center gap-1.5 bg-slate-900/80 border border-slate-700/70 rounded-xl px-2.5 py-1 text-xs">
+            <span className="text-slate-400 font-khmer text-[11px] whitespace-nowrap">
+              {locale === 'kh' ? 'ទម្រង់បោះពុម្ព:' : 'Layout:'}
+            </span>
+            <select
+              value={printLayout}
+              onChange={(e) => {
+                const val = e.target.value;
+                setPrintLayout(val);
+                saveSettingsToStorage({ printLayout: val });
+              }}
+              className="bg-transparent text-indigo-300 font-bold font-khmer text-xs outline-none cursor-pointer"
+            >
+              <option value="a4_full" className="bg-slate-900 text-white">
+                {locale === 'kh' ? '📄 A4 ពេញទំព័រ (1 ប័ណ្ណ/សន្លឹក)' : '📄 A4 Full Page (1 Slip/Page)'}
+              </option>
+              <option value="a4_two_slips" className="bg-slate-900 text-white">
+                {locale === 'kh' ? '📑 A4 ចែក ២ ប័ណ្ណ (2 ប័ណ្ណ/សន្លឹក)' : '📑 A4 Half (2 Slips/Page)'}
+              </option>
+              <option value="a5" className="bg-slate-900 text-white">
+                {locale === 'kh' ? '📋 A5 ទំហំប័ណ្ណស្ដង់ដារ' : '📋 A5 Standard Slip'}
+              </option>
+            </select>
+          </div>
+
           {/* Settings & Design Modal Button */}
           <button
             type="button"
@@ -1478,23 +1645,30 @@ const AttendanceSlip = () => {
             {t('noData')}
           </div>
         ) : (
-          (printingSingleStaffId
-            ? employeeSlipsData.filter(d => d.emp.staffId === printingSingleStaffId)
-            : (selectedStaffId === 'ALL' ? employeeSlipsData : paginatedSlips)
-          ).map((data, idx) => {
+          currentRenderList.map((data, idx) => {
             const { emp } = data;
             const isVisibleOnScreen = printingSingleStaffId
               ? true
               : (selectedStaffId !== 'ALL' || (idx >= (currentPage - 1) * slipsPerPage && idx < currentPage * slipsPerPage));
+            const isFirstSlipOnPage = idx % 2 === 0;
+            const isSecondSlipOnPage = idx % 2 === 1;
+            const isLastSlip = idx === currentRenderList.length - 1;
             return (
               <div
-                key={emp.id || emp.staffId}
-                className={`slip-page-item w-full max-w-4xl mx-auto space-y-4 ${isVisibleOnScreen ? 'block' : 'hidden print:block'}`}
+                key={`${emp.id || emp.staffId}-${idx}`}
+                className={`slip-page-item w-full max-w-4xl mx-auto space-y-4 ${
+                  printLayout === 'a4_two_slips' && isSecondSlipOnPage ? 'page-break-after-two' : ''
+                } ${isVisibleOnScreen ? 'block' : 'hidden print:block'}`}
               >
                 {/* Visual Label (Page 1) in UI (hidden in print) */}
                 <div className="no-print flex items-center justify-between text-xs text-slate-400 font-semibold px-1">
                   <span className="flex items-center gap-1.5 text-indigo-400">
                     <span>📄 {locale === 'kh' ? 'ទំព័រទី ១: ប័ណ្ណវត្តមានបុគ្គលិក' : 'Page 1: Attendance Slip'}</span>
+                    {printLayout === 'a4_two_slips' && (
+                      <span className="text-[10px] text-amber-400 font-normal">
+                        ({isFirstSlipOnPage ? 'ប័ណ្ណទី ១ (ខាងលើ)' : 'ប័ណ្ណទី ២ (ខាងក្រោម)'})
+                      </span>
+                    )}
                   </span>
                   <span className="font-mono text-slate-300">
                     {emp.staffId} - {emp.nameEn || emp.nameKh}
@@ -1502,20 +1676,21 @@ const AttendanceSlip = () => {
                 </div>
 
                 {/* ================= PAGE 1: ATTENDANCE SLIP (A4 Page 1) ================= */}
-                <div className="slip-page-1 slip-card-box bg-white text-black p-6 sm:p-7 rounded-xl shadow-xl border border-slate-300 font-sans relative">
-                  <div>
-                    {/* Top Header Box (Logo on Left, Khmer OS Muol Light 18pt bold on Right, Print button top-right) */}
-                    <table className="slip-table w-full border-collapse border border-black mb-0">
-                      <tbody>
-                        <tr>
-                          {showLogo && (
-                            <td className="border border-black p-2.5 w-[28%] sm:w-[25%] text-center align-middle bg-white">
-                              <div className="relative group inline-block">
-                                <img
-                                  src={effectiveLogo}
-                                  alt="Company Logo"
-                                  className="h-16 sm:h-20 object-contain mx-auto"
-                                />
+                <div className={`slip-page-1 layout-${printLayout.replace(/_/g, '-')} slip-card-box bg-white text-black p-6 sm:p-7 rounded-xl shadow-xl border border-slate-300 font-sans relative`}>
+                  <div className="flex flex-col justify-between h-full w-full">
+                    <div>
+                      {/* Top Header Box (Logo on Left, Khmer OS Muol Light 18pt bold on Right, Print button top-right) */}
+                      <table className="slip-table w-full border-collapse border border-black mb-0">
+                        <tbody>
+                          <tr>
+                            {showLogo && (
+                              <td className="border border-black p-2.5 w-[28%] sm:w-[25%] text-center align-middle bg-white">
+                                <div className="relative group inline-block">
+                                  <img
+                                    src={effectiveLogo}
+                                    alt="Company Logo"
+                                    className="slip-logo-img h-16 sm:h-20 object-contain mx-auto"
+                                  />
                                 {/* Quick change logo hover in UI (hidden in print) */}
                                 <button
                                   type="button"
@@ -1806,7 +1981,7 @@ const AttendanceSlip = () => {
                   </div>
 
                   {/* Signatures Section */}
-                  <div className="grid grid-cols-2 gap-8 mt-4 pt-2 text-xs sm:text-sm">
+                  <div className="slip-signatures grid grid-cols-2 gap-8 mt-4 pt-2 text-xs sm:text-sm">
                     {/* Left: Prepared By */}
                     <div className="flex flex-col items-center text-center">
                       <h4 className="font-bold font-khmer mb-1">រៀបចំដោយ</h4>
@@ -1815,7 +1990,7 @@ const AttendanceSlip = () => {
                           <img
                             src={effectivePreparedSignature}
                             alt="Prepared Signature"
-                            className="h-12 object-contain"
+                            className="slip-signature-img h-12 object-contain"
                           />
                           {/* Quick change signature on hover in UI */}
                           <button
@@ -1846,7 +2021,7 @@ const AttendanceSlip = () => {
                           <img
                             src={approvedSignatureUrl}
                             alt="Approved Signature / Stamp"
-                            className="h-12 object-contain"
+                            className="slip-signature-img h-12 object-contain"
                           />
                           <button
                             type="button"
@@ -1858,13 +2033,15 @@ const AttendanceSlip = () => {
                           </button>
                         </div>
                       ) : (
-                        <div
-                          onClick={() => approvedSignatureInputRef.current?.click()}
-                          className="no-print group h-14 w-32 border border-dashed border-slate-300 hover:border-indigo-500 rounded flex flex-col items-center justify-center text-[10px] text-slate-400 hover:text-indigo-600 transition-colors cursor-pointer"
-                          title="Click to upload stamp / approved signature"
-                        >
-                          <PhotoIcon className="w-4 h-4 mb-0.5" />
-                          <span className="font-khmer">+ ដាក់ហត្ថលេខា/ត្រា</span>
+                        <div className="h-14 flex items-center justify-center">
+                          <div
+                            onClick={() => approvedSignatureInputRef.current?.click()}
+                            className="no-print group h-14 w-32 border border-dashed border-slate-300 hover:border-indigo-500 rounded flex flex-col items-center justify-center text-[10px] text-slate-400 hover:text-indigo-600 transition-colors cursor-pointer"
+                            title="Click to upload stamp / approved signature"
+                          >
+                            <PhotoIcon className="w-4 h-4 mb-0.5" />
+                            <span className="font-khmer">+ ដាក់ហត្ថលេខា/ត្រា</span>
+                          </div>
                         </div>
                       )}
                       {approvedByName && (
@@ -1877,6 +2054,14 @@ const AttendanceSlip = () => {
                     </div>
                   </div>
                 </div>
+              </div>
+
+              {/* Cutting line between 2 slips on A4 */}
+              {printLayout === 'a4_two_slips' && isFirstSlipOnPage && !isLastSlip && (
+                <div className="hidden print:flex items-center justify-between text-[8.5pt] text-gray-400 my-0.5 py-0 border-b border-dashed border-gray-400 select-none">
+                  <span>✂ - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - ✂</span>
+                </div>
+              )}
 
                 {/* ================= PAGE 2: CHECKIN LATE REPORT (A4 Page 2) ================= */}
                 {showDetailedBreakdown && data.incidentList.length > 0 && (
@@ -1909,60 +2094,60 @@ const AttendanceSlip = () => {
                           <h3 className="text-xl sm:text-2xl font-bold text-black mt-2 font-serif tracking-tight">
                             {reportTitleEn || 'Checkin Late Report'}
                           </h3>
-                          <p className="text-sm sm:text-base text-slate-800 font-bold mt-1 font-mono tracking-wide">
+                          <p className="text-sm sm:text-base text-black font-bold mt-1 font-mono tracking-wide">
                             {formatShortDate(startDate)} &nbsp;&nbsp; To &nbsp;&nbsp; {formatShortDate(endDate)}
                           </p>
                         </div>
 
                         {/* Detailed Blue Table */}
-                        <table className="slip-table w-full border-collapse border border-black text-xs sm:text-sm">
+                        <table className="slip-table w-full border-collapse border border-black text-xs sm:text-sm text-black">
                           <thead>
                             <tr className="bg-[#2563eb] text-white">
-                              <th className="border border-black px-3 py-2 font-bold uppercase text-left w-3/12">
+                              <th className="border border-black px-3 py-2 font-bold uppercase text-left w-3/12 text-white">
                                 DATE
                               </th>
-                              <th className="border border-black px-3 py-2 font-bold uppercase text-left w-5/12">
+                              <th className="border border-black px-3 py-2 font-bold uppercase text-left w-5/12 text-white">
                                 CHECK
                               </th>
-                              <th className="border border-black px-3 py-2 font-bold uppercase text-center w-2/12">
+                              <th className="border border-black px-3 py-2 font-bold uppercase text-center w-2/12 text-white">
                                 LATE
                               </th>
-                              <th className="border border-black px-3 py-2 font-bold uppercase text-left w-2/12">
+                              <th className="border border-black px-3 py-2 font-bold uppercase text-left w-2/12 text-white">
                                 DESCRIPTION
                               </th>
                             </tr>
                           </thead>
-                          <tbody>
+                          <tbody className="text-black">
                             {data.incidentList.length === 0 ? (
                               <tr>
-                                <td colSpan={4} className="border border-black px-3 py-6 text-center text-slate-500 font-khmer italic">
+                                <td colSpan={4} className="border border-black px-3 py-6 text-center text-neutral-500 font-khmer italic">
                                   {locale === 'kh' ? 'គ្មានទិន្នន័យមកយឺតក្នុងកាលបរិច្ឆេទនេះទេ' : 'No late attendance records for this period'}
                                 </td>
                               </tr>
                             ) : (
                               data.incidentList.map((inc, iIdx) => (
-                                <tr key={iIdx} className="hover:bg-slate-50">
-                                  <td className="border border-black px-3 py-1.5 font-mono text-slate-900">
+                                <tr key={iIdx} className="hover:bg-slate-50 text-black">
+                                  <td className="border border-black px-3 py-1.5 font-mono text-black font-semibold">
                                     {formatEnglishFullDate(inc.date)}
                                   </td>
-                                  <td className="border border-black px-3 py-1.5 font-mono font-medium text-slate-800">
+                                  <td className="border border-black px-3 py-1.5 font-mono font-medium text-black">
                                     {inc.shiftText}
                                   </td>
                                   <td className="border border-black px-3 py-1.5 text-center font-bold text-amber-600 font-mono">
                                     {inc.lateFormatted}
                                   </td>
-                                  <td className="border border-black px-3 py-1.5 text-slate-700">
+                                  <td className="border border-black px-3 py-1.5 text-black">
                                     {inc.description}
                                   </td>
                                 </tr>
                               ))
                             )}
                             {/* Summary Row */}
-                            <tr className="bg-slate-100 font-bold">
-                              <td colSpan={2} className="border border-black px-3 py-2 text-right font-mono">
+                            <tr className="bg-slate-100 font-bold text-black">
+                              <td colSpan={2} className="border border-black px-3 py-2 text-right font-mono text-black">
                                 Total: <span className="text-amber-600">{data.totalLateMinutes}m</span>
                               </td>
-                              <td colSpan={2} className="border border-black px-3 py-2 font-mono">
+                              <td colSpan={2} className="border border-black px-3 py-2 font-mono text-black">
                                 Count Late: <span className="text-amber-600">{data.totalLateCount}</span>
                               </td>
                             </tr>
@@ -1978,484 +2163,539 @@ const AttendanceSlip = () => {
         )}
       </div>
 
-      {/* DESIGN & SETTINGS MODAL */ }
-  {
-    showSettingsModal && (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-md px-4 overflow-y-auto py-8">
-        <div className="w-full max-w-2xl bg-slate-900 border border-white/10 rounded-2xl shadow-2xl overflow-hidden glow-indigo my-auto">
-          {/* Modal Header */}
-          <div className="px-6 py-4 bg-slate-950/90 border-b border-white/10 flex items-center justify-between">
-            <div className="flex items-center gap-2.5">
-              <div className="p-2 rounded-xl bg-indigo-500/20 text-indigo-400 border border-indigo-500/30">
-                <Cog6ToothIcon className="w-5 h-5" />
+      {/* DESIGN & SETTINGS MODAL */}
+      {
+        showSettingsModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-md px-4 overflow-y-auto py-8">
+            <div className="w-full max-w-2xl bg-slate-900 border border-white/10 rounded-2xl shadow-2xl overflow-hidden glow-indigo my-auto">
+              {/* Modal Header */}
+              <div className="px-6 py-4 bg-slate-950/90 border-b border-white/10 flex items-center justify-between">
+                <div className="flex items-center gap-2.5">
+                  <div className="p-2 rounded-xl bg-indigo-500/20 text-indigo-400 border border-indigo-500/30">
+                    <Cog6ToothIcon className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-bold text-white font-khmer">
+                      {locale === 'kh' ? 'ការកំណត់ប័ណ្ណវត្តមាន & ហត្ថលេខា' : 'Slip Design & Signature Settings'}
+                    </h3>
+                    <p className="text-[11px] text-slate-400">
+                      {locale === 'kh' ? 'កែប្រែហត្ថលេខា ឡូហ្គោ និងព័ត៌មានប័ណ្ណវត្តមាន' : 'Upload custom signature, company logo and header info'}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowSettingsModal(false)}
+                  className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-white/10 transition-colors cursor-pointer"
+                >
+                  <XMarkIcon className="w-5 h-5" />
+                </button>
               </div>
-              <div>
-                <h3 className="text-base font-bold text-white font-khmer">
-                  {locale === 'kh' ? 'ការកំណត់ប័ណ្ណវត្តមាន & ហត្ថលេខា' : 'Slip Design & Signature Settings'}
-                </h3>
-                <p className="text-[11px] text-slate-400">
-                  {locale === 'kh' ? 'កែប្រែហត្ថលេខា ឡូហ្គោ និងព័ត៌មានប័ណ្ណវត្តមាន' : 'Upload custom signature, company logo and header info'}
-                </p>
+
+              {/* Settings Tabs */}
+              <div className="flex border-b border-white/10 bg-slate-950/40 px-6">
+                <button
+                  type="button"
+                  onClick={() => setActiveSettingsTab('signature')}
+                  className={`py-3 px-4 font-semibold text-xs border-b-2 font-khmer transition-all cursor-pointer ${activeSettingsTab === 'signature'
+                    ? 'border-indigo-500 text-indigo-400 font-bold bg-white/5'
+                    : 'border-transparent text-slate-400 hover:text-slate-200'
+                    }`}
+                >
+                  ✍️ {locale === 'kh' ? 'ហត្ថលេខា & អ្នករៀបចំ' : 'Signatures & Signer'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveSettingsTab('header')}
+                  className={`py-3 px-4 font-semibold text-xs border-b-2 font-khmer transition-all cursor-pointer ${activeSettingsTab === 'header'
+                    ? 'border-indigo-500 text-indigo-400 font-bold bg-white/5'
+                    : 'border-transparent text-slate-400 hover:text-slate-200'
+                    }`}
+                >
+                  🏢 {locale === 'kh' ? 'ឡូហ្គោ & ចំណងជើង' : 'Logo & Header'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveSettingsTab('display')}
+                  className={`py-3 px-4 font-semibold text-xs border-b-2 font-khmer transition-all cursor-pointer ${activeSettingsTab === 'display'
+                    ? 'border-indigo-500 text-indigo-400 font-bold bg-white/5'
+                    : 'border-transparent text-slate-400 hover:text-slate-200'
+                    }`}
+                >
+                  ⚙️ {locale === 'kh' ? 'ជម្រើសបង្ហាញ' : 'Display Options'}
+                </button>
+              </div>
+
+              {/* Tab Contents */}
+              <div className="p-6 space-y-5 max-h-[70vh] overflow-y-auto">
+                {/* TAB 1: SIGNATURES */}
+                {activeSettingsTab === 'signature' && (
+                  <div className="space-y-6">
+                    {/* Prepared By Signature Card */}
+                    <div className="p-4 rounded-xl bg-slate-950/60 border border-white/10 space-y-3.5">
+                      <h4 className="text-xs font-bold text-amber-400 uppercase tracking-wider font-khmer flex items-center justify-between">
+                        <span>1. ហត្ថលេខាអ្នករៀបចំ (Prepared By Signature)</span>
+                        <label className="flex items-center gap-1.5 text-xs text-slate-300 font-normal cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={showPreparedSignature}
+                            onChange={(e) => {
+                              setShowPreparedSignature(e.target.checked);
+                              saveSettingsToStorage({ showPreparedSignature: e.target.checked });
+                            }}
+                            className="rounded border-white/20 bg-slate-900 text-indigo-600 focus:ring-indigo-500 h-3.5 w-3.5 cursor-pointer"
+                          />
+                          <span>បង្ហាញហត្ថលេខា</span>
+                        </label>
+                      </h4>
+
+                      {/* Signature Preview & Upload Box */}
+                      <div className="flex flex-col sm:flex-row items-center gap-4 p-3 bg-white/5 rounded-xl border border-white/5">
+                        <div className="w-40 h-20 bg-white rounded-lg p-2 border border-slate-300 flex items-center justify-center flex-shrink-0 shadow-inner">
+                          <img
+                            src={effectivePreparedSignature}
+                            alt="Signature Preview"
+                            className="max-h-full max-w-full object-contain"
+                          />
+                        </div>
+
+                        <div className="space-y-2 flex-1 text-center sm:text-left">
+                          <p className="text-xs text-slate-300 font-khmer">
+                            {preparedSignatureUrl ? '✅ កំពុងប្រើហត្ថលេខាផ្ទាល់ខ្លួន' : '⚡ កំពុងប្រើហត្ថលេខាដើម'}
+                          </p>
+                          <div className="flex items-center gap-2 flex-wrap justify-center sm:justify-start">
+                            <button
+                              type="button"
+                              onClick={() => preparedSignatureInputRef.current?.click()}
+                              className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer font-khmer"
+                            >
+                              <PhotoIcon className="w-3.5 h-3.5" />
+                              <span>{locale === 'kh' ? 'Upload រូបភាពថ្មី' : 'Upload Image'}</span>
+                            </button>
+                            {preparedSignatureUrl && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setPreparedSignatureUrl('');
+                                  saveSettingsToStorage({ preparedSignatureUrl: '' });
+                                }}
+                                className="px-3 py-1.5 bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/30 rounded-lg text-xs font-semibold flex items-center gap-1 transition-colors cursor-pointer font-khmer"
+                              >
+                                <ArrowPathIcon className="w-3.5 h-3.5" />
+                                <span>{locale === 'kh' ? 'ត្រឡប់ដើម' : 'Reset'}</span>
+                              </button>
+                            )}
+                          </div>
+                          <p className="text-[10px] text-slate-500 font-khmer">
+                            អនុញ្ញាតប្រភេទ PNG, JPG (ផ្ទៃថ្លា Transparent រឹតតែស្អាត)
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
+                        <div>
+                          <label className="block text-[11px] font-semibold text-slate-400 mb-1 font-khmer">
+                            ឈ្មោះអ្នករៀបចំ (Prepared By Name)
+                          </label>
+                          <input
+                            type="text"
+                            value={preparedByName}
+                            onChange={(e) => {
+                              setPreparedByName(e.target.value);
+                              saveSettingsToStorage({ preparedByName: e.target.value });
+                            }}
+                            className="w-full py-2 px-3 border border-white/10 bg-slate-950 text-white rounded-xl text-xs focus:border-indigo-500 outline-none font-khmer"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[11px] font-semibold text-slate-400 mb-1 font-khmer">
+                            កាលបរិច្ឆេទ (Prepared Date)
+                          </label>
+                          <input
+                            type="text"
+                            value={preparedDate}
+                            onChange={(e) => {
+                              setPreparedDate(e.target.value);
+                              saveSettingsToStorage({ preparedDate: e.target.value });
+                            }}
+                            className="w-full py-2 px-3 border border-white/10 bg-slate-950 text-white rounded-xl text-xs focus:border-indigo-500 outline-none font-mono"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Approved By Signature / Stamp Card */}
+                    <div className="p-4 rounded-xl bg-slate-950/60 border border-white/10 space-y-3.5">
+                      <h4 className="text-xs font-bold text-emerald-400 uppercase tracking-wider font-khmer flex items-center justify-between">
+                        <span>2. ហត្ថលេខាអ្នកយល់ព្រម / ត្រា (Approved By / Stamp)</span>
+                        <label className="flex items-center gap-1.5 text-xs text-slate-300 font-normal cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={showApprovedSignature}
+                            onChange={(e) => {
+                              setShowApprovedSignature(e.target.checked);
+                              saveSettingsToStorage({ showApprovedSignature: e.target.checked });
+                            }}
+                            className="rounded border-white/20 bg-slate-900 text-indigo-600 focus:ring-indigo-500 h-3.5 w-3.5 cursor-pointer"
+                          />
+                          <span>បង្ហាញហត្ថលេខា/ត្រា</span>
+                        </label>
+                      </h4>
+
+                      {/* Approved Signature Upload */}
+                      <div className="flex flex-col sm:flex-row items-center gap-4 p-3 bg-white/5 rounded-xl border border-white/5">
+                        <div className="w-40 h-20 bg-white rounded-lg p-2 border border-slate-300 flex items-center justify-center flex-shrink-0 shadow-inner">
+                          {approvedSignatureUrl ? (
+                            <img
+                              src={approvedSignatureUrl}
+                              alt="Approved Stamp"
+                              className="max-h-full max-w-full object-contain"
+                            />
+                          ) : (
+                            <span className="text-[11px] text-slate-400 font-khmer text-center">មិនទាន់មានត្រា/ហត្ថលេខា</span>
+                          )}
+                        </div>
+
+                        <div className="space-y-2 flex-1 text-center sm:text-left">
+                          <div className="flex items-center gap-2 flex-wrap justify-center sm:justify-start">
+                            <button
+                              type="button"
+                              onClick={() => approvedSignatureInputRef.current?.click()}
+                              className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer font-khmer"
+                            >
+                              <PhotoIcon className="w-3.5 h-3.5" />
+                              <span>{locale === 'kh' ? 'Upload ហត្ថលេខា/ត្រា' : 'Upload Stamp/Sign'}</span>
+                            </button>
+                            {approvedSignatureUrl && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setApprovedSignatureUrl('');
+                                  saveSettingsToStorage({ approvedSignatureUrl: '' });
+                                }}
+                                className="px-3 py-1.5 bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/30 rounded-lg text-xs font-semibold flex items-center gap-1 transition-colors cursor-pointer font-khmer"
+                              >
+                                <TrashIcon className="w-3.5 h-3.5" />
+                                <span>{locale === 'kh' ? 'លុបចេញ' : 'Remove'}</span>
+                              </button>
+                            )}
+                          </div>
+                          <p className="text-[10px] text-slate-500 font-khmer">
+                            (ជាជម្រើស) អ្នកអាច upload ត្រាក្រុមហ៊ុន ឬទុកនៅទំនេរដើម្បីចុះហត្ថលេខាដោយដៃ
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
+                        <div>
+                          <label className="block text-[11px] font-semibold text-slate-400 mb-1 font-khmer">
+                            ឈ្មោះអ្នកយល់ព្រម (Approved By Name)
+                          </label>
+                          <input
+                            type="text"
+                            value={approvedByName}
+                            onChange={(e) => {
+                              setApprovedByName(e.target.value);
+                              saveSettingsToStorage({ approvedByName: e.target.value });
+                            }}
+                            placeholder="ឧ. នាយកប្រតិបត្តិ..."
+                            className="w-full py-2 px-3 border border-white/10 bg-slate-950 text-white rounded-xl text-xs focus:border-indigo-500 outline-none font-khmer"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[11px] font-semibold text-slate-400 mb-1 font-khmer">
+                            កាលបរិច្ឆេទយល់ព្រម (Approved Date Line)
+                          </label>
+                          <input
+                            type="text"
+                            value={approvedDate}
+                            onChange={(e) => {
+                              setApprovedDate(e.target.value);
+                              saveSettingsToStorage({ approvedDate: e.target.value });
+                            }}
+                            className="w-full py-2 px-3 border border-white/10 bg-slate-950 text-white rounded-xl text-xs focus:border-indigo-500 outline-none font-mono"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* TAB 2: HEADER & BRANDING */}
+                {activeSettingsTab === 'header' && (
+                  <div className="space-y-4">
+                    {/* Logo Card */}
+                    <div className="p-4 rounded-xl bg-slate-950/60 border border-white/10 space-y-3">
+                      <h4 className="text-xs font-bold text-slate-300 uppercase tracking-wider font-khmer flex items-center justify-between">
+                        <span>ឡូហ្គោក្រុមហ៊ុន / គម្រោង (Company Logo)</span>
+                        <label className="flex items-center gap-1.5 text-xs text-slate-300 font-normal cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={showLogo}
+                            onChange={(e) => {
+                              setShowLogo(e.target.checked);
+                              saveSettingsToStorage({ showLogo: e.target.checked });
+                            }}
+                            className="rounded border-white/20 bg-slate-900 text-indigo-600 focus:ring-indigo-500 h-3.5 w-3.5 cursor-pointer"
+                          />
+                          <span>បង្ហាញ Logo</span>
+                        </label>
+                      </h4>
+
+                      <div className="flex flex-col sm:flex-row items-center gap-4 p-3 bg-white/5 rounded-xl border border-white/5">
+                        <div className="w-36 h-20 bg-white rounded-lg p-2 border border-slate-300 flex items-center justify-center flex-shrink-0 shadow-inner">
+                          <img
+                            src={effectiveLogo}
+                            alt="Logo Preview"
+                            className="max-h-full max-w-full object-contain"
+                          />
+                        </div>
+
+                        <div className="space-y-2 flex-1 text-center sm:text-left">
+                          <div className="flex items-center gap-2 flex-wrap justify-center sm:justify-start">
+                            <button
+                              type="button"
+                              onClick={() => logoInputRef.current?.click()}
+                              className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer font-khmer"
+                            >
+                              <PhotoIcon className="w-3.5 h-3.5" />
+                              <span>{locale === 'kh' ? 'Upload Logo ថ្មី' : 'Upload New Logo'}</span>
+                            </button>
+                            {customLogoUrl && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setCustomLogoUrl('');
+                                  saveSettingsToStorage({ customLogoUrl: '' });
+                                }}
+                                className="px-3 py-1.5 bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/30 rounded-lg text-xs font-semibold flex items-center gap-1 transition-colors cursor-pointer font-khmer"
+                              >
+                                <ArrowPathIcon className="w-3.5 h-3.5" />
+                                <span>{locale === 'kh' ? 'ប្រើ Logo ដើម' : 'Reset Logo'}</span>
+                              </button>
+                            )}
+                          </div>
+                          <p className="text-[10px] text-slate-500 font-khmer">
+                            ទំហំសមស្រប: PNG ឬ JPG ផ្ទៃថ្លា (Transparent)
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Project Titles */}
+                    <div className="p-4 rounded-xl bg-slate-950/60 border border-white/10 space-y-3">
+                      <h4 className="text-xs font-bold text-slate-300 uppercase tracking-wider font-khmer">
+                        ចំណងជើងគម្រោង & របាយការណ៍ (Header Titles)
+                      </h4>
+
+                      <div>
+                        <label className="block text-[11px] font-semibold text-slate-400 mb-1 font-khmer">
+                          ឈ្មោះគម្រោងជាភាសាខ្មែរ (Project Title Khmer)
+                        </label>
+                        <input
+                          type="text"
+                          value={projectTitleKh}
+                          onChange={(e) => {
+                            setProjectTitleKh(e.target.value);
+                            saveSettingsToStorage({ projectTitleKh: e.target.value });
+                          }}
+                          className="w-full py-2 px-3 border border-white/10 bg-slate-950 text-white rounded-xl text-xs focus:border-indigo-500 outline-none font-khmer"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-[11px] font-semibold text-slate-400 mb-1 font-khmer">
+                          ឈ្មោះគម្រោងជាភាសាអង់គ្លេស (Project Name English)
+                        </label>
+                        <input
+                          type="text"
+                          value={projectName}
+                          onChange={(e) => {
+                            setProjectName(e.target.value);
+                            saveSettingsToStorage({ projectName: e.target.value });
+                          }}
+                          className="w-full py-2 px-3 border border-white/10 bg-slate-950 text-white rounded-xl text-xs focus:border-indigo-500 outline-none"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-[11px] font-semibold text-slate-400 mb-1 font-khmer">
+                          ចំណងជើងតារាងលម្អិត (Breakdown Report Title)
+                        </label>
+                        <input
+                          type="text"
+                          value={reportTitleEn}
+                          onChange={(e) => {
+                            setReportTitleEn(e.target.value);
+                            saveSettingsToStorage({ reportTitleEn: e.target.value });
+                          }}
+                          className="w-full py-2 px-3 border border-white/10 bg-slate-950 text-white rounded-xl text-xs focus:border-indigo-500 outline-none"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* TAB 3: DISPLAY OPTIONS */}
+                {activeSettingsTab === 'display' && (
+                  <div className="p-4 rounded-xl bg-slate-950/60 border border-white/10 space-y-4">
+                    <h4 className="text-xs font-bold text-slate-300 uppercase tracking-wider font-khmer">
+                      ជម្រើសនៃការបង្ហាញលើប័ណ្ណ (Display Options)
+                    </h4>
+
+                    <div className="space-y-3 text-xs">
+                      <label className="flex items-center justify-between p-3 rounded-xl bg-white/5 border border-white/5 cursor-pointer">
+                        <span className="font-khmer">បង្ហាញតារាងលម្អិត (Checkin Late Detailed Table)</span>
+                        <input
+                          type="checkbox"
+                          checked={showDetailedBreakdown}
+                          onChange={(e) => {
+                            setShowDetailedBreakdown(e.target.checked);
+                            saveSettingsToStorage({ showDetailedBreakdown: e.target.checked });
+                          }}
+                          className="rounded border-white/20 bg-slate-900 text-indigo-600 focus:ring-indigo-500 h-4 w-4 cursor-pointer"
+                        />
+                      </label>
+
+                      <label className="flex items-center justify-between p-3 rounded-xl bg-white/5 border border-white/5 cursor-pointer">
+                        <span className="font-khmer">បង្ហាញឡូហ្គោក្រុមហ៊ុន (Show Company Logo)</span>
+                        <input
+                          type="checkbox"
+                          checked={showLogo}
+                          onChange={(e) => {
+                            setShowLogo(e.target.checked);
+                            saveSettingsToStorage({ showLogo: e.target.checked });
+                          }}
+                          className="rounded border-white/20 bg-slate-900 text-indigo-600 focus:ring-indigo-500 h-4 w-4 cursor-pointer"
+                        />
+                      </label>
+
+                      <label className="flex items-center justify-between p-3 rounded-xl bg-white/5 border border-white/5 cursor-pointer">
+                        <span className="font-khmer">បង្ហាញហត្ថលេខាអ្នករៀបចំ (Show Prepared Signature)</span>
+                        <input
+                          type="checkbox"
+                          checked={showPreparedSignature}
+                          onChange={(e) => {
+                            setShowPreparedSignature(e.target.checked);
+                            saveSettingsToStorage({ showPreparedSignature: e.target.checked });
+                          }}
+                          className="rounded border-white/20 bg-slate-900 text-indigo-600 focus:ring-indigo-500 h-4 w-4 cursor-pointer"
+                        />
+                      </label>
+
+                      <label className="flex items-center justify-between p-3 rounded-xl bg-white/5 border border-white/5 cursor-pointer">
+                        <span className="font-khmer">បង្ហាញហត្ថលេខា/ត្រាអ្នកយល់ព្រម (Show Approved Stamp/Sign)</span>
+                        <input
+                          type="checkbox"
+                          checked={showApprovedSignature}
+                          onChange={(e) => {
+                            setShowApprovedSignature(e.target.checked);
+                            saveSettingsToStorage({ showApprovedSignature: e.target.checked });
+                          }}
+                          className="rounded border-white/20 bg-slate-900 text-indigo-600 focus:ring-indigo-500 h-4 w-4 cursor-pointer"
+                        />
+                      </label>
+                    </div>
+
+                    {/* Print Paper Layout Option */}
+                    <div className="pt-3 border-t border-white/10 space-y-2">
+                      <label className="block text-xs font-bold text-slate-300 font-khmer">
+                        {locale === 'kh' ? 'ទម្រង់ទំហំក្រដាសពេលបោះពុម្ព (Print Paper Layout)' : 'Print Paper Layout'}
+                      </label>
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setPrintLayout('a4_full');
+                            saveSettingsToStorage({ printLayout: 'a4_full' });
+                          }}
+                          className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
+                            printLayout === 'a4_full'
+                              ? 'bg-indigo-600/30 border-indigo-500 text-white shadow-sm'
+                              : 'bg-slate-900/60 border-white/10 text-slate-400 hover:text-slate-200'
+                          }`}
+                        >
+                          <div className="font-bold text-xs font-khmer">📄 A4 ពេញទំព័រ</div>
+                          <div className="text-[10px] text-slate-400 mt-1 font-khmer">១ ប័ណ្ណពេញសន្លឹក គ្មានសល់ផ្ទៃស</div>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setPrintLayout('a4_two_slips');
+                            saveSettingsToStorage({ printLayout: 'a4_two_slips' });
+                          }}
+                          className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
+                            printLayout === 'a4_two_slips'
+                              ? 'bg-indigo-600/30 border-indigo-500 text-white shadow-sm'
+                              : 'bg-slate-900/60 border-white/10 text-slate-400 hover:text-slate-200'
+                          }`}
+                        >
+                          <div className="font-bold text-xs font-khmer">📑 A4 ចែក ២ ប័ណ្ណ</div>
+                          <div className="text-[10px] text-slate-400 mt-1 font-khmer">២ ប័ណ្ណលើ ១ សន្លឹក + បន្ទាត់កាត់</div>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setPrintLayout('a5');
+                            saveSettingsToStorage({ printLayout: 'a5' });
+                          }}
+                          className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
+                            printLayout === 'a5'
+                              ? 'bg-indigo-600/30 border-indigo-500 text-white shadow-sm'
+                              : 'bg-slate-900/60 border-white/10 text-slate-400 hover:text-slate-200'
+                          }`}
+                        >
+                          <div className="font-bold text-xs font-khmer">📋 A5 ស្ដង់ដារ</div>
+                          <div className="text-[10px] text-slate-400 mt-1 font-khmer">បោះពុម្ពលើក្រដាស A5 ដោយផ្ទាល់</div>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Modal Footer */}
+              <div className="px-6 py-4 bg-slate-950/80 border-t border-white/10 flex items-center justify-between">
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (confirm(locale === 'kh' ? 'តើអ្នកពិតជាចង់កំណត់ឡើងវិញទាំងអស់មែនទេ?' : 'Reset all settings to default?')) {
+                      localStorage.removeItem(SETTINGS_STORAGE_KEY);
+                      setProjectName('Project: KH-KBC');
+                      setProjectTitleKh('គម្រោង បុរីកំបូល ស៊ីធី');
+                      setReportTitleEn('Checkin Late Report');
+                      setPreparedByName('ឌី ច័ន្ទតារា');
+                      setPreparedSignatureUrl('');
+                      setShowPreparedSignature(true);
+                      setApprovedByName('');
+                      setApprovedDate('...../...../ 2026');
+                      setApprovedSignatureUrl('');
+                      setShowApprovedSignature(true);
+                      setCustomLogoUrl('');
+                      setShowLogo(true);
+                      setShowDetailedBreakdown(true);
+                      setPrintLayout('a4_full');
+                    }
+                  }}
+                  className="text-xs text-slate-400 hover:text-rose-400 font-khmer cursor-pointer flex items-center gap-1"
+                >
+                  <ArrowPathIcon className="w-3.5 h-3.5" />
+                  <span>{locale === 'kh' ? 'កំណត់លំនាំដើមទាំងអស់' : 'Reset All Defaults'}</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setShowSettingsModal(false)}
+                  className="px-5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-indigo-600/30 cursor-pointer font-khmer flex items-center gap-1.5"
+                >
+                  <CheckIcon className="w-4 h-4" />
+                  <span>{locale === 'kh' ? 'រួចរាល់ (Save & Close)' : 'Done'}</span>
+                </button>
               </div>
             </div>
-            <button
-              type="button"
-              onClick={() => setShowSettingsModal(false)}
-              className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-white/10 transition-colors cursor-pointer"
-            >
-              <XMarkIcon className="w-5 h-5" />
-            </button>
           </div>
-
-          {/* Settings Tabs */}
-          <div className="flex border-b border-white/10 bg-slate-950/40 px-6">
-            <button
-              type="button"
-              onClick={() => setActiveSettingsTab('signature')}
-              className={`py-3 px-4 font-semibold text-xs border-b-2 font-khmer transition-all cursor-pointer ${activeSettingsTab === 'signature'
-                  ? 'border-indigo-500 text-indigo-400 font-bold bg-white/5'
-                  : 'border-transparent text-slate-400 hover:text-slate-200'
-                }`}
-            >
-              ✍️ {locale === 'kh' ? 'ហត្ថលេខា & អ្នករៀបចំ' : 'Signatures & Signer'}
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveSettingsTab('header')}
-              className={`py-3 px-4 font-semibold text-xs border-b-2 font-khmer transition-all cursor-pointer ${activeSettingsTab === 'header'
-                  ? 'border-indigo-500 text-indigo-400 font-bold bg-white/5'
-                  : 'border-transparent text-slate-400 hover:text-slate-200'
-                }`}
-            >
-              🏢 {locale === 'kh' ? 'ឡូហ្គោ & ចំណងជើង' : 'Logo & Header'}
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveSettingsTab('display')}
-              className={`py-3 px-4 font-semibold text-xs border-b-2 font-khmer transition-all cursor-pointer ${activeSettingsTab === 'display'
-                  ? 'border-indigo-500 text-indigo-400 font-bold bg-white/5'
-                  : 'border-transparent text-slate-400 hover:text-slate-200'
-                }`}
-            >
-              ⚙️ {locale === 'kh' ? 'ជម្រើសបង្ហាញ' : 'Display Options'}
-            </button>
-          </div>
-
-          {/* Tab Contents */}
-          <div className="p-6 space-y-5 max-h-[70vh] overflow-y-auto">
-            {/* TAB 1: SIGNATURES */}
-            {activeSettingsTab === 'signature' && (
-              <div className="space-y-6">
-                {/* Prepared By Signature Card */}
-                <div className="p-4 rounded-xl bg-slate-950/60 border border-white/10 space-y-3.5">
-                  <h4 className="text-xs font-bold text-amber-400 uppercase tracking-wider font-khmer flex items-center justify-between">
-                    <span>1. ហត្ថលេខាអ្នករៀបចំ (Prepared By Signature)</span>
-                    <label className="flex items-center gap-1.5 text-xs text-slate-300 font-normal cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={showPreparedSignature}
-                        onChange={(e) => {
-                          setShowPreparedSignature(e.target.checked);
-                          saveSettingsToStorage({ showPreparedSignature: e.target.checked });
-                        }}
-                        className="rounded border-white/20 bg-slate-900 text-indigo-600 focus:ring-indigo-500 h-3.5 w-3.5 cursor-pointer"
-                      />
-                      <span>បង្ហាញហត្ថលេខា</span>
-                    </label>
-                  </h4>
-
-                  {/* Signature Preview & Upload Box */}
-                  <div className="flex flex-col sm:flex-row items-center gap-4 p-3 bg-white/5 rounded-xl border border-white/5">
-                    <div className="w-40 h-20 bg-white rounded-lg p-2 border border-slate-300 flex items-center justify-center flex-shrink-0 shadow-inner">
-                      <img
-                        src={effectivePreparedSignature}
-                        alt="Signature Preview"
-                        className="max-h-full max-w-full object-contain"
-                      />
-                    </div>
-
-                    <div className="space-y-2 flex-1 text-center sm:text-left">
-                      <p className="text-xs text-slate-300 font-khmer">
-                        {preparedSignatureUrl ? '✅ កំពុងប្រើហត្ថលេខាផ្ទាល់ខ្លួន' : '⚡ កំពុងប្រើហត្ថលេខាដើម'}
-                      </p>
-                      <div className="flex items-center gap-2 flex-wrap justify-center sm:justify-start">
-                        <button
-                          type="button"
-                          onClick={() => preparedSignatureInputRef.current?.click()}
-                          className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer font-khmer"
-                        >
-                          <PhotoIcon className="w-3.5 h-3.5" />
-                          <span>{locale === 'kh' ? 'Upload រូបភាពថ្មី' : 'Upload Image'}</span>
-                        </button>
-                        {preparedSignatureUrl && (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setPreparedSignatureUrl('');
-                              saveSettingsToStorage({ preparedSignatureUrl: '' });
-                            }}
-                            className="px-3 py-1.5 bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/30 rounded-lg text-xs font-semibold flex items-center gap-1 transition-colors cursor-pointer font-khmer"
-                          >
-                            <ArrowPathIcon className="w-3.5 h-3.5" />
-                            <span>{locale === 'kh' ? 'ត្រឡប់ដើម' : 'Reset'}</span>
-                          </button>
-                        )}
-                      </div>
-                      <p className="text-[10px] text-slate-500 font-khmer">
-                        អនុញ្ញាតប្រភេទ PNG, JPG (ផ្ទៃថ្លា Transparent រឹតតែស្អាត)
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
-                    <div>
-                      <label className="block text-[11px] font-semibold text-slate-400 mb-1 font-khmer">
-                        ឈ្មោះអ្នករៀបចំ (Prepared By Name)
-                      </label>
-                      <input
-                        type="text"
-                        value={preparedByName}
-                        onChange={(e) => {
-                          setPreparedByName(e.target.value);
-                          saveSettingsToStorage({ preparedByName: e.target.value });
-                        }}
-                        className="w-full py-2 px-3 border border-white/10 bg-slate-950 text-white rounded-xl text-xs focus:border-indigo-500 outline-none font-khmer"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-[11px] font-semibold text-slate-400 mb-1 font-khmer">
-                        កាលបរិច្ឆេទ (Prepared Date)
-                      </label>
-                      <input
-                        type="text"
-                        value={preparedDate}
-                        onChange={(e) => {
-                          setPreparedDate(e.target.value);
-                          saveSettingsToStorage({ preparedDate: e.target.value });
-                        }}
-                        className="w-full py-2 px-3 border border-white/10 bg-slate-950 text-white rounded-xl text-xs focus:border-indigo-500 outline-none font-mono"
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                {/* Approved By Signature / Stamp Card */}
-                <div className="p-4 rounded-xl bg-slate-950/60 border border-white/10 space-y-3.5">
-                  <h4 className="text-xs font-bold text-emerald-400 uppercase tracking-wider font-khmer flex items-center justify-between">
-                    <span>2. ហត្ថលេខាអ្នកយល់ព្រម / ត្រា (Approved By / Stamp)</span>
-                    <label className="flex items-center gap-1.5 text-xs text-slate-300 font-normal cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={showApprovedSignature}
-                        onChange={(e) => {
-                          setShowApprovedSignature(e.target.checked);
-                          saveSettingsToStorage({ showApprovedSignature: e.target.checked });
-                        }}
-                        className="rounded border-white/20 bg-slate-900 text-indigo-600 focus:ring-indigo-500 h-3.5 w-3.5 cursor-pointer"
-                      />
-                      <span>បង្ហាញហត្ថលេខា/ត្រា</span>
-                    </label>
-                  </h4>
-
-                  {/* Approved Signature Upload */}
-                  <div className="flex flex-col sm:flex-row items-center gap-4 p-3 bg-white/5 rounded-xl border border-white/5">
-                    <div className="w-40 h-20 bg-white rounded-lg p-2 border border-slate-300 flex items-center justify-center flex-shrink-0 shadow-inner">
-                      {approvedSignatureUrl ? (
-                        <img
-                          src={approvedSignatureUrl}
-                          alt="Approved Stamp"
-                          className="max-h-full max-w-full object-contain"
-                        />
-                      ) : (
-                        <span className="text-[11px] text-slate-400 font-khmer text-center">មិនទាន់មានត្រា/ហត្ថលេខា</span>
-                      )}
-                    </div>
-
-                    <div className="space-y-2 flex-1 text-center sm:text-left">
-                      <div className="flex items-center gap-2 flex-wrap justify-center sm:justify-start">
-                        <button
-                          type="button"
-                          onClick={() => approvedSignatureInputRef.current?.click()}
-                          className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer font-khmer"
-                        >
-                          <PhotoIcon className="w-3.5 h-3.5" />
-                          <span>{locale === 'kh' ? 'Upload ហត្ថលេខា/ត្រា' : 'Upload Stamp/Sign'}</span>
-                        </button>
-                        {approvedSignatureUrl && (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setApprovedSignatureUrl('');
-                              saveSettingsToStorage({ approvedSignatureUrl: '' });
-                            }}
-                            className="px-3 py-1.5 bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/30 rounded-lg text-xs font-semibold flex items-center gap-1 transition-colors cursor-pointer font-khmer"
-                          >
-                            <TrashIcon className="w-3.5 h-3.5" />
-                            <span>{locale === 'kh' ? 'លុបចេញ' : 'Remove'}</span>
-                          </button>
-                        )}
-                      </div>
-                      <p className="text-[10px] text-slate-500 font-khmer">
-                        (ជាជម្រើស) អ្នកអាច upload ត្រាក្រុមហ៊ុន ឬទុកនៅទំនេរដើម្បីចុះហត្ថលេខាដោយដៃ
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
-                    <div>
-                      <label className="block text-[11px] font-semibold text-slate-400 mb-1 font-khmer">
-                        ឈ្មោះអ្នកយល់ព្រម (Approved By Name)
-                      </label>
-                      <input
-                        type="text"
-                        value={approvedByName}
-                        onChange={(e) => {
-                          setApprovedByName(e.target.value);
-                          saveSettingsToStorage({ approvedByName: e.target.value });
-                        }}
-                        placeholder="ឧ. នាយកប្រតិបត្តិ..."
-                        className="w-full py-2 px-3 border border-white/10 bg-slate-950 text-white rounded-xl text-xs focus:border-indigo-500 outline-none font-khmer"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-[11px] font-semibold text-slate-400 mb-1 font-khmer">
-                        កាលបរិច្ឆេទយល់ព្រម (Approved Date Line)
-                      </label>
-                      <input
-                        type="text"
-                        value={approvedDate}
-                        onChange={(e) => {
-                          setApprovedDate(e.target.value);
-                          saveSettingsToStorage({ approvedDate: e.target.value });
-                        }}
-                        className="w-full py-2 px-3 border border-white/10 bg-slate-950 text-white rounded-xl text-xs focus:border-indigo-500 outline-none font-mono"
-                      />
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* TAB 2: HEADER & BRANDING */}
-            {activeSettingsTab === 'header' && (
-              <div className="space-y-4">
-                {/* Logo Card */}
-                <div className="p-4 rounded-xl bg-slate-950/60 border border-white/10 space-y-3">
-                  <h4 className="text-xs font-bold text-slate-300 uppercase tracking-wider font-khmer flex items-center justify-between">
-                    <span>ឡូហ្គោក្រុមហ៊ុន / គម្រោង (Company Logo)</span>
-                    <label className="flex items-center gap-1.5 text-xs text-slate-300 font-normal cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={showLogo}
-                        onChange={(e) => {
-                          setShowLogo(e.target.checked);
-                          saveSettingsToStorage({ showLogo: e.target.checked });
-                        }}
-                        className="rounded border-white/20 bg-slate-900 text-indigo-600 focus:ring-indigo-500 h-3.5 w-3.5 cursor-pointer"
-                      />
-                      <span>បង្ហាញ Logo</span>
-                    </label>
-                  </h4>
-
-                  <div className="flex flex-col sm:flex-row items-center gap-4 p-3 bg-white/5 rounded-xl border border-white/5">
-                    <div className="w-36 h-20 bg-white rounded-lg p-2 border border-slate-300 flex items-center justify-center flex-shrink-0 shadow-inner">
-                      <img
-                        src={effectiveLogo}
-                        alt="Logo Preview"
-                        className="max-h-full max-w-full object-contain"
-                      />
-                    </div>
-
-                    <div className="space-y-2 flex-1 text-center sm:text-left">
-                      <div className="flex items-center gap-2 flex-wrap justify-center sm:justify-start">
-                        <button
-                          type="button"
-                          onClick={() => logoInputRef.current?.click()}
-                          className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer font-khmer"
-                        >
-                          <PhotoIcon className="w-3.5 h-3.5" />
-                          <span>{locale === 'kh' ? 'Upload Logo ថ្មី' : 'Upload New Logo'}</span>
-                        </button>
-                        {customLogoUrl && (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setCustomLogoUrl('');
-                              saveSettingsToStorage({ customLogoUrl: '' });
-                            }}
-                            className="px-3 py-1.5 bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/30 rounded-lg text-xs font-semibold flex items-center gap-1 transition-colors cursor-pointer font-khmer"
-                          >
-                            <ArrowPathIcon className="w-3.5 h-3.5" />
-                            <span>{locale === 'kh' ? 'ប្រើ Logo ដើម' : 'Reset Logo'}</span>
-                          </button>
-                        )}
-                      </div>
-                      <p className="text-[10px] text-slate-500 font-khmer">
-                        ទំហំសមស្រប: PNG ឬ JPG ផ្ទៃថ្លា (Transparent)
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Project Titles */}
-                <div className="p-4 rounded-xl bg-slate-950/60 border border-white/10 space-y-3">
-                  <h4 className="text-xs font-bold text-slate-300 uppercase tracking-wider font-khmer">
-                    ចំណងជើងគម្រោង & របាយការណ៍ (Header Titles)
-                  </h4>
-
-                  <div>
-                    <label className="block text-[11px] font-semibold text-slate-400 mb-1 font-khmer">
-                      ឈ្មោះគម្រោងជាភាសាខ្មែរ (Project Title Khmer)
-                    </label>
-                    <input
-                      type="text"
-                      value={projectTitleKh}
-                      onChange={(e) => {
-                        setProjectTitleKh(e.target.value);
-                        saveSettingsToStorage({ projectTitleKh: e.target.value });
-                      }}
-                      className="w-full py-2 px-3 border border-white/10 bg-slate-950 text-white rounded-xl text-xs focus:border-indigo-500 outline-none font-khmer"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-[11px] font-semibold text-slate-400 mb-1 font-khmer">
-                      ឈ្មោះគម្រោងជាភាសាអង់គ្លេស (Project Name English)
-                    </label>
-                    <input
-                      type="text"
-                      value={projectName}
-                      onChange={(e) => {
-                        setProjectName(e.target.value);
-                        saveSettingsToStorage({ projectName: e.target.value });
-                      }}
-                      className="w-full py-2 px-3 border border-white/10 bg-slate-950 text-white rounded-xl text-xs focus:border-indigo-500 outline-none"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-[11px] font-semibold text-slate-400 mb-1 font-khmer">
-                      ចំណងជើងតារាងលម្អិត (Breakdown Report Title)
-                    </label>
-                    <input
-                      type="text"
-                      value={reportTitleEn}
-                      onChange={(e) => {
-                        setReportTitleEn(e.target.value);
-                        saveSettingsToStorage({ reportTitleEn: e.target.value });
-                      }}
-                      className="w-full py-2 px-3 border border-white/10 bg-slate-950 text-white rounded-xl text-xs focus:border-indigo-500 outline-none"
-                    />
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* TAB 3: DISPLAY OPTIONS */}
-            {activeSettingsTab === 'display' && (
-              <div className="p-4 rounded-xl bg-slate-950/60 border border-white/10 space-y-4">
-                <h4 className="text-xs font-bold text-slate-300 uppercase tracking-wider font-khmer">
-                  ជម្រើសនៃការបង្ហាញលើប័ណ្ណ (Display Options)
-                </h4>
-
-                <div className="space-y-3 text-xs">
-                  <label className="flex items-center justify-between p-3 rounded-xl bg-white/5 border border-white/5 cursor-pointer">
-                    <span className="font-khmer">បង្ហាញតារាងលម្អិត (Checkin Late Detailed Table)</span>
-                    <input
-                      type="checkbox"
-                      checked={showDetailedBreakdown}
-                      onChange={(e) => {
-                        setShowDetailedBreakdown(e.target.checked);
-                        saveSettingsToStorage({ showDetailedBreakdown: e.target.checked });
-                      }}
-                      className="rounded border-white/20 bg-slate-900 text-indigo-600 focus:ring-indigo-500 h-4 w-4 cursor-pointer"
-                    />
-                  </label>
-
-                  <label className="flex items-center justify-between p-3 rounded-xl bg-white/5 border border-white/5 cursor-pointer">
-                    <span className="font-khmer">បង្ហាញឡូហ្គោក្រុមហ៊ុន (Show Company Logo)</span>
-                    <input
-                      type="checkbox"
-                      checked={showLogo}
-                      onChange={(e) => {
-                        setShowLogo(e.target.checked);
-                        saveSettingsToStorage({ showLogo: e.target.checked });
-                      }}
-                      className="rounded border-white/20 bg-slate-900 text-indigo-600 focus:ring-indigo-500 h-4 w-4 cursor-pointer"
-                    />
-                  </label>
-
-                  <label className="flex items-center justify-between p-3 rounded-xl bg-white/5 border border-white/5 cursor-pointer">
-                    <span className="font-khmer">បង្ហាញហត្ថលេខាអ្នករៀបចំ (Show Prepared Signature)</span>
-                    <input
-                      type="checkbox"
-                      checked={showPreparedSignature}
-                      onChange={(e) => {
-                        setShowPreparedSignature(e.target.checked);
-                        saveSettingsToStorage({ showPreparedSignature: e.target.checked });
-                      }}
-                      className="rounded border-white/20 bg-slate-900 text-indigo-600 focus:ring-indigo-500 h-4 w-4 cursor-pointer"
-                    />
-                  </label>
-
-                  <label className="flex items-center justify-between p-3 rounded-xl bg-white/5 border border-white/5 cursor-pointer">
-                    <span className="font-khmer">បង្ហាញហត្ថលេខា/ត្រាអ្នកយល់ព្រម (Show Approved Stamp/Sign)</span>
-                    <input
-                      type="checkbox"
-                      checked={showApprovedSignature}
-                      onChange={(e) => {
-                        setShowApprovedSignature(e.target.checked);
-                        saveSettingsToStorage({ showApprovedSignature: e.target.checked });
-                      }}
-                      className="rounded border-white/20 bg-slate-900 text-indigo-600 focus:ring-indigo-500 h-4 w-4 cursor-pointer"
-                    />
-                  </label>
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Modal Footer */}
-          <div className="px-6 py-4 bg-slate-950/80 border-t border-white/10 flex items-center justify-between">
-            <button
-              type="button"
-              onClick={() => {
-                if (confirm(locale === 'kh' ? 'តើអ្នកពិតជាចង់កំណត់ឡើងវិញទាំងអស់មែនទេ?' : 'Reset all settings to default?')) {
-                  localStorage.removeItem(SETTINGS_STORAGE_KEY);
-                  setProjectName('Project: KH-KBC');
-                  setProjectTitleKh('គម្រោង បុរីកំបូល ស៊ីធី');
-                  setReportTitleEn('Checkin Late Report');
-                  setPreparedByName('ឌី ច័ន្ទតារា');
-                  setPreparedSignatureUrl('');
-                  setShowPreparedSignature(true);
-                  setApprovedByName('');
-                  setApprovedDate('...../...../ 2026');
-                  setApprovedSignatureUrl('');
-                  setShowApprovedSignature(true);
-                  setCustomLogoUrl('');
-                  setShowLogo(true);
-                  setShowDetailedBreakdown(true);
-                }
-              }}
-              className="text-xs text-slate-400 hover:text-rose-400 font-khmer cursor-pointer flex items-center gap-1"
-            >
-              <ArrowPathIcon className="w-3.5 h-3.5" />
-              <span>{locale === 'kh' ? 'កំណត់លំនាំដើមទាំងអស់' : 'Reset All Defaults'}</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setShowSettingsModal(false)}
-              className="px-5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-indigo-600/30 cursor-pointer font-khmer flex items-center gap-1.5"
-            >
-              <CheckIcon className="w-4 h-4" />
-              <span>{locale === 'kh' ? 'រួចរាល់ (Save & Close)' : 'Done'}</span>
-            </button>
-          </div>
-        </div>
-      </div>
-    )
-  }
+        )
+      }
     </div >
   );
 };

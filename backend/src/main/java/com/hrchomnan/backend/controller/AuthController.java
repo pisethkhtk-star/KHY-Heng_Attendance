@@ -158,6 +158,35 @@ public class AuthController {
     }
 
     @Data
+    public static class UpdateAvatarRequest {
+        private String avatar;
+    }
+
+    @PutMapping("/avatar")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<?> updateAvatar(Authentication authentication, @RequestBody UpdateAvatarRequest request) {
+        if (authentication == null || !(authentication.getPrincipal() instanceof Employee employee)) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("message", "Unauthorized"));
+        }
+
+        Optional<Employee> freshOpt = employeeRepository.findById(employee.getId());
+        if (freshOpt.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("message", "Employee not found"));
+        }
+
+        Employee fresh = freshOpt.get();
+        fresh.setPhotoUrl(request != null ? request.getAvatar() : null);
+        employeeRepository.save(fresh);
+
+        Map<String, Object> employeeData = buildEmployeeResponse(fresh);
+        return ResponseEntity.ok(Map.of(
+                "success", true,
+                "message", "Avatar updated successfully",
+                "user", employeeData
+        ));
+    }
+
+    @Data
     public static class QrLoginRequest {
         private String qrToken;
     }

@@ -15,9 +15,21 @@ import 'controllers/leave_controller.dart';
 import 'controllers/overtime_controller.dart';
 import 'controllers/notification_controller.dart';
 import 'views/splash_screen.dart';
+import 'package:flutter/material.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'firebase_options.dart';
+import 'core/services/remote_config_service.dart';
+
+
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
+  // 2. Initialize Remote Config
+  await RemoteConfigService().init();
   
   // Initialize and register Network Client
   final apiClient = HttpApiClient();

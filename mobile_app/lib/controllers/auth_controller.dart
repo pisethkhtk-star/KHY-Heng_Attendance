@@ -13,10 +13,12 @@ class AuthController extends GetxController {
   final RxBool _isLoading = false.obs;
   final RxnString _errorMessage = RxnString();
   final RxList<Map<String, dynamic>> _branchSettings = <Map<String, dynamic>>[].obs;
+  final RxBool _isAvatarUploading = false.obs;
 
   UserModel? get user => _user.value;
   bool get isAuthenticated => _isAuthenticated.value;
   bool get isLoading => _isLoading.value;
+  bool get isAvatarUploading => _isAvatarUploading.value;
   String? get errorMessage => _errorMessage.value;
   List<Map<String, dynamic>> get branchSettings => _branchSettings;
 
@@ -144,5 +146,25 @@ class AuthController extends GetxController {
       attendanceCtrl.eligibleEmployees.clear();
     }
     _syncUserAttendance();
+  }
+
+  Future<bool> updateProfileAvatar(String? avatarBase64) async {
+    _isAvatarUploading.value = true;
+    _errorMessage.value = null;
+    try {
+      final result = await _authRepository.updateAvatar(avatarBase64);
+      if (result.success && result.user != null) {
+        _user.value = result.user;
+        return true;
+      } else {
+        _errorMessage.value = result.message ?? 'Failed to update avatar';
+        return false;
+      }
+    } catch (e) {
+      _errorMessage.value = e.toString();
+      return false;
+    } finally {
+      _isAvatarUploading.value = false;
+    }
   }
 }

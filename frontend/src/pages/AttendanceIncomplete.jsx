@@ -10,6 +10,7 @@ import {
   ExclamationTriangleIcon,
   FunnelIcon,
   CalendarIcon,
+  CalendarDaysIcon,
   BuildingOfficeIcon,
   UserIcon,
   SparklesIcon,
@@ -18,6 +19,8 @@ import {
   XMarkIcon,
   CheckCircleIcon,
   XCircleIcon,
+  PlusIcon,
+  TrashIcon,
 } from '@heroicons/react/24/outline';
 
 import { formatDateDDMMYYYY, formatDateWithMonth } from '../utils/dateUtils';
@@ -71,13 +74,38 @@ const AttendanceIncomplete = () => {
   });
   const [filterDept, setFilterDept] = useState('');
 
+  // Exempt Days State (Days to excuse/exempt from Incomplete Shifts)
+  const [exemptDays, setExemptDays] = useState(() => {
+    try {
+      const cached = localStorage.getItem('attendance_incomplete_exempt_days');
+      return cached ? JSON.parse(cached) : [];
+    } catch (e) {
+      return [];
+    }
+  });
+  const [showExemptModal, setShowExemptModal] = useState(false);
+  const [newExemptStart, setNewExemptStart] = useState(() => {
+    const now = new Date();
+    return now.toISOString().split('T')[0];
+  });
+  const [newExemptEnd, setNewExemptEnd] = useState(() => {
+    const now = new Date();
+    return now.toISOString().split('T')[0];
+  });
+  const [newExemptTitle, setNewExemptTitle] = useState('');
+  const [newExemptScope, setNewExemptScope] = useState('ALL'); // 'ALL' | 'DEPARTMENT' | 'EMPLOYEE'
+  const [newExemptTargetId, setNewExemptTargetId] = useState('');
+  const [isSavingExempt, setIsSavingExempt] = useState(false);
+  const [exemptError, setExemptError] = useState('');
+
   const fetchInitialData = async () => {
     try {
-      const [deptRes, empRes, whRes, leaveRes] = await Promise.all([
+      const [deptRes, empRes, whRes, leaveRes, exemptRes] = await Promise.all([
         api.get('/departments').catch(() => ({ data: [] })),
         api.get('/employees').catch(() => ({ data: [] })),
         api.get('/company-work-hours').catch(() => ({ data: null })),
         api.get('/leaves').catch(() => ({ data: [] })),
+        api.get('/company-work-hours/exempt-days').catch(() => ({ data: [] })),
       ]);
       setDepartments(deptRes.data || []);
       setEmployees(empRes.data || []);
@@ -85,8 +113,94 @@ const AttendanceIncomplete = () => {
         setCompanyWorkHours(whRes.data);
       }
       setLeaves(leaveRes.data || []);
+
+      if (Array.isArray(exemptRes.data) && exemptRes.data.length > 0) {
+        setExemptDays(exemptRes.data);
+        localStorage.setItem('attendance_incomplete_exempt_days', JSON.stringify(exemptRes.data));
+      } else if (whRes.data?.flexibleSchedule) {
+        try {
+          const parsed = typeof whRes.data.flexibleSchedule === 'string'
+            ? JSON.parse(whRes.data.flexibleSchedule)
+            : whRes.data.flexibleSchedule;
+          if (Array.isArray(parsed?.exemptDays)) {
+            setExemptDays(parsed.exemptDays);
+            localStorage.setItem('attendance_incomplete_exempt_days', JSON.stringify(parsed.exemptDays));
+          }
+        } catch (e) {}
+      }
     } catch (err) {
       console.error('Error fetching initial data:', err);
+    }
+  };
+
+  const handleSaveExemptDay = async (e) => {
+    e.preventDefault();
+    if (!newExemptStart) {
+      setExemptError(language === 'kh' ? 'សូមជ្រើសរើសកាលបរិច្ឆេទ!' : 'Please select a date!');
+      return;
+    }
+    if (newExemptEnd && newExemptEnd < newExemptStart) {
+      setExemptError(language === 'kh' ? 'កាលបរិច្ឆេទបញ្ចប់ត្រូវតែក្រោយកាលបរិច្ឆេទចាប់ផ្ដើម!' : 'End date must be on or after start date!');
+      return;
+    }
+    if (newExemptScope === 'DEPARTMENT' && !newExemptTargetId) {
+      setExemptError(language === 'kh' ? 'សូមជ្រើសរើសនាយកដ្ឋាន!' : 'Please select a department!');
+      return;
+    }
+    if (newExemptScope === 'EMPLOYEE' && !newExemptTargetId) {
+      setExemptError(language === 'kh' ? 'សូមជ្រើសរើសបុគ្គលិក!' : 'Please select an employee!');
+      return;
+    }
+
+    setIsSavingExempt(true);
+    setExemptError('');
+
+    const newExempt = {
+      id: 'ex_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7),
+      startDate: newExemptStart,
+      endDate: newExemptEnd || newExemptStart,
+      title: newExemptTitle.trim() || (language === 'kh' ? 'ថ្ងៃលើកលែងពិសេស' : 'Special Exemption'),
+      scope: newExemptScope,
+      targetId: newExemptTargetId || '',
+      createdAt: new Date().toISOString(),
+    };
+
+    try {
+      const res = await api.post('/company-work-hours/exempt-days', newExempt);
+      const updatedList = res.data?.exemptDays || [...exemptDays, newExempt];
+      setExemptDays(updatedList);
+      localStorage.setItem('attendance_incomplete_exempt_days', JSON.stringify(updatedList));
+      setNewExemptTitle('');
+      setNewExemptScope('ALL');
+      setNewExemptTargetId('');
+    } catch (err) {
+      console.error('Error saving exempt date to backend, falling back to local storage:', err);
+      const updatedList = [...exemptDays, newExempt];
+      setExemptDays(updatedList);
+      localStorage.setItem('attendance_incomplete_exempt_days', JSON.stringify(updatedList));
+      setNewExemptTitle('');
+      setNewExemptScope('ALL');
+      setNewExemptTargetId('');
+    } finally {
+      setIsSavingExempt(false);
+    }
+  };
+
+  const handleDeleteExemptDay = async (id) => {
+    if (!window.confirm(language === 'kh' ? 'តើអ្នកពិតជាចង់លុបថ្ងៃលើកលែងនេះមែនទេ?' : 'Are you sure you want to remove this exemption?')) {
+      return;
+    }
+
+    try {
+      const res = await api.delete(`/company-work-hours/exempt-days/${id}`);
+      const updatedList = res.data?.exemptDays || exemptDays.filter(item => item.id !== id);
+      setExemptDays(updatedList);
+      localStorage.setItem('attendance_incomplete_exempt_days', JSON.stringify(updatedList));
+    } catch (err) {
+      console.error('Error deleting exempt day:', err);
+      const updatedList = exemptDays.filter(item => item.id !== id);
+      setExemptDays(updatedList);
+      localStorage.setItem('attendance_incomplete_exempt_days', JSON.stringify(updatedList));
     }
   };
 
@@ -273,6 +387,21 @@ const AttendanceIncomplete = () => {
         // But if employee clocked in on a day off/weekend, evaluate their scans!
         if (!isWorkingDay && !hasAnyScan) return;
 
+        // Check if dateStr is an exempt/excused date for this employee
+        const isExempt = exemptDays.some(ex => {
+          const s = ex.date || ex.startDate;
+          const e = ex.endDate || ex.date || ex.startDate;
+          if (!s) return false;
+          if (dateStr < s || dateStr > (e || s)) return false;
+          if (!ex.scope || ex.scope === 'ALL') return true;
+          if (ex.scope === 'DEPARTMENT' && String(emp.departmentId) === String(ex.targetId)) return true;
+          if (ex.scope === 'EMPLOYEE' && String(emp.staffId) === String(ex.targetId)) return true;
+          return false;
+        });
+
+        // If date is exempted, do NOT count into incomplete shifts!
+        if (isExempt) return;
+
         // Check Leaves on this date for this employee
         const empLeaves = leavesMap.get(`${emp.staffId}_${dateStr}`) || [];
         const isToday = dateStr === todayStr;
@@ -370,7 +499,7 @@ const AttendanceIncomplete = () => {
     });
 
     return results;
-  }, [logs, employees, leaves, companyWorkHours, startDate, endDate, selectedStaffId, filterDept, user]);
+  }, [logs, employees, leaves, companyWorkHours, startDate, endDate, selectedStaffId, filterDept, user, exemptDays]);
 
   // Client-side search filter
   const filteredRecords = useMemo(() => {
@@ -405,6 +534,17 @@ const AttendanceIncomplete = () => {
 
     return Object.values(groups);
   }, [filteredRecords]);
+
+  // Active exemptions in current date range
+  const activeExemptionsInRange = useMemo(() => {
+    if (!startDate || !endDate) return [];
+    return exemptDays.filter(ex => {
+      const s = ex.startDate || ex.date;
+      const e = ex.endDate || ex.date || ex.startDate;
+      if (!s) return false;
+      return !(e < startDate || s > endDate);
+    });
+  }, [exemptDays, startDate, endDate]);
 
   // Stats calculation
   const stats = useMemo(() => {
@@ -642,7 +782,23 @@ const AttendanceIncomplete = () => {
         </div>
 
         {/* Action Buttons */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          {/* Create / Manage Exempt Days Button */}
+          <button
+            type="button"
+            onClick={() => setShowExemptModal(true)}
+            className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white rounded-2xl font-bold text-sm transition-all shadow-md shadow-amber-500/25 cursor-pointer font-khmer border-none"
+            title={language === 'kh' ? 'បង្កើតថ្ងៃលើកលែងមិនរាប់ចូល Incomplete Shifts' : 'Create or manage exempt days'}
+          >
+            <CalendarDaysIcon className="h-4 w-4 stroke-[2.5]" />
+            <span>{language === 'kh' ? 'ថ្ងៃលើកលែង (Exempt Days)' : 'Exempt Days'}</span>
+            {exemptDays.length > 0 && (
+              <span className="bg-black/30 text-white text-[10px] px-2 py-0.5 rounded-full font-mono font-bold border border-white/20">
+                {exemptDays.length}
+              </span>
+            )}
+          </button>
+
           <button
             type="button"
             onClick={handleExportCSV}
@@ -661,6 +817,29 @@ const AttendanceIncomplete = () => {
           </button>
         </div>
       </div>
+
+      {/* Active Exemptions Notification Banner */}
+      {activeExemptionsInRange.length > 0 && (
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 px-5 bg-amber-500/10 border border-amber-500/25 rounded-2xl text-xs text-amber-200">
+          <div className="flex items-center gap-2.5">
+            <span className="p-1.5 rounded-xl bg-amber-500/20 text-amber-400 border border-amber-500/30">
+              <CalendarDaysIcon className="w-4 h-4" />
+            </span>
+            <span>
+              {language === 'kh'
+                ? `មានថ្ងៃលើកលែងចំនួន ${activeExemptionsInRange.length} ត្រូវបានដកចេញមិនរាប់ចូលជា Incomplete Shift ក្នុងចន្លោះកាលបរិច្ឆេទនេះ (${activeExemptionsInRange.map(e => e.title).join(', ')})`
+                : `${activeExemptionsInRange.length} exempt date(s) active in this date range are excluded from incomplete shifts (${activeExemptionsInRange.map(e => e.title).join(', ')})`}
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setShowExemptModal(true)}
+            className="text-amber-400 hover:text-amber-300 font-semibold underline underline-offset-2 cursor-pointer font-khmer self-end sm:self-auto bg-transparent border-none"
+          >
+            {language === 'kh' ? 'មើល / គ្រប់គ្រង' : 'View / Manage'}
+          </button>
+        </div>
+      )}
 
       {/* Summary KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
@@ -1169,6 +1348,269 @@ const AttendanceIncomplete = () => {
           </div>
         )}
       </div>
+
+      {/* EXEMPT DAYS MANAGEMENT MODAL */}
+      {showExemptModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-md px-4 overflow-y-auto py-8">
+          <div className="w-full max-w-2xl bg-slate-900 border border-white/10 rounded-2xl shadow-2xl overflow-hidden glow-indigo my-auto">
+            {/* Modal Header */}
+            <div className="px-6 py-4 bg-slate-950/90 border-b border-white/10 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 rounded-xl bg-amber-500/20 text-amber-400 border border-amber-500/30">
+                  <CalendarDaysIcon className="w-6 h-6" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-white font-khmer">
+                    {language === 'kh' ? 'គ្រប់គ្រងថ្ងៃលើកលែង (Incomplete Shifts Exemption)' : 'Manage Incomplete Shift Exemptions'}
+                  </h3>
+                  <p className="text-[11px] text-slate-400 font-khmer mt-0.5">
+                    {language === 'kh'
+                      ? 'ថ្ងៃដែលបានបង្កើតនៅទីនេះ នឹងត្រូវបានលើកលែង ដោយមិនរាប់បញ្ចូលក្នុង Incomplete Shifts ឡើយ'
+                      : 'Dates added here will be excused and excluded from incomplete shift calculations'}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowExemptModal(false)}
+                className="text-slate-400 hover:text-white p-1.5 rounded-xl hover:bg-white/10 transition-colors cursor-pointer border-none bg-transparent"
+              >
+                <XMarkIcon className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-6 space-y-6 max-h-[75vh] overflow-y-auto">
+              {/* Form Section to Create Exemption */}
+              <form onSubmit={handleSaveExemptDay} className="p-4 rounded-2xl bg-slate-950/60 border border-white/10 space-y-4">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-xs font-bold text-amber-400 uppercase tracking-wider font-khmer flex items-center gap-1.5">
+                    <PlusIcon className="w-4 h-4" />
+                    <span>{language === 'kh' ? 'បង្កើតថ្ងៃលើកលែងថ្មី' : 'Create New Exemption'}</span>
+                  </h4>
+                  <span className="text-[11px] text-slate-400 font-khmer">
+                    {language === 'kh' ? '* មិនគិតជា Incomplete Shift' : '* Excluded from Incomplete'}
+                  </span>
+                </div>
+
+                {exemptError && (
+                  <div className="p-2.5 bg-rose-500/10 border border-rose-500/20 rounded-xl text-xs text-rose-300 font-khmer">
+                    {exemptError}
+                  </div>
+                )}
+
+                {/* Date Selection */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-400 mb-1 font-khmer">
+                      {language === 'kh' ? 'ចាប់ពីថ្ងៃ (Start Date) *' : 'Start Date *'}
+                    </label>
+                    <input
+                      type="date"
+                      required
+                      value={newExemptStart}
+                      onChange={(e) => {
+                        setNewExemptStart(e.target.value);
+                        if (!newExemptEnd || newExemptEnd < e.target.value) {
+                          setNewExemptEnd(e.target.value);
+                        }
+                      }}
+                      className="w-full py-2 px-3 border border-white/10 bg-slate-900 text-white rounded-xl text-xs focus:border-amber-500 outline-none font-mono"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-400 mb-1 font-khmer">
+                      {language === 'kh' ? 'ដល់ថ្ងៃ (End Date)' : 'End Date'}
+                    </label>
+                    <input
+                      type="date"
+                      value={newExemptEnd}
+                      min={newExemptStart}
+                      onChange={(e) => setNewExemptEnd(e.target.value)}
+                      className="w-full py-2 px-3 border border-white/10 bg-slate-900 text-white rounded-xl text-xs focus:border-amber-500 outline-none font-mono"
+                    />
+                  </div>
+                </div>
+
+                {/* Reason / Title */}
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-400 mb-1 font-khmer">
+                    {language === 'kh' ? 'ឈ្មោះ ឬមូលហេតុលើកលែង (Title / Reason) *' : 'Title / Reason *'}
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={newExemptTitle}
+                    onChange={(e) => setNewExemptTitle(e.target.value)}
+                    placeholder={language === 'kh' ? 'ឧ. ពិធីបុណ្យអុំទូក, បិទប្រព័ន្ធ, កិច្ចប្រជុំទូទៅ...' : 'e.g. Water Festival, System Maintenance, Company Event...'}
+                    className="w-full py-2 px-3 border border-white/10 bg-slate-900 text-white rounded-xl text-xs focus:border-amber-500 outline-none font-khmer placeholder:text-slate-500"
+                  />
+                </div>
+
+                {/* Scope */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-400 mb-1 font-khmer">
+                      {language === 'kh' ? 'អនុវត្តលើ (Apply To)' : 'Apply To'}
+                    </label>
+                    <select
+                      value={newExemptScope}
+                      onChange={(e) => {
+                        setNewExemptScope(e.target.value);
+                        setNewExemptTargetId('');
+                      }}
+                      className="w-full py-2 px-3 border border-white/10 bg-slate-900 text-white rounded-xl text-xs focus:border-amber-500 outline-none font-khmer cursor-pointer"
+                    >
+                      <option value="ALL">{language === 'kh' ? 'បុគ្គលិកទាំងអស់ (All Employees)' : 'All Employees'}</option>
+                      <option value="DEPARTMENT">{language === 'kh' ? 'តាមនាយកដ្ឋាន (By Department)' : 'By Department'}</option>
+                      <option value="EMPLOYEE">{language === 'kh' ? 'បុគ្គលិកជាក់លាក់ (Specific Employee)' : 'Specific Employee'}</option>
+                    </select>
+                  </div>
+
+                  {newExemptScope === 'DEPARTMENT' && (
+                    <div>
+                      <label className="block text-[11px] font-semibold text-slate-400 mb-1 font-khmer">
+                        {language === 'kh' ? 'ជ្រើសរើសនាយកដ្ឋាន' : 'Select Department'}
+                      </label>
+                      <select
+                        value={newExemptTargetId}
+                        onChange={(e) => setNewExemptTargetId(e.target.value)}
+                        className="w-full py-2 px-3 border border-white/10 bg-slate-900 text-white rounded-xl text-xs focus:border-amber-500 outline-none font-khmer cursor-pointer"
+                      >
+                        <option value="">-- {language === 'kh' ? 'ជ្រើសរើសនាយកដ្ឋាន' : 'Select Department'} --</option>
+                        {departments.map((d) => (
+                          <option key={d.id} value={d.id}>
+                            {getLocalizedName(d.nameEn, d.nameKh)}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+
+                  {newExemptScope === 'EMPLOYEE' && (
+                    <div>
+                      <label className="block text-[11px] font-semibold text-slate-400 mb-1 font-khmer">
+                        {language === 'kh' ? 'ជ្រើសរើសបុគ្គលិក' : 'Select Employee'}
+                      </label>
+                      <select
+                        value={newExemptTargetId}
+                        onChange={(e) => setNewExemptTargetId(e.target.value)}
+                        className="w-full py-2 px-3 border border-white/10 bg-slate-900 text-white rounded-xl text-xs focus:border-amber-500 outline-none font-khmer cursor-pointer"
+                      >
+                        <option value="">-- {language === 'kh' ? 'ជ្រើសរើសបុគ្គលិក' : 'Select Employee'} --</option>
+                        {employees.map((emp) => (
+                          <option key={emp.id} value={emp.staffId}>
+                            {emp.staffId} - {emp.nameEn || emp.nameKh}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex justify-end pt-2">
+                  <button
+                    type="submit"
+                    disabled={isSavingExempt}
+                    className="flex items-center gap-1.5 px-4 py-2 bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white rounded-xl text-xs font-bold font-khmer shadow-sm transition-all disabled:opacity-50 cursor-pointer border-none"
+                  >
+                    <PlusIcon className="w-4 h-4 stroke-[2.5]" />
+                    <span>{isSavingExempt ? (language === 'kh' ? 'កំពុងរក្សាទុក...' : 'Saving...') : (language === 'kh' ? 'រក្សាទុកថ្ងៃលើកលែង' : 'Save Exemption')}</span>
+                  </button>
+                </div>
+              </form>
+
+              {/* List of Existing Exempt Days */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-xs font-bold text-slate-300 uppercase tracking-wider font-khmer">
+                    {language === 'kh' ? 'បញ្ជីថ្ងៃលើកលែងដែលបានកំណត់' : 'Active Exempt Dates'} ({exemptDays.length})
+                  </h4>
+                  <span className="text-[11px] text-slate-400 font-khmer">
+                    {language === 'kh' ? 'ស្វ័យប្រវត្តិកាត់ចេញពី Incomplete' : 'Auto excluded'}
+                  </span>
+                </div>
+
+                {exemptDays.length === 0 ? (
+                  <div className="py-8 px-4 text-center rounded-2xl bg-slate-950/40 border border-white/5 text-slate-500 text-xs font-khmer">
+                    {language === 'kh'
+                      ? 'មិនទាន់មានថ្ងៃលើកលែងនៅឡើយទេ។ សូមបំពេញទម្រង់ខាងលើដើម្បីបង្កើតថ្ងៃលើកលែង។'
+                      : 'No exempt dates configured yet. Fill out the form above to add an exemption.'}
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {exemptDays.map((ex) => {
+                      const s = ex.startDate || ex.date;
+                      const e = ex.endDate || ex.date || ex.startDate;
+                      const isRange = s && e && s !== e;
+                      let scopeLabel = language === 'kh' ? 'បុគ្គលិកទាំងអស់' : 'All Employees';
+                      if (ex.scope === 'DEPARTMENT') {
+                        const d = departments.find(dep => String(dep.id) === String(ex.targetId));
+                        scopeLabel = (language === 'kh' ? 'នាយកដ្ឋាន: ' : 'Dept: ') + (d ? getLocalizedName(d.nameEn, d.nameKh) : ex.targetId);
+                      } else if (ex.scope === 'EMPLOYEE') {
+                        const emp = employees.find(em => String(em.staffId) === String(ex.targetId));
+                        scopeLabel = (language === 'kh' ? 'បុគ្គលិក: ' : 'Staff: ') + (emp ? `${emp.staffId} - ${emp.nameEn || emp.nameKh}` : ex.targetId);
+                      }
+
+                      return (
+                        <div
+                          key={ex.id}
+                          className="flex items-center justify-between p-3 rounded-xl bg-slate-950/60 border border-white/5 hover:border-amber-500/30 transition-all gap-3"
+                        >
+                          <div className="flex items-start gap-3 min-w-0">
+                            <span className="p-2 rounded-xl bg-amber-500/15 text-amber-400 border border-amber-500/20 mt-0.5">
+                              <CalendarIcon className="w-4 h-4" />
+                            </span>
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className="font-bold text-white text-xs font-khmer">
+                                  {ex.title || (language === 'kh' ? 'ថ្ងៃលើកលែង' : 'Exemption')}
+                                </span>
+                                <span className="px-2 py-0.5 rounded-md bg-amber-500/20 text-amber-300 font-mono text-[10px] font-bold border border-amber-500/30">
+                                  {isRange ? `${s} ដល់ ${e}` : s}
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-2 mt-1 text-[11px] text-slate-400 font-khmer">
+                                <span className="px-1.5 py-0.5 rounded bg-white/5 text-slate-300 text-[10px]">
+                                  {scopeLabel}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteExemptDay(ex.id)}
+                            className="p-1.5 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/20 transition-colors cursor-pointer shrink-0"
+                            title={language === 'kh' ? 'លុបថ្ងៃលើកលែងនេះ' : 'Delete exemption'}
+                          >
+                            <TrashIcon className="w-4 h-4" />
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="px-6 py-3.5 bg-slate-950/90 border-t border-white/10 flex items-center justify-between">
+              <span className="text-xs text-slate-400 font-khmer">
+                {language === 'kh' ? 'សរុបថ្ងៃលើកលែង៖ ' : 'Total exempt rules: '}
+                <strong className="text-white font-mono">{exemptDays.length}</strong>
+              </span>
+              <button
+                type="button"
+                onClick={() => setShowExemptModal(false)}
+                className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-xl text-xs font-bold font-khmer transition-all cursor-pointer border border-white/10"
+              >
+                {language === 'kh' ? 'បិទ (Close)' : 'Close'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

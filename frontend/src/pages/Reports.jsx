@@ -219,6 +219,7 @@ const Reports = () => {
     if (!startDate || !endDate || employees.length === 0) return [];
 
     let defaultWorkingDays = [1, 2, 3, 4, 5];
+    let exemptDays = [];
     if (companyWorkHours?.flexibleSchedule) {
       try {
         const parsed = typeof companyWorkHours.flexibleSchedule === 'string'
@@ -227,7 +228,16 @@ const Reports = () => {
         if (Array.isArray(parsed?.workingDays)) {
           defaultWorkingDays = parsed.workingDays;
         }
+        if (Array.isArray(parsed?.exemptDays)) {
+          exemptDays = parsed.exemptDays;
+        }
       } catch (e) { }
+    }
+    if (exemptDays.length === 0) {
+      try {
+        const cached = localStorage.getItem('attendance_incomplete_exempt_days');
+        if (cached) exemptDays = JSON.parse(cached);
+      } catch (e) {}
     }
 
     const logsMap = new Map();
@@ -325,6 +335,20 @@ const Reports = () => {
         );
 
         if (!isWorkingDay && !hasAnyScan) return;
+
+        // Check if dateStr is an exempt/excused date for this employee
+        const isExempt = exemptDays.some(ex => {
+          const s = ex.date || ex.startDate;
+          const e = ex.endDate || ex.date || ex.startDate;
+          if (!s) return false;
+          if (dateStr < s || dateStr > (e || s)) return false;
+          if (!ex.scope || ex.scope === 'ALL') return true;
+          if (ex.scope === 'DEPARTMENT' && String(emp.departmentId) === String(ex.targetId)) return true;
+          if (ex.scope === 'EMPLOYEE' && String(emp.staffId) === String(ex.targetId)) return true;
+          return false;
+        });
+
+        if (isExempt) return;
 
         const empLeaves = leavesMap.get(`${emp.staffId}_${dateStr}`) || [];
         const isToday = dateStr === todayStr;

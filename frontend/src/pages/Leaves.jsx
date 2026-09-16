@@ -1,14 +1,26 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
+import * as XLSX from 'xlsx';
 import api from '../utils/api';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
-import { PlusIcon, CheckIcon, XMarkIcon, ArrowDownTrayIcon, TrashIcon } from '@heroicons/react/24/outline';
+import {
+  PlusIcon,
+  CheckIcon,
+  XMarkIcon,
+  ArrowDownTrayIcon,
+  ArrowUpTrayIcon,
+  TrashIcon,
+  DocumentArrowUpIcon,
+  ExclamationTriangleIcon,
+  CheckCircleIcon
+} from '@heroicons/react/24/outline';
 import { formatDateDDMMYYYY } from '../utils/dateUtils';
 
 const Leaves = () => {
   const { user } = useAuth();
   const { t, getLocalizedName, locale } = useLanguage();
   const canApprove = ['Admin', 'HR', 'Manager'].includes(user?.role);
+  const canImport = ['Admin', 'HR'].includes(user?.role);
   const showActions = canApprove || user?.role === 'Employee';
 
   const [leaves, setLeaves] = useState([]);
@@ -16,6 +28,20 @@ const Leaves = () => {
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [leaveTypes, setLeaveTypes] = useState([]);
+
+  // Excel Import State
+  const [showExcelModal, setShowExcelModal] = useState(false);
+  const [excelFile, setExcelFile] = useState(null);
+  const [excelFileName, setExcelFileName] = useState('');
+  const [excelRows, setExcelRows] = useState([]);
+  const [excelError, setExcelError] = useState('');
+  const [excelImportLoading, setExcelImportLoading] = useState(false);
+  const [excelImportResult, setExcelImportResult] = useState(null);
+  const [availableHeaders, setAvailableHeaders] = useState([]);
+  const [columnMapping, setColumnMapping] = useState({});
+  const [headerRowIdx, setHeaderRowIdx] = useState(0);
+  const [rawSheetData, setRawSheetData] = useState([]);
+  const excelFileInputRef = useRef(null);
 
   // Filters State
   const [filterStatus, setFilterStatus] = useState('');
@@ -360,6 +386,463 @@ const Leaves = () => {
     document.body.removeChild(link);
   };
 
+  const detectLeaveCol = (colName) => {
+    if (!colName) return null;
+    const clean = String(colName).trim().toLowerCase().replace(/[\s_-]+/g, '');
+
+    // Staff ID
+    if (
+      clean.includes('staffid') ||
+      clean.includes('empid') ||
+      clean.includes('employeeid') ||
+      clean.includes('staff') ||
+      clean.includes('អត្តលេខ') ||
+      clean.includes('លេខសម្គាល់') ||
+      clean.includes('កូដបុគ្គលិក') ||
+      clean.includes('កូដ')
+    ) {
+      return 'staffId';
+    }
+
+    // Leave Type
+    if (
+      clean.includes('leavetype') ||
+      clean.includes('type') ||
+      clean.includes('ប្រភេទច្បាប់') ||
+      clean.includes('ច្បាប់')
+    ) {
+      return 'leaveType';
+    }
+
+    // End Date
+    if (
+      clean.includes('enddate') ||
+      clean.includes('todate') ||
+      clean.includes('until') ||
+      clean.includes('ថ្ងៃបញ្ចប់') ||
+      clean.includes('ដល់ថ្ងៃ')
+    ) {
+      return 'endDate';
+    }
+
+    // Leave Date / Start Date
+    if (
+      clean.includes('leavedate') ||
+      clean.includes('startdate') ||
+      clean.includes('fromdate') ||
+      clean.includes('date') ||
+      clean.includes('day') ||
+      clean.includes('ថ្ងៃច្បាប់') ||
+      clean.includes('កាលបរិច្ឆេទ') ||
+      clean.includes('ថ្ងៃចាប់ផ្តើម') ||
+      clean.includes('ថ្ងៃ')
+    ) {
+      return 'leaveDate';
+    }
+
+    // Duration Type (Full Day / Morning / Afternoon)
+    if (
+      clean.includes('duration') ||
+      clean.includes('session') ||
+      clean.includes('shift') ||
+      clean.includes('period') ||
+      clean.includes('ពេល') ||
+      clean.includes('វេន') ||
+      clean.includes('រយៈពេល')
+    ) {
+      return 'durationType';
+    }
+
+    // Amount Days
+    if (
+      clean.includes('amount') ||
+      clean.includes('days') ||
+      clean.includes('daycount') ||
+      clean.includes('qty') ||
+      clean.includes('ចំនួនថ្ងៃ')
+    ) {
+      return 'amountDays';
+    }
+
+    // Reason
+    if (
+      clean.includes('reason') ||
+      clean.includes('remark') ||
+      clean.includes('note') ||
+      clean.includes('comment') ||
+      clean.includes('មូលហេតុ') ||
+      clean.includes('កំណត់សម្គាល់') ||
+      clean.includes('ផ្សេងៗ')
+    ) {
+      return 'reason';
+    }
+
+    // Status
+    if (
+      clean.includes('status') ||
+      clean.includes('ស្ថានភាព')
+    ) {
+      return 'status';
+    }
+
+    return null;
+  };
+
+  const formatDateForBackend = (val) => {
+    if (!val) return '';
+    if (val instanceof Date && !isNaN(val)) {
+      const y = val.getFullYear();
+      const m = String(val.getMonth() + 1).padStart(2, '0');
+      const d = String(val.getDate()).padStart(2, '0');
+      return `${y}-${m}-${d}`;
+    }
+    const str = String(val).trim();
+    if (/^\d{4}-\d{2}-\d{2}$/.test(str)) return str;
+    const dmy = str.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})$/);
+    if (dmy) {
+      const day = dmy[1].padStart(2, '0');
+      const month = dmy[2].padStart(2, '0');
+      const year = dmy[3];
+      return `${year}-${month}-${day}`;
+    }
+    const ymd = str.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})$/);
+    if (ymd) {
+      const year = ymd[1];
+      const month = ymd[2].padStart(2, '0');
+      const day = ymd[3].padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    }
+    const parsed = new Date(str);
+    if (!isNaN(parsed.getTime())) {
+      const y = parsed.getFullYear();
+      const m = String(parsed.getMonth() + 1).padStart(2, '0');
+      const d = String(parsed.getDate()).padStart(2, '0');
+      return `${y}-${m}-${d}`;
+    }
+    return '';
+  };
+
+  const applyMappingAndBuildLeaveRows = (data, hIdx, mapping) => {
+    if (!data || data.length <= hIdx + 1) {
+      setExcelRows([]);
+      return;
+    }
+
+    const headers = data[hIdx] || [];
+    const getColIndex = (fieldKey) => {
+      const colName = mapping[fieldKey];
+      if (!colName) return -1;
+      return headers.findIndex(h => String(h || '').trim() === colName);
+    };
+
+    const idxStaffId = getColIndex('staffId');
+    const idxLeaveDate = getColIndex('leaveDate');
+    const idxEndDate = getColIndex('endDate');
+    const idxLeaveType = getColIndex('leaveType');
+    const idxDuration = getColIndex('durationType');
+    const idxDays = getColIndex('amountDays');
+    const idxReason = getColIndex('reason');
+    const idxStatus = getColIndex('status');
+
+    const dataRows = data.slice(hIdx + 1);
+    const processed = [];
+
+    dataRows.forEach((row) => {
+      if (!Array.isArray(row)) return;
+      const hasContent = row.some(cell => String(cell || '').trim() !== '');
+      if (!hasContent) return;
+
+      const getVal = (idx) => (idx >= 0 && idx < row.length ? row[idx] : '');
+
+      let rawStaffId = String(getVal(idxStaffId) || '').trim();
+      let rawLeaveDate = getVal(idxLeaveDate);
+      let rawEndDate = getVal(idxEndDate);
+      let rawLeaveType = String(getVal(idxLeaveType) || '').trim();
+      let rawDuration = String(getVal(idxDuration) || '').trim();
+      let rawDays = getVal(idxDays);
+      let rawReason = String(getVal(idxReason) || '').trim();
+      let rawStatus = String(getVal(idxStatus) || '').trim();
+
+      const warnings = [];
+
+      // 1. Staff ID validation
+      if (!rawStaffId) {
+        warnings.push(locale === 'kh' ? 'ខ្វះ Staff ID' : 'Missing Staff ID');
+      }
+      let matchedEmp = null;
+      if (rawStaffId) {
+        const lower = rawStaffId.toLowerCase();
+        matchedEmp = employees.find(e => e.staffId && e.staffId.toLowerCase() === lower);
+        if (!matchedEmp) {
+          warnings.push(locale === 'kh' ? `រកមិនឃើញបុគ្គលិក (${rawStaffId})` : `Employee not found (${rawStaffId})`);
+        } else {
+          rawStaffId = matchedEmp.staffId;
+        }
+      }
+
+      // 2. Date validation
+      const formattedDate = formatDateForBackend(rawLeaveDate);
+      if (!formattedDate) {
+        warnings.push(locale === 'kh' ? 'កាលបរិច្ឆេទមិនត្រឹមត្រូវ' : 'Invalid leave date');
+      }
+
+      let formattedEndDate = formatDateForBackend(rawEndDate);
+      if (formattedEndDate && formattedDate && formattedEndDate < formattedDate) {
+        warnings.push(locale === 'kh' ? 'ថ្ងៃបញ្ចប់មុនថ្ងៃចាប់ផ្តើម' : 'End date is before start date');
+      }
+
+      // 3. Leave Type normalization
+      let resolvedTypeCode = 'AL';
+      if (rawLeaveType) {
+        const lowerLT = rawLeaveType.toLowerCase();
+        const foundLT = leaveTypes.find(
+          lt => (lt.code && lt.code.toLowerCase() === lowerLT) ||
+                (lt.nameEn && lt.nameEn.toLowerCase() === lowerLT) ||
+                (lt.nameKh && lt.nameKh.toLowerCase() === lowerLT)
+        );
+        if (foundLT) {
+          resolvedTypeCode = foundLT.code;
+        } else if (lowerLT.includes('sick') || lowerLT.includes('ឈឺ') || lowerLT === 'sl') {
+          resolvedTypeCode = 'SL';
+        } else if (lowerLT.includes('person') || lowerLT.includes('ផ្ទាល់ខ្លួន') || lowerLT === 'pl') {
+          resolvedTypeCode = 'PL';
+        } else if (lowerLT.includes('annual') || lowerLT.includes('ប្រចាំឆ្នាំ') || lowerLT === 'al') {
+          resolvedTypeCode = 'AL';
+        } else {
+          resolvedTypeCode = rawLeaveType;
+        }
+      }
+
+      // 4. Duration Type normalization
+      let resolvedDuration = 'Full Day';
+      const lowerDur = rawDuration.toLowerCase();
+      if (lowerDur.includes('morn') || lowerDur.includes('ព្រឹក')) {
+        resolvedDuration = 'Morning';
+      } else if (lowerDur.includes('after') || lowerDur.includes('រសៀល')) {
+        resolvedDuration = 'Afternoon';
+      }
+
+      // 5. Amount of Days
+      let resolvedDays = resolvedDuration === 'Full Day' ? 1.0 : 0.5;
+      if (rawDays !== undefined && rawDays !== '' && rawDays !== null) {
+        const parsedD = parseFloat(rawDays);
+        if (!isNaN(parsedD) && parsedD > 0) {
+          resolvedDays = parsedD;
+        }
+      } else if (formattedEndDate && formattedDate && formattedEndDate !== formattedDate) {
+        const diffMs = new Date(formattedEndDate).getTime() - new Date(formattedDate).getTime();
+        const diffDays = Math.round(diffMs / (1000 * 60 * 60 * 24)) + 1;
+        if (diffDays > 0) {
+          resolvedDays = diffDays * (resolvedDuration === 'Full Day' ? 1.0 : 0.5);
+        }
+      }
+
+      // 6. Status normalization
+      let resolvedStatus = 'Approved';
+      const lowerSt = rawStatus.toLowerCase();
+      if (lowerSt.includes('pend') || lowerSt.includes('រង់ចាំ')) {
+        resolvedStatus = 'Pending';
+      } else if (lowerSt.includes('reject') || lowerSt.includes('បដិសេធ')) {
+        resolvedStatus = 'Rejected';
+      }
+
+      processed.push({
+        rowIndex: processed.length + 1,
+        staffId: rawStaffId,
+        empName: matchedEmp ? getLocalizedName(matchedEmp.nameEn, matchedEmp.nameKh) : '-',
+        leaveDate: formattedDate,
+        endDate: formattedEndDate || formattedDate,
+        leaveType: resolvedTypeCode,
+        durationType: resolvedDuration,
+        amountDays: resolvedDays,
+        reason: rawReason,
+        status: resolvedStatus,
+        isValid: warnings.length === 0,
+        warnings
+      });
+    });
+
+    setExcelRows(processed);
+  };
+
+  const parseLeaveExcelFile = (file) => {
+    if (!file) return;
+    setExcelFile(file);
+    setExcelFileName(file.name);
+    setExcelError('');
+    setExcelImportResult(null);
+
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+      try {
+        const data = new Uint8Array(evt.target.result);
+        const workbook = XLSX.read(data, { type: 'array', cellDates: true });
+        const firstSheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[firstSheetName];
+
+        const sheetData = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: '', raw: false });
+
+        if (!sheetData || sheetData.length === 0) {
+          setExcelError(locale === 'kh' ? 'ឯកសារ Excel គ្មានទិន្នន័យទេ' : 'Excel file contains no data');
+          setExcelRows([]);
+          return;
+        }
+
+        const headerKeywords = [
+          'staff', 'id', 'code', 'emp', 'date', 'leave', 'type', 'duration', 'day', 'reason', 'status',
+          'អត្តលេខ', 'លេខសម្គាល់', 'កូដ', 'កាលបរិច្ឆេទ', 'ថ្ងៃ', 'ច្បាប់', 'ប្រភេទច្បាប់', 'រយៈពេល', 'មូលហេតុ', 'ស្ថានភាព'
+        ];
+
+        let bestHeaderIdx = 0;
+        let maxScore = -1;
+
+        for (let r = 0; r < Math.min(sheetData.length, 15); r++) {
+          const row = sheetData[r];
+          if (!Array.isArray(row) || row.length === 0) continue;
+
+          let score = 0;
+          row.forEach(cell => {
+            const cellStr = String(cell || '').trim().toLowerCase();
+            if (cellStr) {
+              headerKeywords.forEach(kw => {
+                if (cellStr.includes(kw)) score += 2;
+              });
+            }
+          });
+          if (score > maxScore && score >= 2) {
+            maxScore = score;
+            bestHeaderIdx = r;
+          }
+        }
+
+        setHeaderRowIdx(bestHeaderIdx);
+        setRawSheetData(sheetData);
+
+        const rawHeaders = sheetData[bestHeaderIdx] || [];
+        const detectedColList = rawHeaders.map((h, i) => {
+          const cleanH = String(h || '').trim();
+          return cleanH || `Column ${String.fromCharCode(65 + i)}`;
+        });
+        setAvailableHeaders(detectedColList);
+
+        const newMapping = {
+          staffId: '',
+          leaveDate: '',
+          endDate: '',
+          leaveType: '',
+          durationType: '',
+          amountDays: '',
+          reason: '',
+          status: ''
+        };
+
+        detectedColList.forEach(colName => {
+          const matchedField = detectLeaveCol(colName);
+          if (matchedField && !newMapping[matchedField]) {
+            newMapping[matchedField] = colName;
+          }
+        });
+
+        // Content-based fallback inspection for staffId
+        const sampleRows = sheetData.slice(bestHeaderIdx + 1, bestHeaderIdx + 26)
+          .filter(r => Array.isArray(r) && r.some(c => String(c || '').trim() !== ''));
+
+        if (!newMapping.staffId) {
+          detectedColList.forEach((colName, cIdx) => {
+            let matchCount = 0;
+            sampleRows.forEach(row => {
+              const val = String(row[cIdx] || '').trim().toLowerCase();
+              if (employees.some(e => e.staffId && e.staffId.toLowerCase() === val)) {
+                matchCount++;
+              }
+            });
+            if (matchCount > 0 && !newMapping.staffId) {
+              newMapping.staffId = colName;
+            }
+          });
+        }
+
+        setColumnMapping(newMapping);
+        applyMappingAndBuildLeaveRows(sheetData, bestHeaderIdx, newMapping);
+      } catch (err) {
+        console.error('Error parsing Excel:', err);
+        setExcelError(locale === 'kh' ? 'មានបញ្ហាក្នុងការអានឯកសារ Excel' : 'Failed to parse Excel file');
+      }
+    };
+    reader.readAsArrayBuffer(file);
+  };
+
+  const handleDownloadLeaveTemplate = () => {
+    const todayStr = new Date().toISOString().split('T')[0];
+    const sampleStaff1 = employees[0]?.staffId || 'EMP-001';
+    const sampleStaff2 = employees[1]?.staffId || 'EMP-002';
+    const sampleName1 = employees[0]?.nameEn || 'Khoem Piseth';
+    const sampleName2 = employees[1]?.nameEn || 'Keo Sophea';
+
+    const templateData = [
+      {
+        'Staff ID': sampleStaff1,
+        'Employee Name': sampleName1,
+        'Leave Date': todayStr,
+        'End Date': todayStr,
+        'Leave Type': 'AL',
+        'Duration': 'Full Day',
+        'Days': 1,
+        'Reason': 'Family vacation',
+        'Status': 'Approved'
+      },
+      {
+        'Staff ID': sampleStaff2,
+        'Employee Name': sampleName2,
+        'Leave Date': todayStr,
+        'End Date': todayStr,
+        'Leave Type': 'SL',
+        'Duration': 'Morning',
+        'Days': 0.5,
+        'Reason': 'Morning doctor appointment',
+        'Status': 'Approved'
+      }
+    ];
+
+    const ws = XLSX.utils.json_to_sheet(templateData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Leave_Template');
+    XLSX.writeFile(wb, 'Leave_Import_Template.xlsx');
+  };
+
+  const handleInsertAllLeaves = async () => {
+    const validRows = excelRows.filter(r => r.isValid);
+    if (validRows.length === 0) {
+      setExcelError(locale === 'kh' ? 'គ្មានទិន្នន័យត្រឹមត្រូវសម្រាប់បញ្ចូលទេ' : 'No valid records ready to insert');
+      return;
+    }
+
+    setExcelImportLoading(true);
+    setExcelError('');
+    try {
+      const payload = validRows.map(r => ({
+        staffId: r.staffId,
+        leaveDate: r.leaveDate,
+        endDate: r.endDate || r.leaveDate,
+        leaveType: r.leaveType,
+        durationType: r.durationType,
+        amountDays: r.amountDays,
+        reason: r.reason,
+        status: r.status,
+        createdBy: getLocalizedName(user?.nameEn, user?.nameKh) || user?.nameEn || 'Admin'
+      }));
+
+      const res = await api.post('/leaves/batch', payload);
+      setExcelImportResult(res.data);
+      await fetchLeaves();
+    } catch (err) {
+      console.error('Error importing leaves:', err);
+      setExcelError(err.response?.data?.message || (locale === 'kh' ? 'មានបញ្ហាក្នុងការបញ្ចូលទិន្នន័យច្បាប់' : 'Failed to import leave records'));
+    } finally {
+      setExcelImportLoading(false);
+    }
+  };
+
   return (
     <div className="space-y-6 text-slate-100">
       {/* Title block */}
@@ -379,6 +862,24 @@ const Leaves = () => {
             <ArrowDownTrayIcon className="h-4 w-4 stroke-[2.5]" />
             <span>{t('exportExcel')}</span>
           </button>
+          {canImport && (
+            <button
+              type="button"
+              onClick={() => {
+                setShowExcelModal(true);
+                setExcelFile(null);
+                setExcelFileName('');
+                setExcelRows([]);
+                setExcelError('');
+                setExcelImportResult(null);
+              }}
+              className="flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-500 border border-emerald-400/40 text-white rounded-2xl font-bold text-sm transition-all shadow-md shadow-emerald-600/20 hover:shadow-lg cursor-pointer font-khmer"
+              title="Import leaves from Excel"
+            >
+              <ArrowUpTrayIcon className="h-4 w-4 stroke-[2.5]" />
+              <span>{locale === 'kh' ? 'នាំចូល Excel' : 'Import Excel'}</span>
+            </button>
+          )}
           <button
             onClick={handleOpenRequestModal}
             className="flex items-center gap-2 bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white px-4 py-2.5 rounded-xl font-semibold text-sm transition-all shadow-md shadow-indigo-500/25 font-khmer cursor-pointer border-none outline-none flex-1 sm:flex-initial justify-center"
@@ -841,6 +1342,337 @@ const Leaves = () => {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Excel Import Modal */}
+      {showExcelModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-fadeIn">
+          <div className="bg-slate-900 border border-white/10 rounded-2xl w-full max-w-5xl max-h-[92vh] flex flex-col shadow-2xl overflow-hidden animate-scaleUp">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between p-5 border-b border-white/10 bg-slate-950/40">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">
+                  <ArrowUpTrayIcon className="h-6 w-6" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-white font-khmer">
+                    {locale === 'kh' ? 'នាំចូលទិន្នន័យច្បាប់សម្រាកតាមរយៈ Excel' : 'Import Leave Records via Excel'}
+                  </h3>
+                  <p className="text-xs text-slate-400">
+                    {locale === 'kh' ? 'ជ្រើសរើសឯកសារ Excel (.xlsx, .xls, .csv) ដើម្បីបញ្ចូលសំណើសុំច្បាប់ជាដុំ' : 'Select an Excel file (.xlsx, .xls, .csv) to batch import leave records'}
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleDownloadLeaveTemplate}
+                  className="flex items-center gap-2 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 border border-white/10 text-slate-200 hover:text-white rounded-xl text-xs font-semibold transition-all cursor-pointer font-khmer"
+                >
+                  <ArrowDownTrayIcon className="h-4 w-4 text-emerald-400" />
+                  <span>{locale === 'kh' ? 'ទាញយកទម្រង់គំរូ' : 'Download Template'}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowExcelModal(false);
+                    setExcelFile(null);
+                    setExcelFileName('');
+                    setExcelRows([]);
+                    setExcelError('');
+                    setExcelImportResult(null);
+                  }}
+                  className="p-1.5 text-slate-400 hover:text-white hover:bg-white/5 rounded-lg transition-colors cursor-pointer border-none outline-none"
+                >
+                  <XMarkIcon className="h-5 w-5" />
+                </button>
+              </div>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-6 overflow-y-auto space-y-4 flex-1">
+              {/* File Upload Zone */}
+              <input
+                type="file"
+                ref={excelFileInputRef}
+                accept=".xlsx, .xls, .csv"
+                className="hidden"
+                onChange={(e) => {
+                  if (e.target.files && e.target.files[0]) {
+                    parseLeaveExcelFile(e.target.files[0]);
+                  }
+                }}
+              />
+
+              {!excelFileName ? (
+                <div
+                  onClick={() => excelFileInputRef.current && excelFileInputRef.current.click()}
+                  className="border-2 border-dashed border-emerald-500/40 hover:border-emerald-400 bg-emerald-950/10 hover:bg-emerald-950/20 rounded-2xl p-8 flex flex-col items-center justify-center text-center cursor-pointer transition-all group"
+                >
+                  <div className="p-4 rounded-full bg-emerald-500/10 text-emerald-400 group-hover:scale-110 transition-transform mb-3">
+                    <ArrowUpTrayIcon className="h-8 w-8" />
+                  </div>
+                  <p className="text-sm font-semibold text-white font-khmer mb-1">
+                    {locale === 'kh' ? 'ចុចទីនេះដើម្បីជ្រើសរើសឯកសារ Excel ឬទម្លាក់ឯកសារនៅទីនេះ' : 'Click to select an Excel file or drag & drop here'}
+                  </p>
+                  <p className="text-xs text-slate-400">
+                    {locale === 'kh' ? 'ទ្រទ្រង់ឯកសារ .xlsx, .xls, .csv' : 'Supports .xlsx, .xls, .csv files'}
+                  </p>
+                  <div className="mt-4 flex flex-wrap justify-center gap-2 text-[11px] text-slate-400">
+                    <span className="px-2 py-0.5 rounded-md bg-slate-800 border border-white/5">Staff ID</span>
+                    <span className="px-2 py-0.5 rounded-md bg-slate-800 border border-white/5">Leave Date</span>
+                    <span className="px-2 py-0.5 rounded-md bg-slate-800 border border-white/5">End Date</span>
+                    <span className="px-2 py-0.5 rounded-md bg-slate-800 border border-white/5">Leave Type</span>
+                    <span className="px-2 py-0.5 rounded-md bg-slate-800 border border-white/5">Duration</span>
+                    <span className="px-2 py-0.5 rounded-md bg-slate-800 border border-white/5">Days</span>
+                    <span className="px-2 py-0.5 rounded-md bg-slate-800 border border-white/5">Reason</span>
+                    <span className="px-2 py-0.5 rounded-md bg-slate-800 border border-white/5">Status</span>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex flex-wrap items-center justify-between gap-3 p-4 bg-slate-950/50 border border-white/10 rounded-xl">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 rounded-lg bg-emerald-500/20 text-emerald-400">
+                      <DocumentArrowUpIcon className="h-5 w-5" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold text-white">{excelFileName}</p>
+                      <p className="text-xs text-slate-400 font-khmer">
+                        {locale === 'kh' ? `រកឃើញទិន្នន័យសរុប ${excelRows.length} ជួរ` : `Found ${excelRows.length} records in total`}
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => excelFileInputRef.current && excelFileInputRef.current.click()}
+                    className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold rounded-lg transition-colors cursor-pointer font-khmer"
+                  >
+                    {locale === 'kh' ? 'ជ្រើសរើសឯកសារផ្សេង' : 'Change File'}
+                  </button>
+                </div>
+              )}
+
+              {/* Error Message */}
+              {excelError && (
+                <div className="p-3.5 bg-rose-500/10 border border-rose-500/20 text-rose-400 rounded-xl text-xs flex items-center gap-2">
+                  <ExclamationTriangleIcon className="h-4 w-4 shrink-0" />
+                  <span>{excelError}</span>
+                </div>
+              )}
+
+              {/* Success Result Message */}
+              {excelImportResult && (
+                <div className="p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-xl space-y-2">
+                  <div className="flex items-center gap-2 text-emerald-400 font-semibold text-sm font-khmer">
+                    <CheckCircleIcon className="h-5 w-5" />
+                    <span>
+                      {locale === 'kh'
+                        ? `បានដំណើរការដោយជោគជ័យចំនួន ${(excelImportResult.insertedCount || 0) + (excelImportResult.updatedCount || 0)} កំណត់ត្រាច្បាប់!`
+                        : `Successfully processed ${(excelImportResult.insertedCount || 0) + (excelImportResult.updatedCount || 0)} leave records!`}
+                    </span>
+                  </div>
+                  <div className="flex flex-wrap gap-3 text-xs text-slate-300">
+                    <span>{locale === 'kh' ? 'បង្កើតថ្មី៖' : 'Inserted:'} <strong className="text-emerald-400">{excelImportResult.insertedCount || 0}</strong></span>
+                    <span>{locale === 'kh' ? 'កែប្រែបន្ថែម៖' : 'Updated:'} <strong className="text-indigo-400">{excelImportResult.updatedCount || 0}</strong></span>
+                    {excelImportResult.skippedCount > 0 && (
+                      <span className="text-amber-400">{locale === 'kh' ? 'រំលង៖' : 'Skipped:'} <strong>{excelImportResult.skippedCount}</strong></span>
+                    )}
+                  </div>
+                  {Array.isArray(excelImportResult.errors) && excelImportResult.errors.length > 0 && (
+                    <div className="mt-2 text-[11px] text-slate-400 max-h-24 overflow-y-auto space-y-1 pl-6 list-disc">
+                      {excelImportResult.errors.map((err, i) => (
+                        <div key={i} className="text-amber-300/80">• {err}</div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Stats Bar */}
+              {excelRows.length > 0 && (
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div className="p-3 bg-slate-950/40 border border-white/5 rounded-xl">
+                    <span className="text-xs text-slate-400 block font-khmer">{locale === 'kh' ? 'ជួរសរុប' : 'Total Rows'}</span>
+                    <span className="text-lg font-bold text-white">{excelRows.length}</span>
+                  </div>
+                  <div className="p-3 bg-emerald-950/20 border border-emerald-500/20 rounded-xl">
+                    <span className="text-xs text-emerald-400 block font-khmer">{locale === 'kh' ? 'ត្រៀមបញ្ចូល (ត្រឹមត្រូវ)' : 'Ready to Insert'}</span>
+                    <span className="text-lg font-bold text-emerald-400">
+                      {excelRows.filter(r => r.isValid).length}
+                    </span>
+                  </div>
+                  <div className="p-3 bg-amber-950/20 border border-amber-500/20 rounded-xl">
+                    <span className="text-xs text-amber-400 block font-khmer">{locale === 'kh' ? 'មានបញ្ហា / មិនស្គាល់' : 'Warnings / Unmatched'}</span>
+                    <span className="text-lg font-bold text-amber-400">
+                      {excelRows.filter(r => !r.isValid).length}
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              {/* Column Mapping Selectors */}
+              {availableHeaders.length > 0 && (
+                <div className="bg-slate-950/40 border border-white/10 rounded-xl p-3.5 space-y-3">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div className="flex items-center gap-2 text-xs">
+                      <span className="font-semibold text-emerald-400 font-khmer">
+                        {locale === 'kh' ? 'ការផ្គូផ្គងជួរឈរ (Column Mapping)' : 'Column Mapping'}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+                    {[
+                      { key: 'staffId', label: 'Staff ID', required: true },
+                      { key: 'leaveDate', label: 'Leave Date', required: true },
+                      { key: 'endDate', label: 'End Date (Optional)', required: false },
+                      { key: 'leaveType', label: 'Leave Type', required: false },
+                      { key: 'durationType', label: 'Duration', required: false },
+                      { key: 'amountDays', label: 'Amount Days', required: false },
+                      { key: 'reason', label: 'Reason', required: false },
+                      { key: 'status', label: 'Status', required: false },
+                    ].map(f => (
+                      <div key={f.key} className="space-y-1">
+                        <label className="block text-slate-400 text-[11px] font-medium">
+                          {f.label} {f.required && <span className="text-rose-400">*</span>}
+                        </label>
+                        <select
+                          value={columnMapping[f.key] || ''}
+                          onChange={(e) => {
+                            const updated = { ...columnMapping, [f.key]: e.target.value };
+                            setColumnMapping(updated);
+                            applyMappingAndBuildLeaveRows(rawSheetData, headerRowIdx, updated);
+                          }}
+                          className="w-full py-1.5 px-2 bg-slate-900 border border-white/10 rounded-lg text-white text-xs focus:border-emerald-500 outline-none"
+                        >
+                          <option value="">-- None --</option>
+                          {availableHeaders.map(h => (
+                            <option key={h} value={h}>{h}</option>
+                          ))}
+                        </select>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Preview Table */}
+              {excelRows.length > 0 && (
+                <div className="border border-white/10 rounded-xl overflow-hidden bg-slate-950/30">
+                  <div className="max-h-72 overflow-y-auto overflow-x-auto">
+                    <table className="w-full text-xs text-left">
+                      <thead className="bg-slate-900/90 text-slate-400 uppercase font-khmer sticky top-0 border-b border-white/10">
+                        <tr>
+                          <th className="py-2.5 px-3">#</th>
+                          <th className="py-2.5 px-3">Staff ID</th>
+                          <th className="py-2.5 px-3">{locale === 'kh' ? 'ឈ្មោះ' : 'Employee'}</th>
+                          <th className="py-2.5 px-3">{locale === 'kh' ? 'កាលបរិច្ឆេទ' : 'Date'}</th>
+                          <th className="py-2.5 px-3">{locale === 'kh' ? 'ប្រភេទច្បាប់' : 'Type'}</th>
+                          <th className="py-2.5 px-3">{locale === 'kh' ? 'រយៈពេល' : 'Duration'}</th>
+                          <th className="py-2.5 px-3">{locale === 'kh' ? 'ថ្ងៃ' : 'Days'}</th>
+                          <th className="py-2.5 px-3">{locale === 'kh' ? 'មូលហេតុ' : 'Reason'}</th>
+                          <th className="py-2.5 px-3">{locale === 'kh' ? 'ស្ថានភាព' : 'Status'}</th>
+                          <th className="py-2.5 px-3 text-center">{locale === 'kh' ? 'សុពលភាព' : 'Valid'}</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-white/5">
+                        {excelRows.slice(0, 50).map((r, i) => (
+                          <tr key={i} className={`hover:bg-white/5 transition-colors ${!r.isValid ? 'bg-rose-500/5' : ''}`}>
+                            <td className="py-2 px-3 text-slate-500">{r.rowIndex}</td>
+                            <td className="py-2 px-3 font-semibold text-white">{r.staffId}</td>
+                            <td className="py-2 px-3 text-slate-300">{r.empName}</td>
+                            <td className="py-2 px-3 text-slate-300">
+                              {r.leaveDate}
+                              {r.endDate && r.endDate !== r.leaveDate && (
+                                <span className="text-slate-500 block text-[10px]">~ {r.endDate}</span>
+                              )}
+                            </td>
+                            <td className="py-2 px-3">
+                              <span className="px-2 py-0.5 rounded-md bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 font-medium">
+                                {r.leaveType}
+                              </span>
+                            </td>
+                            <td className="py-2 px-3 text-slate-300">{r.durationType}</td>
+                            <td className="py-2 px-3 font-semibold text-emerald-400">{r.amountDays}</td>
+                            <td className="py-2 px-3 text-slate-400 truncate max-w-[150px]">{r.reason || '-'}</td>
+                            <td className="py-2 px-3">
+                              <span className={`px-2 py-0.5 rounded-md text-[10px] font-semibold ${
+                                r.status === 'Approved'
+                                  ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                                  : r.status === 'Pending'
+                                  ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+                                  : 'bg-rose-500/10 text-rose-400 border border-rose-500/20'
+                              }`}>
+                                {r.status}
+                              </span>
+                            </td>
+                            <td className="py-2 px-3 text-center">
+                              {r.isValid ? (
+                                <span className="inline-flex items-center gap-1 text-emerald-400 text-[11px]">
+                                  <CheckCircleIcon className="h-4 w-4" />
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1 text-rose-400 text-[11px]" title={r.warnings.join(', ')}>
+                                  <ExclamationTriangleIcon className="h-4 w-4" />
+                                  <span className="text-[10px] hidden sm:inline">{r.warnings[0]}</span>
+                                </span>
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  {excelRows.length > 50 && (
+                    <div className="p-2 text-center text-xs text-slate-400 border-t border-white/5">
+                      {locale === 'kh' ? `បង្ហាញតែ 50 ក្នុងចំណោម ${excelRows.length} ជួរ` : `Showing 50 of ${excelRows.length} rows`}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="flex items-center justify-between p-4 border-t border-white/10 bg-slate-950/40">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowExcelModal(false);
+                  setExcelFile(null);
+                  setExcelFileName('');
+                  setExcelRows([]);
+                  setExcelError('');
+                  setExcelImportResult(null);
+                }}
+                className="px-4 py-2 text-xs font-semibold text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-700 rounded-xl transition-all cursor-pointer font-khmer"
+              >
+                {t("cancel")}
+              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  disabled={excelRows.filter(r => r.isValid).length === 0 || excelImportLoading}
+                  onClick={handleInsertAllLeaves}
+                  className="flex items-center gap-2 px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed text-white text-xs font-bold rounded-xl transition-all shadow-md shadow-emerald-600/20 hover:shadow-lg cursor-pointer font-khmer border-none"
+                >
+                  {excelImportLoading ? (
+                    <span>{locale === 'kh' ? 'កំពុងបញ្ចូល...' : 'Importing...'}</span>
+                  ) : (
+                    <>
+                      <CheckIcon className="h-4 w-4 stroke-[2.5]" />
+                      <span>
+                        {locale === 'kh'
+                          ? `នាំចូលទិន្នន័យ (${excelRows.filter(r => r.isValid).length})`
+                          : `Import Valid Records (${excelRows.filter(r => r.isValid).length})`}
+                      </span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}

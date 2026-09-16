@@ -54,8 +54,9 @@ public class DataInitializer implements CommandLineRunner {
         initializeKioskSettings();
         initializeLeaveTypes();
         initializeWorkHours();
-        initializeDemoData();
-        initializeTwoMonthsAttendanceAndLeaves();
+        ensureAdminUser();
+        // initializeDemoData() and initializeTwoMonthsAttendanceAndLeaves() disabled
+        // to prevent auto-inserting data or restoring deleted records on backend startup.
         log.info("DataInitializer completed successfully.");
     }
 
@@ -110,6 +111,7 @@ public class DataInitializer implements CommandLineRunner {
                 new Perm(Role.Admin, "telegram_settings", true),
                 new Perm(Role.Admin, "permissions", true),
                 new Perm(Role.Admin, "toggle_web_login", true),
+                new Perm(Role.Admin, "payroll", true),
 
                 // HR permissions
                 new Perm(Role.HR, "departments", true),
@@ -158,6 +160,7 @@ public class DataInitializer implements CommandLineRunner {
                 new Perm(Role.HR, "telegram_settings", true),
                 new Perm(Role.HR, "permissions", false),
                 new Perm(Role.HR, "toggle_web_login", true),
+                new Perm(Role.HR, "payroll", true),
 
                 // Manager permissions
                 new Perm(Role.Manager, "departments", false),
@@ -326,6 +329,12 @@ public class DataInitializer implements CommandLineRunner {
     }
 
     private void initializeDemoData() {
+        if (departmentRepository.count() > 0 || employeeRepository.count() > 0) {
+            log.info("Departments or employees already exist. Skipping demo data seeding.");
+            ensureAdminUser();
+            return;
+        }
+
         Department deptIT = departmentRepository.findAll().stream()
                 .filter(d -> "Information Technology".equalsIgnoreCase(d.getNameEn()))
                 .findFirst()
@@ -638,7 +647,34 @@ public class DataInitializer implements CommandLineRunner {
                         .build()));
     }
 
+    private void ensureAdminUser() {
+        if (employeeRepository.count() == 0) {
+            employeeRepository.save(Employee.builder()
+                    .staffId("EMP-001")
+                    .nameEn("Admin")
+                    .nameKh("រដ្ឋបាល")
+                    .gender("Male")
+                    .branch("Phnom Penh HQ")
+                    .joinDate(LocalDate.now())
+                    .status(Status.Active)
+                    .shift1Start("08:00")
+                    .shift1End("12:00")
+                    .shift2Start("13:00")
+                    .shift2End("17:00")
+                    .email("admin@attendance.com")
+                    .password(passwordEncoder.encode("admin123"))
+                    .role(Role.Admin)
+                    .canLoginWeb(true)
+                    .build());
+            log.info("Ensured default admin user exists for empty database (admin@attendance.com)");
+        }
+    }
+
     private void initializeTwoMonthsAttendanceAndLeaves() {
+        if (attendanceRepository.count() > 0 || leaveRepository.count() > 0) {
+            log.info("Attendance or leave records already exist. Skipping attendance demo seeding.");
+            return;
+        }
         log.info("Checking and seeding 2 months of attendance, leaves, and overtime data...");
         List<Employee> allEmployees = employeeRepository.findAll();
         if (allEmployees.isEmpty()) return;

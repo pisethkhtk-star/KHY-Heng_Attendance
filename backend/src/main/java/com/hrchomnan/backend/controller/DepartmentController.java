@@ -114,6 +114,15 @@ public class DepartmentController {
                     .filter(p -> id.equals(p.getDepartmentId()))
                     .forEach(positionRepository::delete);
 
+            // Detach employees assigned to this department
+            employeeRepository.findAll().stream()
+                    .filter(e -> id.equals(e.getDepartmentId()))
+                    .forEach(e -> {
+                        e.setDepartmentId(null);
+                        e.setPositionId(null);
+                        employeeRepository.save(e);
+                    });
+
             departmentRepository.deleteById(id);
             return ResponseEntity.ok(Map.of("message", "Department deleted successfully"));
         }
