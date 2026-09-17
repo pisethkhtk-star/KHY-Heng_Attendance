@@ -4,6 +4,7 @@ import 'package:get/get.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/notification_model.dart';
+import '../core/services/local_notification_service.dart';
 
 class NotificationController extends GetxController {
   final RxList<AppNotificationItem> notifications = <AppNotificationItem>[].obs;
@@ -65,6 +66,13 @@ class NotificationController extends GetxController {
 
     // Trigger instant native-style Heads-Up Notification Banner via Get.snackbar
     showHeadsUpNotification(item, onView: onView);
+
+    // Trigger phone top notification bar (native drawer)
+    LocalNotificationService().showAttendanceNotification(
+      title: title,
+      body: message,
+      isCheckIn: type != 'rejected' && type != 'checkout',
+    );
   }
 
   void showHeadsUpNotification(AppNotificationItem item, {VoidCallback? onView}) {

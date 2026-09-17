@@ -4,7 +4,9 @@ import 'package:intl/intl.dart';
 import '../models/attendance_model.dart';
 import '../repositories/attendance_repository.dart';
 import '../core/services/analytics_service.dart';
+import '../core/services/local_notification_service.dart';
 import 'auth_controller.dart';
+import 'notification_controller.dart';
 
 class AutoActionDecision {
   final String? action; // 'checkin_1', 'checkout_1', 'checkin_2', 'checkout_2'
@@ -365,6 +367,13 @@ class AttendanceController extends GetxController {
             'action': normalized,
           },
         );
+        final isCheckIn = normalized.contains('checkin');
+        final actionKhmer = isCheckIn ? 'Check-in ជំនួស' : 'Check-out ជំនួស';
+        LocalNotificationService().showAttendanceNotification(
+          title: 'វត្តមាន៖ $actionKhmer ជោគជ័យ',
+          body: 'បុគ្គលិក $staffId បានកត់ត្រាវត្តមានរួចរាល់!',
+          isCheckIn: isCheckIn,
+        );
         await fetchRemoteHistory();
       }
       return result;
@@ -481,7 +490,8 @@ class AttendanceController extends GetxController {
         ? (Get.find<AuthController>().user?.branch ?? 'HQ')
         : 'HQ';
     final effectiveAction = action ?? 'checkin_1';
-    if (effectiveAction.contains('checkin')) {
+    final isCheckIn = effectiveAction.contains('checkin');
+    if (isCheckIn) {
       AnalyticsService().logCheckIn(
         method: 'qr_or_face_scan',
         branchName: branchName,
@@ -492,6 +502,23 @@ class AttendanceController extends GetxController {
         method: 'qr_or_face_scan',
         branchName: branchName,
         success: true,
+      );
+    }
+
+    // Trigger System Notification Bar on top of phone
+    final actionKhmer = isCheckIn ? 'Check-in (ចូលធ្វើការ)' : 'Check-out (ចេញពីធ្វើការ)';
+    final notifTitle = 'វត្តមាន៖ $actionKhmer ជោគជ័យ';
+    final notifBody = 'បានកត់ត្រាវត្តមាននៅម៉ោង $nowStr ជោគជ័យ!';
+    LocalNotificationService().showAttendanceNotification(
+      title: notifTitle,
+      body: notifBody,
+      isCheckIn: isCheckIn,
+    );
+    if (Get.isRegistered<NotificationController>()) {
+      Get.find<NotificationController>().addNotification(
+        title: notifTitle,
+        message: notifBody,
+        type: isCheckIn ? 'approved' : 'checkout',
       );
     }
   }
@@ -561,6 +588,25 @@ class AttendanceController extends GetxController {
         branchName: branchName,
         success: isSuccess,
       );
+    }
+
+    if (isSuccess) {
+      final isCheckIn = actionStr.contains('checkin');
+      final actionKhmer = isCheckIn ? 'Check-in (ចូលធ្វើការ)' : 'Check-out (ចេញពីធ្វើការ)';
+      final notifTitle = 'វត្តមាន៖ $actionKhmer ជោគជ័យ';
+      final notifBody = 'បានកត់ត្រាវត្តមាននៅម៉ោង $nowStr ជោគជ័យ!';
+      LocalNotificationService().showAttendanceNotification(
+        title: notifTitle,
+        body: notifBody,
+        isCheckIn: isCheckIn,
+      );
+      if (Get.isRegistered<NotificationController>()) {
+        Get.find<NotificationController>().addNotification(
+          title: notifTitle,
+          message: notifBody,
+          type: isCheckIn ? 'approved' : 'checkout',
+        );
+      }
     }
 
     _isProcessing.value = false;

@@ -67,7 +67,7 @@ const Login = () => {
         { facingMode: "user" },
         config,
         (decodedText) => handleQrLogin(decodedText),
-        () => {}
+        () => { }
       );
     } catch (errUser) {
       console.warn("User camera facingMode failed, trying environment fallback:", errUser);
@@ -77,7 +77,7 @@ const Login = () => {
           { facingMode: "environment" },
           config,
           (decodedText) => handleQrLogin(decodedText),
-          () => {}
+          () => { }
         );
       } catch (errEnv) {
         console.warn("Environment camera failed, trying getCameras fallback:", errEnv);
@@ -88,7 +88,7 @@ const Login = () => {
               cameras[0].id,
               config,
               (decodedText) => handleQrLogin(decodedText),
-              () => {}
+              () => { }
             );
           } else {
             setQrError(locale === 'kh' ? 'រកមិនឃើញកាមេរ៉ាលើឧបករណ៍របស់អ្នកឡើយ' : 'No camera detected on this device');
@@ -206,12 +206,12 @@ const Login = () => {
           <div className="flex flex-col items-center">
             <img src={appIcon} alt="HR Chomnan Logo" className="h-12 w-12 rounded-2xl object-cover shadow-lg shadow-[var(--brand-blue)]/20" />
             <h2 className="mt-6 text-center text-2xl font-bold tracking-tight text-[var(--text-primary)] font-khmer">
-              {locale === 'kh' ? 'Attendance Management' : 'Employee Attendance'}
+              {locale === 'kh' ? 'គ្រប់គ្រង់ វត្តមានបុគ្គលិក' : 'Attendance Management'}
             </h2>
           </div>
 
           {/* Login Mode Tabs */}
-          <div className="flex border-b border-[var(--border-card)] mt-6 w-full">
+          {/* <div className="flex border-b border-[var(--border-card)] mt-6 w-full">
             <button
               type="button"
               onClick={() => setLoginMode('password')}
@@ -234,7 +234,7 @@ const Login = () => {
             >
               {locale === 'kh' ? 'Scan QR Code' : 'QR Scan'}
             </button>
-          </div>
+          </div> */}
 
           {loginMode === 'password' ? (
             /* Form */

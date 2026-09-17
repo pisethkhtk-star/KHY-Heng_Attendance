@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../core/constants/app_colors.dart';
 import '../controllers/auth_controller.dart';
 import '../controllers/language_controller.dart';
@@ -18,6 +19,50 @@ class _LoginScreenState extends State<LoginScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _obscurePassword = true;
+  bool _rememberMe = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadSavedCredentials();
+  }
+
+  Future<void> _loadSavedCredentials() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final remember = prefs.getBool('remember_me') ?? false;
+      if (remember) {
+        final savedEmail = prefs.getString('saved_email') ?? '';
+        final savedPassword = prefs.getString('saved_password') ?? '';
+        if (mounted) {
+          setState(() {
+            _rememberMe = true;
+            _emailController.text = savedEmail;
+            _passwordController.text = savedPassword;
+          });
+        }
+      }
+    } catch (e) {
+      debugPrint('Error loading saved credentials: $e');
+    }
+  }
+
+  Future<void> _saveCredentials() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      if (_rememberMe) {
+        await prefs.setBool('remember_me', true);
+        await prefs.setString('saved_email', _emailController.text.trim());
+        await prefs.setString('saved_password', _passwordController.text);
+      } else {
+        await prefs.setBool('remember_me', false);
+        await prefs.remove('saved_email');
+        await prefs.remove('saved_password');
+      }
+    } catch (e) {
+      debugPrint('Error saving credentials: $e');
+    }
+  }
 
   @override
   void dispose() {
@@ -34,7 +79,10 @@ class _LoginScreenState extends State<LoginScreen> {
     );
 
     if (success && mounted) {
-      Get.offAll(() => const MainLayout());
+      await _saveCredentials();
+      if (mounted) {
+        Get.offAll(() => const MainLayout());
+      }
     }
   }
 
@@ -171,21 +219,23 @@ class _LoginScreenState extends State<LoginScreen> {
               const SizedBox(height: 12),
 
               Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Row(
-                    children: [
-                      Checkbox(
-                        value: true,
-                        onChanged: (val) {},
-                        activeColor: AppColors.primary,
-                      ),
-                      Obx(() => Text(langController.tr('remember_me'), style: const TextStyle(fontSize: 13))),
-                    ],
+                  Checkbox(
+                    value: _rememberMe,
+                    onChanged: (val) {
+                      setState(() {
+                        _rememberMe = val ?? false;
+                      });
+                    },
+                    activeColor: AppColors.primary,
                   ),
-                  TextButton(
-                    onPressed: () {},
-                    child: const Text('Forgot Password?', style: TextStyle(fontSize: 13, color: AppColors.primary)),
+                  GestureDetector(
+                    onTap: () {
+                      setState(() {
+                        _rememberMe = !_rememberMe;
+                      });
+                    },
+                    child: Obx(() => Text(langController.tr('remember_me'), style: const TextStyle(fontSize: 13))),
                   ),
                 ],
               ),

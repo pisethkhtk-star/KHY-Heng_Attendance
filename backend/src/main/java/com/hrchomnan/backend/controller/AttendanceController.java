@@ -305,7 +305,7 @@ public class AttendanceController {
         return ResponseEntity.ok(response);
     }
 
-    @GetMapping("/stats-summary")
+    @GetMapping({"/stats", "/stats-summary"})
     @PreAuthorize("@perm.has('attendance')")
     public ResponseEntity<Map<String, Object>> getStatsSummary() {
         long totalEmployees = employeeRepository.findAll().stream()

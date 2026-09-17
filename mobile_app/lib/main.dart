@@ -19,8 +19,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
 import 'core/services/remote_config_service.dart';
 import 'core/services/analytics_service.dart';
-
-
+import 'core/services/local_notification_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -30,6 +29,9 @@ void main() async {
   );
   // 2. Initialize Remote Config
   await RemoteConfigService().init();
+  
+  // 3. Initialize Local Notification Service
+  await LocalNotificationService().init();
   
   // Initialize and register Network Client
   final apiClient = HttpApiClient();

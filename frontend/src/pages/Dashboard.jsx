@@ -54,19 +54,83 @@ const Dashboard = () => {
       setLoading(true);
       // Fetch stats & today's logs if admin, HR, or manager
       if (user.role !== 'Employee') {
-        const statsRes = await api.get('/attendances/stats');
-        setStats(statsRes.data);
+        // 1. Try fetching stats from backend attendance summary
+        try {
+          const statsRes = await api.get('/attendances/stats-summary');
+          if (statsRes.data) {
+            setStats(prev => ({ ...prev, ...statsRes.data }));
+          }
+        } catch (_) {
+          try {
+            const statsRes = await api.get('/attendances/stats');
+            if (statsRes.data) {
+              setStats(prev => ({ ...prev, ...statsRes.data }));
+            }
+          } catch (e) {
+            console.warn('Stats endpoint error:', e);
+          }
+        }
 
-        const logsRes = await api.get('/attendances/today');
-        setTodayLogs(logsRes.data);
+        // 2. Fetch total active employees directly from /employees
+        try {
+          const empRes = await api.get('/employees');
+          if (Array.isArray(empRes.data)) {
+            const activeCount = empRes.data.filter(e => e.status === 'Active' || !e.status).length;
+            setStats(prev => ({
+              ...prev,
+              totalEmployees: activeCount > 0 ? activeCount : empRes.data.length,
+            }));
+          }
+        } catch (e) {
+          console.warn('Error fetching total employees count:', e);
+        }
+
+        // 3. Fetch today's attendance logs for live counts
+        try {
+          const logsRes = await api.get('/attendances/today');
+          if (Array.isArray(logsRes.data)) {
+            setTodayLogs(logsRes.data);
+            const present = logsRes.data.length;
+            const late = logsRes.data.filter(l => Boolean(l.isLate)).length;
+            const earlyLeave = logsRes.data.filter(l => Boolean(l.isEarlyLeave)).length;
+            setStats(prev => ({
+              ...prev,
+              presentToday: present,
+              lateToday: late,
+              earlyLeaveToday: earlyLeave,
+            }));
+          }
+        } catch (e) {
+          console.warn('Error fetching today attendance logs:', e);
+        }
+
+        // 4. Fetch leaves for onLeaveToday count
+        try {
+          const leavesRes = await api.get('/leaves');
+          if (Array.isArray(leavesRes.data)) {
+            const todayStr = new Date().toISOString().split('T')[0];
+            const onLeave = leavesRes.data.filter(l =>
+              l.status === 'Approved' && (
+                l.leaveDate === todayStr ||
+                (l.startDate && l.endDate && l.startDate <= todayStr && l.endDate >= todayStr)
+              )
+            ).length;
+            setStats(prev => ({ ...prev, onLeaveToday: onLeave }));
+          }
+        } catch (_) { }
       }
 
       // Fetch personal today log for the logged-in employee
-      const personalHistory = await api.get(`/attendances/history?staffId=${user.staffId}&startDate=${new Date().toISOString().split('T')[0]}`);
-      if (personalHistory.data && personalHistory.data.length > 0) {
-        setPersonalTodayLog(personalHistory.data[0]);
-      } else {
-        setPersonalTodayLog(null);
+      try {
+        const todayDate = new Date().toISOString().split('T')[0];
+        const personalHistory = await api.get(`/attendances/history?staffId=${user.staffId}&startDate=${todayDate}`);
+        if (personalHistory.data && personalHistory.data.length > 0) {
+          setPersonalTodayLog(personalHistory.data[0]);
+        } else {
+          setPersonalTodayLog(null);
+        }
+      } catch (e) {
+        console.warn('Error fetching personal today attendance log:', e);
       }
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
@@ -217,7 +281,7 @@ const Dashboard = () => {
         </div>
 
         {/* Indicators Card / Personal Status */}
-        <div className="glass-card flex flex-col justify-between glow-indigo">
+        {/* <div className="glass-card flex flex-col justify-between glow-indigo">
           <div>
             <h3 className="font-bold text-[var(--text-primary)] pb-4 border-b border-[var(--border-card)] font-khmer text-lg">
               Daily Indicators
@@ -268,7 +332,7 @@ const Dashboard = () => {
             <span className="text-sm font-bold text-[var(--brand-blue)] block mt-1">{user.staffId}</span>
             <span className="text-xs text-[var(--text-secondary)] block mt-0.5">{user.email}</span>
           </div>
-        </div>
+        </div> */}
       </div>
 
       {/* Live Table (For HR/Admin/Managers to view today's check-ins) */}

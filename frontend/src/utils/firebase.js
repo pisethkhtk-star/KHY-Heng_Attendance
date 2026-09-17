@@ -2,13 +2,13 @@ import { initializeApp, getApps, getApp } from "firebase/app";
 import { getRemoteConfig, fetchAndActivate, getValue } from "firebase/remote-config";
 
 const firebaseConfig = {
-    apiKey: "[GCP_API_KEY]",
+    apiKey: "AIzaSyBF_z-0_I7TcKQENL8sXNQtE9WW7vsIHBg",
     authDomain: "khy-heng.firebaseapp.com",
     projectId: "khy-heng",
     storageBucket: "khy-heng.firebasestorage.app",
     messagingSenderId: "519004002974",
     appId: "1:519004002974:web:28699a5611e4055b9cb98f",
-    measurementId: "G-57R959R58L"
+    measurementId: "G-ZHY6MDRR8B"
 };
 
 const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
@@ -27,7 +27,7 @@ export const getRemoteConfigInstance = () => {
             };
             // កំណត់ Default Fallback បើសិនជា fetch មិនទាន់មកដល់
             remoteConfigInstance.defaultConfig = {
-                server_host: "192.168.88.120"
+                server_host: "192.168.88.133"
             };
         } catch (e) {
             console.warn("Failed to initialize Firebase Remote Config:", e);
@@ -43,11 +43,12 @@ export const getRemoteServerHost = async () => {
     try {
         const rc = getRemoteConfigInstance();
         if (!rc) {
-            return localStorage.getItem('cached_server_host') || "192.168.88.120";
+            return localStorage.getItem('cached_server_host') || "192.168.88.133";
         }
         await fetchAndActivate(rc);
         const host = getValue(rc, "server_host").asString()?.trim();
         if (host) {
+            console.log("[Firebase RemoteConfig] Server host fetched successfully:", host);
             try {
                 localStorage.setItem('cached_server_host', host);
             } catch (_) {}
@@ -62,5 +63,5 @@ export const getRemoteServerHost = async () => {
         if (cached) return cached;
     } catch (_) {}
 
-    return "192.168.88.120";
+    return "192.168.88.133";
 };
