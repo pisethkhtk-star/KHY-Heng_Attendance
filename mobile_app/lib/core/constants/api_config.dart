@@ -1,6 +1,9 @@
 class ApiConfig {
-  /// The server IP or Domain address (e.g., '98.90.129.131' or 'api.example.com')
-  static const String serverHost = '10.10.1.186';
+  /// Default fallback server IP or Domain address
+  static const String defaultServerHost = '10.10.1.186';
+
+  /// The server IP or Domain address (fallback)
+  static const String serverHost = defaultServerHost;
 
   /// Set port (e.g. '8080' for direct Spring Boot, '' or '80' / '443' for standard web ports)
   static const String serverPort = '8080';
@@ -11,11 +14,15 @@ class ApiConfig {
   // Backward compatibility alias
   static const String serverIp = serverHost;
 
-  static String get baseUrl {
+  /// Generate baseUrl dynamically for any given host
+  static String getBaseUrl(String host) {
+    final cleanHost = host.trim();
     final scheme = useHttps ? 'https' : 'http';
     if (serverPort.isEmpty || (useHttps && serverPort == '443') || (!useHttps && serverPort == '80')) {
-      return '$scheme://$serverHost/api';
+      return '$scheme://$cleanHost/api';
     }
-    return '$scheme://$serverHost:$serverPort/api';
+    return '$scheme://$cleanHost:$serverPort/api';
   }
+
+  static String get baseUrl => getBaseUrl(serverHost);
 }

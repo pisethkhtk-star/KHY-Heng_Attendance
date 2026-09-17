@@ -13,6 +13,7 @@
     "@heroicons/react": "^2.2.0",
     "autoprefixer": "^10.5.2",
     "axios": "^1.18.1",
+    "firebase": "^12.19.0",
     "html5-qrcode": "^2.3.8",
     "jspdf": "^2.5.2",
     "leaflet": "^1.9.4",

@@ -12,6 +12,10 @@ class UserModel {
   final String shiftName;
   final String shiftStartTime;
   final String shiftEndTime;
+  final String? shift1Start;
+  final String? shift1End;
+  final String? shift2Start;
+  final String? shift2End;
   final String role;
 
   bool get isAdmin => role.trim().toLowerCase() == 'admin';
@@ -36,6 +40,10 @@ class UserModel {
     this.shiftName = 'Standard Day Shift',
     this.shiftStartTime = '08:00 AM',
     this.shiftEndTime = '05:00 PM',
+    this.shift1Start,
+    this.shift1End,
+    this.shift2Start,
+    this.shift2End,
     this.role = 'Employee',
   });
 
@@ -44,19 +52,19 @@ class UserModel {
         ? rawJson['user'] as Map<String, dynamic>
         : (rawJson['data'] is Map<String, dynamic> ? rawJson['data'] as Map<String, dynamic> : rawJson);
 
-    String parsedDept = 'Engineering';
+    String parsedDept = '-';
     if (json['department'] != null) {
       if (json['department'] is Map) {
-        parsedDept = json['department']['nameEn'] ?? json['department']['name'] ?? json['department']['nameKh'] ?? 'Engineering';
+        parsedDept = json['department']['nameEn'] ?? json['department']['name'] ?? json['department']['nameKh'] ?? '-';
       } else {
         parsedDept = json['department'].toString();
       }
     }
 
-    String parsedPos = 'Mobile Engineer';
+    String parsedPos = '-';
     if (json['position'] != null) {
       if (json['position'] is Map) {
-        parsedPos = json['position']['titleEn'] ?? json['position']['title'] ?? json['position']['titleKh'] ?? 'Mobile Engineer';
+        parsedPos = json['position']['titleEn'] ?? json['position']['title'] ?? json['position']['titleKh'] ?? '-';
       } else {
         parsedPos = json['position'].toString();
       }
@@ -80,6 +88,27 @@ class UserModel {
                     ? json['email'].toString().split('@')[0]
                     : 'Employee User')));
 
+    final String? s1Start = json['shift1Start']?.toString().trim();
+    final String? s1End = json['shift1End']?.toString().trim();
+    final String? s2Start = json['shift2Start']?.toString().trim();
+    final String? s2End = json['shift2End']?.toString().trim();
+
+    String computedShiftStart = '08:00 AM';
+    if (s1Start != null && s1Start.isNotEmpty && s1Start != '-') {
+      computedShiftStart = formatTime12Hour(s1Start);
+    } else if (json['shiftStartTime'] != null) {
+      computedShiftStart = formatTime12Hour(json['shiftStartTime'].toString());
+    }
+
+    String computedShiftEnd = '05:00 PM';
+    if (s2End != null && s2End.isNotEmpty && s2End != '-' && s2End != '--:--') {
+      computedShiftEnd = formatTime12Hour(s2End);
+    } else if (s1End != null && s1End.isNotEmpty && s1End != '-') {
+      computedShiftEnd = formatTime12Hour(s1End);
+    } else if (json['shiftEndTime'] != null) {
+      computedShiftEnd = formatTime12Hour(json['shiftEndTime'].toString());
+    }
+
     return UserModel(
       id: json['id']?.toString() ?? '',
       employeeId: json['staffId']?.toString() ?? json['employeeId']?.toString() ?? 'EMP-2026',
@@ -91,9 +120,13 @@ class UserModel {
       position: parsedPos,
       branch: parsedBranch,
       avatarUrl: json['avatarUrl'] ?? json['photoUrl'] ?? json['photo'] ?? '',
-      shiftName: json['shiftName'] ?? 'Standard Day Shift (08:00 AM - 05:00 PM)',
-      shiftStartTime: json['shiftStartTime'] ?? '08:00 AM',
-      shiftEndTime: json['shiftEndTime'] ?? '05:00 PM',
+      shiftName: json['shiftName'] ?? 'Shift ($computedShiftStart - $computedShiftEnd)',
+      shiftStartTime: computedShiftStart,
+      shiftEndTime: computedShiftEnd,
+      shift1Start: s1Start,
+      shift1End: s1End,
+      shift2Start: s2Start,
+      shift2End: s2End,
       role: () {
         final rawRole = json['role'] ?? json['roleName'];
         if (rawRole != null) {
@@ -106,6 +139,46 @@ class UserModel {
       }(),
     );
   }
+
+  static String formatTime12Hour(String? timeStr) {
+    if (timeStr == null || timeStr.trim().isEmpty || timeStr == '--:--' || timeStr == '-') return '';
+    if (timeStr.contains('AM') || timeStr.contains('PM')) return timeStr.trim();
+    try {
+      final parts = timeStr.trim().split(':');
+      if (parts.length >= 2) {
+        int hours = int.parse(parts[0]);
+        final minutes = parts[1].padLeft(2, '0');
+        final ampm = hours >= 12 ? 'PM' : 'AM';
+        hours = hours % 12;
+        if (hours == 0) hours = 12;
+        final formattedHours = hours.toString().padLeft(2, '0');
+        return '$formattedHours:$minutes $ampm';
+      }
+    } catch (_) {}
+    return timeStr.trim();
+  }
+
+  String get formattedWorkingShift => '$shiftStartTime - $shiftEndTime';
+
+  String get formattedShift1Hours {
+    if (shift1Start == null || shift1Start!.isEmpty || shift1Start == '-') return '';
+    final s = formatTime12Hour(shift1Start);
+    final e = (shift1End != null && shift1End!.isNotEmpty && shift1End != '-') ? formatTime12Hour(shift1End) : '';
+    return e.isNotEmpty ? '$s - $e' : s;
+  }
+
+  String get formattedShift2Hours {
+    if (shift2Start == null || shift2Start!.isEmpty || shift2Start == '-') return '';
+    final s = formatTime12Hour(shift2Start);
+    final e = (shift2End != null && shift2End!.isNotEmpty && shift2End != '-') ? formatTime12Hour(shift2End) : '';
+    return e.isNotEmpty ? '$s - $e' : s;
+  }
+
+  bool get hasShift2 =>
+      shift2End != null &&
+      shift2End!.isNotEmpty &&
+      shift2End != '--:--' &&
+      shift2End != '-';
 
   Map<String, dynamic> toJson() {
     return {
@@ -122,6 +195,10 @@ class UserModel {
       'shiftName': shiftName,
       'shiftStartTime': shiftStartTime,
       'shiftEndTime': shiftEndTime,
+      'shift1Start': shift1Start,
+      'shift1End': shift1End,
+      'shift2Start': shift2Start,
+      'shift2End': shift2End,
       'role': role,
     };
   }

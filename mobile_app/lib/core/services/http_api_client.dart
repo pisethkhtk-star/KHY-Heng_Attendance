@@ -1,9 +1,10 @@
 import 'dart:convert';
-import 'package:flutter/foundation.dart' show kIsWeb, defaultTargetPlatform, TargetPlatform;
+import 'package:flutter/foundation.dart' show kIsWeb, defaultTargetPlatform, TargetPlatform, debugPrint;
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:mobile_app/core/constants/api_config.dart';
 import 'base_api_client.dart';
+import 'remote_config_service.dart';
 
 class HttpApiClient implements BaseApiClient {
   String _baseUrl = '';
@@ -11,16 +12,35 @@ class HttpApiClient implements BaseApiClient {
   @override
   String get baseUrl => _baseUrl;
 
+  String get _currentConfiguredHost {
+    final remoteHost = RemoteConfigService().serverHost;
+    if (remoteHost.isNotEmpty) return remoteHost;
+    return ApiConfig.defaultServerHost;
+  }
+
+  void updateServerHost(String newHost) {
+    if (newHost.trim().isEmpty) return;
+    final newUrl = ApiConfig.getBaseUrl(newHost);
+    _baseUrl = newUrl;
+    SharedPreferences.getInstance().then((prefs) {
+      prefs.setString('working_base_url', newUrl);
+    });
+    debugPrint('[HttpApiClient] Dynamic server host updated to: $newUrl');
+  }
+
   // Candidate API base URLs for dynamic environment resolution
   List<String> get _candidateBaseUrls {
-    final String primaryUrl = ApiConfig.baseUrl;
-    const String currentWifiIp = ApiConfig.serverIp;
+    final String currentHost = _currentConfiguredHost;
+    final String primaryUrl = ApiConfig.getBaseUrl(currentHost);
+    final String fallbackUrl = ApiConfig.baseUrl;
+
     if (kIsWeb) {
       final String webHost = Uri.base.host.isNotEmpty ? Uri.base.host : 'localhost';
       return [
         primaryUrl,
-        'http://$currentWifiIp:8080/api',
-        'http://$currentWifiIp/api',
+        if (primaryUrl != fallbackUrl) fallbackUrl,
+        'http://$currentHost:8080/api',
+        'http://$currentHost/api',
         'http://$webHost:8080/api',
         'http://localhost:8080/api',
       ];
@@ -28,9 +48,10 @@ class HttpApiClient implements BaseApiClient {
     try {
       if (defaultTargetPlatform == TargetPlatform.android) {
         return [
-          primaryUrl,                       // Configured Server (e.g. http://98.90.129.131:8080/api)
-          'http://$currentWifiIp:8080/api', // Direct backend (Port 8080)
-          'http://$currentWifiIp/api',      // Hosted Backend (Port 80)
+          primaryUrl,                       // Configured Server from Firebase (e.g. http://192.168.88.120:8080/api)
+          if (primaryUrl != fallbackUrl) fallbackUrl,
+          'http://$currentHost:8080/api', // Direct backend (Port 8080)
+          'http://$currentHost/api',      // Hosted Backend (Port 80)
           'http://10.0.2.2:8080/api',        // Android Emulator -> backend
           'http://127.0.0.1:8080/api',
         ];
@@ -38,8 +59,9 @@ class HttpApiClient implements BaseApiClient {
     } catch (_) {}
     return [
       primaryUrl,
-      'http://$currentWifiIp:8080/api',
-      'http://$currentWifiIp/api',
+      if (primaryUrl != fallbackUrl) fallbackUrl,
+      'http://$currentHost:8080/api',
+      'http://$currentHost/api',
       'http://10.0.2.2:8080/api',
       'http://localhost:8080/api',
     ];
@@ -47,21 +69,25 @@ class HttpApiClient implements BaseApiClient {
 
   @override
   Future<void> init() async {
-    _baseUrl = _candidateBaseUrls.first;
+    final String currentHost = _currentConfiguredHost;
+    final String primaryUrl = ApiConfig.getBaseUrl(currentHost);
+    _baseUrl = primaryUrl;
+
     try {
       final prefs = await SharedPreferences.getInstance();
       final savedUrl = prefs.getString('working_base_url');
       if (savedUrl != null && savedUrl.isNotEmpty) {
-        // If savedUrl matches current server configuration, use it
-        if (savedUrl.contains(ApiConfig.serverIp)) {
+        // If savedUrl matches current server host from Firebase, use it
+        if (savedUrl.contains(currentHost)) {
           _baseUrl = savedUrl;
         } else {
-          // Outdated cached IP -> reset to newest primary candidate
+          // Outdated cached IP -> reset to newest Firebase server host
           await prefs.remove('working_base_url');
-          _baseUrl = _candidateBaseUrls.first;
+          _baseUrl = primaryUrl;
         }
       }
     } catch (_) {}
+    debugPrint('[HttpApiClient] Initialized with baseUrl: $_baseUrl');
   }
 
   Uri _buildUri(String baseUrl, String path) {

@@ -283,12 +283,28 @@ class HomeScreen extends StatelessWidget {
                               child: Row(
                                 children: [
                                   const Icon(LucideIcons.sun, size: 15, color: AppColors.warning),
-                                  const SizedBox(width: 4),
+                                  const SizedBox(width: 6),
                                   Expanded(
-                                    child: Obx(() => Text(
-                                      langController.tr('shift_1'),
-                                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
-                                      overflow: TextOverflow.ellipsis,
+                                    child: Obx(() => Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Text(
+                                          langController.tr('shift_1'),
+                                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                        if (attendanceController.shift1ScheduleDisplay.isNotEmpty)
+                                          Text(
+                                            attendanceController.shift1ScheduleDisplay,
+                                            style: TextStyle(
+                                              fontSize: 10.5,
+                                              color: isDark ? AppColors.textSecondaryDark : AppColors.textSecondaryLight,
+                                              fontWeight: FontWeight.w500,
+                                            ),
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                      ],
                                     )),
                                   ),
                                 ],
@@ -305,40 +321,59 @@ class HomeScreen extends StatelessWidget {
                             ),
                           ],
                         ),
-                        const Padding(
-                          padding: EdgeInsets.symmetric(vertical: 8),
-                          child: Divider(height: 1),
-                        ),
 
-                        // Shift 2
-                        Row(
-                          children: [
-                            Expanded(
-                              child: Row(
+                        if (attendanceController.hasShift2) ...[
+                          const Padding(
+                            padding: EdgeInsets.symmetric(vertical: 8),
+                            child: Divider(height: 1),
+                          ),
+
+                          // Shift 2
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Row(
+                                  children: [
+                                    const Icon(LucideIcons.sunset, size: 15, color: AppColors.accent),
+                                    const SizedBox(width: 6),
+                                    Expanded(
+                                      child: Obx(() => Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Text(
+                                            langController.tr('shift_2'),
+                                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                          if (attendanceController.shift2ScheduleDisplay.isNotEmpty)
+                                            Text(
+                                              attendanceController.shift2ScheduleDisplay,
+                                              style: TextStyle(
+                                                fontSize: 10.5,
+                                                color: isDark ? AppColors.textSecondaryDark : AppColors.textSecondaryLight,
+                                                fontWeight: FontWeight.w500,
+                                              ),
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                        ],
+                                      )),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(width: 4),
+                              Row(
+                                mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  const Icon(LucideIcons.sunset, size: 15, color: AppColors.accent),
+                                  _buildTimeSlotPill('In 2', attendanceController.checkIn2 ?? '--:--', AppColors.success),
                                   const SizedBox(width: 4),
-                                  Expanded(
-                                    child: Obx(() => Text(
-                                      langController.tr('shift_2'),
-                                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
-                                      overflow: TextOverflow.ellipsis,
-                                    )),
-                                  ),
+                                  _buildTimeSlotPill('Out 2', attendanceController.checkOut2 ?? '--:--', AppColors.danger),
                                 ],
                               ),
-                            ),
-                            const SizedBox(width: 4),
-                            Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                _buildTimeSlotPill('In 2', attendanceController.checkIn2 ?? '--:--', AppColors.success),
-                                const SizedBox(width: 4),
-                                _buildTimeSlotPill('Out 2', attendanceController.checkOut2 ?? '--:--', AppColors.danger),
-                              ],
-                            ),
-                          ],
-                        ),
+                            ],
+                          ),
+                        ],
                       ],
                     ),
                   ),

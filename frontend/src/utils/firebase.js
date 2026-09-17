@@ -1,0 +1,66 @@
+import { initializeApp, getApps, getApp } from "firebase/app";
+import { getRemoteConfig, fetchAndActivate, getValue } from "firebase/remote-config";
+
+const firebaseConfig = {
+    apiKey: "[GCP_API_KEY]",
+    authDomain: "khy-heng.firebaseapp.com",
+    projectId: "khy-heng",
+    storageBucket: "khy-heng.firebasestorage.app",
+    messagingSenderId: "519004002974",
+    appId: "1:519004002974:web:28699a5611e4055b9cb98f",
+    measurementId: "G-57R959R58L"
+};
+
+const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
+
+let remoteConfigInstance = null;
+
+export const getRemoteConfigInstance = () => {
+    if (typeof window === 'undefined') return null;
+    if (!remoteConfigInstance) {
+        try {
+            remoteConfigInstance = getRemoteConfig(app);
+            // កំណត់ fetch interval (0 ដើម្បីឱ្យឆាប់ទទួល IP ថ្មីភ្លាមៗ)
+            remoteConfigInstance.settings = {
+                minimumFetchIntervalMillis: 0,
+                fetchTimeoutMillis: 5000,
+            };
+            // កំណត់ Default Fallback បើសិនជា fetch មិនទាន់មកដល់
+            remoteConfigInstance.defaultConfig = {
+                server_host: "192.168.88.120"
+            };
+        } catch (e) {
+            console.warn("Failed to initialize Firebase Remote Config:", e);
+        }
+    }
+    return remoteConfigInstance;
+};
+
+export const remoteConfig = typeof window !== 'undefined' ? getRemoteConfigInstance() : null;
+
+// Function សម្រាប់ទាញយក host ពី Firebase
+export const getRemoteServerHost = async () => {
+    try {
+        const rc = getRemoteConfigInstance();
+        if (!rc) {
+            return localStorage.getItem('cached_server_host') || "192.168.88.120";
+        }
+        await fetchAndActivate(rc);
+        const host = getValue(rc, "server_host").asString()?.trim();
+        if (host) {
+            try {
+                localStorage.setItem('cached_server_host', host);
+            } catch (_) {}
+            return host;
+        }
+    } catch (err) {
+        console.warn("Firebase Remote Config fetch failed, using fallback:", err);
+    }
+
+    try {
+        const cached = localStorage.getItem('cached_server_host');
+        if (cached) return cached;
+    } catch (_) {}
+
+    return "192.168.88.120";
+};

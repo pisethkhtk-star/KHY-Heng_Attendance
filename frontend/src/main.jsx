@@ -2,6 +2,10 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
 import App from './App.jsx'
+import { initApiConfig } from './utils/api'
+
+// Initialize remote API config early
+initApiConfig();
 
 // Initialize theme from localStorage, default to 'light'
 const savedTheme = localStorage.getItem('theme') || 'light';

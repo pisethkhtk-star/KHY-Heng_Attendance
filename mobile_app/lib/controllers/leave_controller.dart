@@ -4,6 +4,7 @@ import 'package:get/get.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/leave_model.dart';
 import '../repositories/leave_repository.dart';
+import '../core/services/analytics_service.dart';
 import 'attendance_controller.dart';
 import 'auth_controller.dart';
 import 'language_controller.dart';
@@ -146,6 +147,12 @@ class LeaveController extends GetxController {
       reason: reason,
       durationType: durationType,
       staffId: staffId,
+    );
+
+    // Track Firebase Analytics Event
+    AnalyticsService().logLeaveRequest(
+      leaveType: type,
+      durationDays: days,
     );
 
     if (result['success'] == true) {

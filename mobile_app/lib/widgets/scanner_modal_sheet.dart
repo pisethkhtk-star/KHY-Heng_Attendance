@@ -337,7 +337,7 @@ class _ScannerModalSheetState extends State<ScannerModalSheet> with WidgetsBindi
       setState(() {
         _isLoadingLocation = false;
         _isLocationVerified = true;
-        _statusMessage = '📷 សូមស្កេន QR Code បុគ្គលិកដើម្បី Login';
+        _statusMessage = null;
       });
       return;
     }
@@ -1274,12 +1274,12 @@ class _ScannerModalSheetState extends State<ScannerModalSheet> with WidgetsBindi
                       ),
                       const SizedBox(width: 6),
                       Text(
-                        _isUnlocked ? 'Camera Active (${_remainingSeconds}s)' : 'Camera Locked',
+                        _isUnlocked ? (widget.isLoginMode ? 'Camera Ready' : 'Camera Active (${_remainingSeconds}s)') : 'Camera Locked',
                         style: TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.bold,
                           color: _isUnlocked
-                              ? (_remainingSeconds <= 5 ? AppColors.danger : AppColors.success)
+                              ? (_remainingSeconds <= 5 && !widget.isLoginMode ? AppColors.danger : AppColors.success)
                               : Colors.grey,
                         ),
                       ),
@@ -1473,191 +1473,208 @@ class _ScannerModalSheetState extends State<ScannerModalSheet> with WidgetsBindi
             ),
             const SizedBox(height: 14),
 
-            if (_isLoadingLocation)
-              const Padding(
-                padding: EdgeInsets.only(bottom: 12),
-                child: Center(
-                  child: SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: AppColors.primary,
+            if (!widget.isLoginMode) ...[
+              if (_isLoadingLocation)
+                const Padding(
+                  padding: EdgeInsets.only(bottom: 12),
+                  child: Center(
+                    child: SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: AppColors.primary,
+                      ),
+                    ),
+                  ),
+                )
+              else if (_statusMessage != null)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: Text(
+                    _statusMessage!,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: _isSuccess ? AppColors.success : AppColors.danger,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 12,
                     ),
                   ),
                 ),
-              )
-            else if (_statusMessage != null)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: Text(
-                  _statusMessage!,
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: _isSuccess ? AppColors.success : AppColors.danger,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 12,
-                  ),
-                ),
-              ),
 
-            // Primary "Check" Action Button (Matching Frontend Kiosk Purple Gradient)
-            if (!_isUnlocked) ...[
-              SizedBox(
-                width: double.infinity,
-                child: Container(
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: (_nextAction == 'completed' && !_scanOnBehalf)
-                          ? [const Color(0xFF059669), const Color(0xFF10B981)]
-                          : [const Color(0xFF4F46E5), const Color(0xFF7C3AED)],
+              // Primary "Check" Action Button (Matching Frontend Kiosk Purple Gradient)
+              if (!_isUnlocked) ...[
+                SizedBox(
+                  width: double.infinity,
+                  child: Container(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: (_nextAction == 'completed' && !_scanOnBehalf)
+                            ? [const Color(0xFF059669), const Color(0xFF10B981)]
+                            : [const Color(0xFF4F46E5), const Color(0xFF7C3AED)],
+                      ),
+                      borderRadius: BorderRadius.circular(16),
+                      boxShadow: [
+                        BoxShadow(
+                          color: ((_nextAction == 'completed' && !_scanOnBehalf)
+                                  ? const Color(0xFF059669)
+                                  : const Color(0xFF4F46E5))
+                              .withValues(alpha: 0.35),
+                          blurRadius: 16,
+                          offset: const Offset(0, 6),
+                        ),
+                      ],
                     ),
-                    borderRadius: BorderRadius.circular(16),
-                    boxShadow: [
-                      BoxShadow(
-                        color: ((_nextAction == 'completed' && !_scanOnBehalf)
-                                ? const Color(0xFF059669)
-                                : const Color(0xFF4F46E5))
-                            .withValues(alpha: 0.35),
-                        blurRadius: 16,
-                        offset: const Offset(0, 6),
+                    child: ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.transparent,
+                        shadowColor: Colors.transparent,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                      ),
+                      onPressed: _isVerifying
+                          ? null
+                          : () {
+                              _handleCheckPress();
+                            },
+                      child: _isVerifying
+                          ? const SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                            )
+                          : Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  (_nextAction == 'completed' && !_scanOnBehalf)
+                                      ? LucideIcons.checkCircle2
+                                      : LucideIcons.camera,
+                                  size: 20,
+                                  color: Colors.white,
+                                ),
+                                const SizedBox(width: 8),
+                                Text(
+                                  _getActionLabel(_nextAction),
+                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                                ),
+                              ],
+                            ),
+                    ),
+                  ),
+                ),
+              ] else ...[
+                // Active Action Label, Timer Countdown & Re-lock Button
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: (_remainingSeconds <= 5 ? AppColors.danger : AppColors.primary).withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: (_remainingSeconds <= 5 ? AppColors.danger : AppColors.primary).withValues(alpha: 0.3),
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        LucideIcons.timer,
+                        size: 16,
+                        color: _remainingSeconds <= 5 ? AppColors.danger : AppColors.primary,
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        'ស្កេនក្នុងរយះពេល៖ ${_remainingSeconds}s (${_getActionLabel(_nextAction)})',
+                        style: TextStyle(
+                          color: _remainingSeconds <= 5 ? AppColors.danger : AppColors.primary,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 12,
+                        ),
                       ),
                     ],
                   ),
-                  child: ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.transparent,
-                      shadowColor: Colors.transparent,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                    ),
-                    onPressed: _isVerifying
-                        ? null
-                        : () {
-                            _handleCheckPress();
-                          },
-                    child: _isVerifying
-                        ? const SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
-                          )
-                        : Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(
-                                (_nextAction == 'completed' && !_scanOnBehalf)
-                                    ? LucideIcons.checkCircle2
-                                    : LucideIcons.camera,
-                                size: 20,
-                                color: Colors.white,
-                              ),
-                              const SizedBox(width: 8),
-                              Text(
-                                _getActionLabel(_nextAction),
-                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                              ),
-                            ],
-                          ),
-                  ),
                 ),
-              ),
-            ] else ...[
-              // Active Action Label, Timer Countdown & Re-lock Button
+                const SizedBox(height: 8),
+                TextButton.icon(
+                  onPressed: () => _setUnlocked(false),
+                  icon: const Icon(LucideIcons.lock, size: 14, color: Colors.grey),
+                  label: const Text('ចាក់សោឡើងវិញ (Lock Camera)', style: TextStyle(color: Colors.grey, fontSize: 11)),
+                ),
+              ],
+              const SizedBox(height: 10),
+
+              // GPS Simulator Switch
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
-                  color: (_remainingSeconds <= 5 ? AppColors.danger : AppColors.primary).withValues(alpha: 0.12),
+                  color: isDark ? Colors.black26 : Colors.grey.shade100,
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: (_remainingSeconds <= 5 ? AppColors.danger : AppColors.primary).withValues(alpha: 0.3),
-                  ),
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(
-                      LucideIcons.timer,
-                      size: 16,
-                      color: _remainingSeconds <= 5 ? AppColors.danger : AppColors.primary,
+                    const Icon(LucideIcons.mapPin, size: 12, color: AppColors.primary),
+                    const SizedBox(width: 4),
+                    const Text('GPS Sim: ', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600)),
+                    GestureDetector(
+                      onTap: () {
+                        _isUserCustomLocation = true;
+                        if (_employeeAssignedSettings.isNotEmpty) {
+                          final defaultSetting = _employeeAssignedSettings.first;
+                          _clientLat = (defaultSetting['latitude'] as num).toDouble();
+                          _clientLng = (defaultSetting['longitude'] as num).toDouble();
+                        } else {
+                          _clientLat = 11.5564;
+                          _clientLng = 104.9282;
+                        }
+                        _verifyBranchGeofence();
+                      },
+                      child: Text(
+                        'In Branch',
+                        style: TextStyle(
+                          fontSize: 10,
+                          color: _isLocationVerified ? AppColors.success : Colors.grey,
+                          fontWeight: _isLocationVerified ? FontWeight.bold : FontWeight.normal,
+                        ),
+                      ),
                     ),
-                    const SizedBox(width: 6),
-                    Text(
-                      'ស្កេនក្នុងរយះពេល៖ ${_remainingSeconds}s (${_getActionLabel(_nextAction)})',
-                      style: TextStyle(
-                        color: _remainingSeconds <= 5 ? AppColors.danger : AppColors.primary,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 12,
+                    const SizedBox(width: 8),
+                    GestureDetector(
+                      onTap: () {
+                        _isUserCustomLocation = true;
+                        _clientLat = 0.0;
+                        _clientLng = 0.0;
+                        _verifyBranchGeofence();
+                      },
+                      child: Text(
+                        'Out of Branch',
+                        style: TextStyle(
+                          fontSize: 10,
+                          color: !_isLocationVerified ? AppColors.danger : Colors.grey,
+                          fontWeight: !_isLocationVerified ? FontWeight.bold : FontWeight.normal,
+                        ),
                       ),
                     ),
                   ],
                 ),
               ),
-              const SizedBox(height: 8),
-              TextButton.icon(
-                onPressed: () => _setUnlocked(false),
-                icon: const Icon(LucideIcons.lock, size: 14, color: Colors.grey),
-                label: const Text('ចាក់សោឡើងវិញ (Lock Camera)', style: TextStyle(color: Colors.grey, fontSize: 11)),
-              ),
+            ] else ...[
+              if (_statusMessage != null && !_isSuccess)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: Text(
+                    _statusMessage!,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      color: AppColors.danger,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 12,
+                    ),
+                  ),
+                ),
+              const SizedBox(height: 24),
             ],
-            const SizedBox(height: 10),
-
-            // GPS Simulator Switch
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-              decoration: BoxDecoration(
-                color: isDark ? Colors.black26 : Colors.grey.shade100,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(LucideIcons.mapPin, size: 12, color: AppColors.primary),
-                  const SizedBox(width: 4),
-                  const Text('GPS Sim: ', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600)),
-                  GestureDetector(
-                    onTap: () {
-                      _isUserCustomLocation = true;
-                      if (_employeeAssignedSettings.isNotEmpty) {
-                        final defaultSetting = _employeeAssignedSettings.first;
-                        _clientLat = (defaultSetting['latitude'] as num).toDouble();
-                        _clientLng = (defaultSetting['longitude'] as num).toDouble();
-                      } else {
-                        _clientLat = 11.5564;
-                        _clientLng = 104.9282;
-                      }
-                      _verifyBranchGeofence();
-                    },
-                    child: Text(
-                      'In Branch',
-                      style: TextStyle(
-                        fontSize: 10,
-                        color: _isLocationVerified ? AppColors.success : Colors.grey,
-                        fontWeight: _isLocationVerified ? FontWeight.bold : FontWeight.normal,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  GestureDetector(
-                    onTap: () {
-                      _isUserCustomLocation = true;
-                      _clientLat = 0.0;
-                      _clientLng = 0.0;
-                      _verifyBranchGeofence();
-                    },
-                    child: Text(
-                      'Out of Branch',
-                      style: TextStyle(
-                        fontSize: 10,
-                        color: !_isLocationVerified ? AppColors.danger : Colors.grey,
-                        fontWeight: !_isLocationVerified ? FontWeight.bold : FontWeight.normal,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
           ],
         ),
       ),

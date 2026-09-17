@@ -18,6 +18,7 @@ import 'views/splash_screen.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
 import 'core/services/remote_config_service.dart';
+import 'core/services/analytics_service.dart';
 
 
 
@@ -67,6 +68,9 @@ class HrAttendanceApp extends StatelessWidget {
         theme: AppTheme.lightTheme,
         darkTheme: AppTheme.darkTheme,
         themeMode: themeController.themeMode,
+        navigatorObservers: [
+          AnalyticsService().observer,
+        ],
         home: const SplashScreen(),
       ),
     );

@@ -3,6 +3,7 @@ import 'package:get/get.dart';
 import 'package:intl/intl.dart';
 import '../models/attendance_model.dart';
 import '../repositories/attendance_repository.dart';
+import '../core/services/analytics_service.dart';
 import 'auth_controller.dart';
 
 class AutoActionDecision {
@@ -62,11 +63,89 @@ class AttendanceController extends GetxController {
   final RxBool canCheckinOnBehalf = false.obs;
   final RxList<Map<String, dynamic>> eligibleEmployees = <Map<String, dynamic>>[].obs;
 
+  final RxString companyShift1Start = '08:00'.obs;
+  final RxString companyShift1End = '12:00'.obs;
+  final RxString companyShift2Start = '13:00'.obs;
+  final RxString companyShift2End = '17:00'.obs;
+  final RxInt lateGraceMinutes = 0.obs;
+
+  String get workingShiftDisplay {
+    if (Get.isRegistered<AuthController>()) {
+      final u = Get.find<AuthController>().user;
+      if (u != null && u.shift1Start != null && u.shift1Start!.trim().isNotEmpty) {
+        return u.formattedWorkingShift;
+      }
+    }
+    final s1 = AttendanceRecord.formatTime12Hour(companyShift1Start.value);
+    final s2 = (companyShift2End.value.isNotEmpty && companyShift2End.value != '--:--' && companyShift2End.value != '-')
+        ? AttendanceRecord.formatTime12Hour(companyShift2End.value)
+        : AttendanceRecord.formatTime12Hour(companyShift1End.value);
+    return '$s1 - $s2';
+  }
+
+  String get shift1ScheduleDisplay {
+    if (Get.isRegistered<AuthController>()) {
+      final u = Get.find<AuthController>().user;
+      if (u != null && u.formattedShift1Hours.isNotEmpty) {
+        return u.formattedShift1Hours;
+      }
+    }
+    final s1 = AttendanceRecord.formatTime12Hour(companyShift1Start.value);
+    final s1E = AttendanceRecord.formatTime12Hour(companyShift1End.value);
+    return s1E.isNotEmpty ? '$s1 - $s1E' : s1;
+  }
+
+  String get shift2ScheduleDisplay {
+    if (Get.isRegistered<AuthController>()) {
+      final u = Get.find<AuthController>().user;
+      if (u != null && u.formattedShift2Hours.isNotEmpty) {
+        return u.formattedShift2Hours;
+      }
+    }
+    final s2 = AttendanceRecord.formatTime12Hour(companyShift2Start.value);
+    final s2E = AttendanceRecord.formatTime12Hour(companyShift2End.value);
+    return s2E.isNotEmpty ? '$s2 - $s2E' : s2;
+  }
+
+  bool get hasShift2 {
+    if (Get.isRegistered<AuthController>()) {
+      final u = Get.find<AuthController>().user;
+      if (u != null && u.shift2End != null && u.shift2End!.isNotEmpty) {
+        return u.hasShift2;
+      }
+    }
+    return companyShift2End.value.isNotEmpty && companyShift2End.value != '--:--' && companyShift2End.value != '-';
+  }
+
   @override
   void onInit() {
     super.onInit();
+    fetchWorkHours();
     fetchRemoteHistory();
     checkOnBehalfEligibility();
+  }
+
+  Future<void> fetchWorkHours() async {
+    try {
+      final res = await _attendanceRepository.fetchCompanyWorkHours();
+      if (res != null) {
+        if (res['shift1Start'] != null && res['shift1Start'].toString().trim().isNotEmpty) {
+          companyShift1Start.value = res['shift1Start'].toString().trim();
+        }
+        if (res['shift1End'] != null && res['shift1End'].toString().trim().isNotEmpty) {
+          companyShift1End.value = res['shift1End'].toString().trim();
+        }
+        if (res['shift2Start'] != null && res['shift2Start'].toString().trim().isNotEmpty) {
+          companyShift2Start.value = res['shift2Start'].toString().trim();
+        }
+        if (res['shift2End'] != null && res['shift2End'].toString().trim().isNotEmpty) {
+          companyShift2End.value = res['shift2End'].toString().trim();
+        }
+        if (res['lateGraceMinutes'] != null) {
+          lateGraceMinutes.value = int.tryParse(res['lateGraceMinutes'].toString()) ?? 0;
+        }
+      }
+    } catch (_) {}
   }
 
   Future<void> checkOnBehalfEligibility() async {
@@ -279,6 +358,13 @@ class AttendanceController extends GetxController {
         note: note ?? 'Check-in on behalf',
       );
       if (result['success'] == true) {
+        AnalyticsService().logEvent(
+          name: 'on_behalf_attendance',
+          parameters: {
+            'target_staff_id': staffId,
+            'action': normalized,
+          },
+        );
         await fetchRemoteHistory();
       }
       return result;
@@ -389,6 +475,25 @@ class AttendanceController extends GetxController {
 
     _upsertTodayRecord(todayStr, staffId);
     await fetchRemoteHistory(staffId: staffId);
+
+    // Track Firebase Analytics Event
+    final branchName = Get.isRegistered<AuthController>()
+        ? (Get.find<AuthController>().user?.branch ?? 'HQ')
+        : 'HQ';
+    final effectiveAction = action ?? 'checkin_1';
+    if (effectiveAction.contains('checkin')) {
+      AnalyticsService().logCheckIn(
+        method: 'qr_or_face_scan',
+        branchName: branchName,
+        success: true,
+      );
+    } else {
+      AnalyticsService().logCheckOut(
+        method: 'qr_or_face_scan',
+        branchName: branchName,
+        success: true,
+      );
+    }
   }
 
   String get activeActionLabel {
@@ -436,8 +541,27 @@ class AttendanceController extends GetxController {
         break;
     }
 
-    await _attendanceRepository.logCheckInOut(actionStr, staffId: staffId);
+    final res = await _attendanceRepository.logCheckInOut(actionStr, staffId: staffId);
     _upsertTodayRecord(todayStr, staffId);
+
+    // Track Firebase Analytics Event
+    final isSuccess = res['success'] == true;
+    final branchName = Get.isRegistered<AuthController>()
+        ? (Get.find<AuthController>().user?.branch ?? 'HQ')
+        : 'HQ';
+    if (actionStr.contains('checkin')) {
+      AnalyticsService().logCheckIn(
+        method: 'manual_button',
+        branchName: branchName,
+        success: isSuccess,
+      );
+    } else {
+      AnalyticsService().logCheckOut(
+        method: 'manual_button',
+        branchName: branchName,
+        success: isSuccess,
+      );
+    }
 
     _isProcessing.value = false;
     return true;

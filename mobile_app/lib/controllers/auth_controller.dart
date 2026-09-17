@@ -3,6 +3,7 @@ import 'package:get/get.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/user_model.dart';
 import '../repositories/auth_repository.dart';
+import '../core/services/analytics_service.dart';
 import 'attendance_controller.dart';
 
 class AuthController extends GetxController {
@@ -31,6 +32,7 @@ class AuthController extends GetxController {
   void _syncUserAttendance() {
     if (Get.isRegistered<AttendanceController>()) {
       final attendanceCtrl = Get.find<AttendanceController>();
+      attendanceCtrl.fetchWorkHours();
       attendanceCtrl.fetchRemoteHistory(staffId: _user.value?.employeeId);
       attendanceCtrl.checkOnBehalfEligibility();
     }
@@ -69,12 +71,15 @@ class AuthController extends GetxController {
         _isAuthenticated.value = true;
 
         // Fetch live updated profile & branch from database
-        final meResult = await _authRepository.getMe();
-        if (meResult.success && meResult.user != null) {
-          _user.value = meResult.user;
+        await refreshUserProfile();
+        if (_user.value != null) {
+          AnalyticsService().setUserProfile(
+            staffId: _user.value!.employeeId.isNotEmpty ? _user.value!.employeeId : _user.value!.id,
+            role: _user.value!.role,
+            branch: _user.value!.branch,
+            department: _user.value!.department,
+          );
         }
-        await fetchBranchLocationsFromDb();
-        _syncUserAttendance();
       } catch (_) {
         _isAuthenticated.value = false;
         _user.value = null;
@@ -83,6 +88,23 @@ class AuthController extends GetxController {
       _isAuthenticated.value = false;
       _user.value = null;
     }
+  }
+
+  Future<void> refreshUserProfile() async {
+    try {
+      final meResult = await _authRepository.getMe();
+      if (meResult.success && meResult.user != null) {
+        _user.value = meResult.user;
+        AnalyticsService().setUserProfile(
+          staffId: meResult.user!.employeeId.isNotEmpty ? meResult.user!.employeeId : meResult.user!.id,
+          role: meResult.user!.role,
+          branch: meResult.user!.branch,
+          department: meResult.user!.department,
+        );
+      }
+      await fetchBranchLocationsFromDb();
+      _syncUserAttendance();
+    } catch (_) {}
   }
 
   Future<bool> login(String email, String password) async {
@@ -96,6 +118,17 @@ class AuthController extends GetxController {
       _user.value = result.user;
       _isAuthenticated.value = true;
       _errorMessage.value = null;
+
+      // Track Firebase Analytics Login & User Profile
+      AnalyticsService().logLogin(method: 'password');
+      if (result.user != null) {
+        AnalyticsService().setUserProfile(
+          staffId: result.user!.employeeId.isNotEmpty ? result.user!.employeeId : result.user!.id,
+          role: result.user!.role,
+          branch: result.user!.branch,
+          department: result.user!.department,
+        );
+      }
 
       // Immediately fetch branch locations from database upon successful login!
       await fetchBranchLocationsFromDb();
@@ -121,6 +154,17 @@ class AuthController extends GetxController {
       _isAuthenticated.value = true;
       _errorMessage.value = null;
 
+      // Track Firebase Analytics Login & User Profile
+      AnalyticsService().logLogin(method: 'qr_code');
+      if (result.user != null) {
+        AnalyticsService().setUserProfile(
+          staffId: result.user!.employeeId.isNotEmpty ? result.user!.employeeId : result.user!.id,
+          role: result.user!.role,
+          branch: result.user!.branch,
+          department: result.user!.department,
+        );
+      }
+
       await fetchBranchLocationsFromDb();
       _syncUserAttendance();
       return true;
@@ -133,6 +177,9 @@ class AuthController extends GetxController {
   }
 
   Future<void> logout() async {
+    // Track Firebase Analytics Logout
+    AnalyticsService().logLogout();
+
     _isAuthenticated.value = false;
     _user.value = null;
     _branchSettings.clear();

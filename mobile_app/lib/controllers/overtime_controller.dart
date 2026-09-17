@@ -1,6 +1,7 @@
 import 'package:get/get.dart';
 import '../models/overtime_model.dart';
 import '../repositories/overtime_repository.dart';
+import '../core/services/analytics_service.dart';
 
 class OvertimeController extends GetxController {
   final IOvertimeRepository _overtimeRepository = Get.find<IOvertimeRepository>();
@@ -55,6 +56,12 @@ class OvertimeController extends GetxController {
       reason: reason,
       branch: branch,
       staffId: staffId,
+    );
+
+    // Track Firebase Analytics Event
+    AnalyticsService().logOvertimeRequest(
+      hours: amountDay * 8.0,
+      reason: reason,
     );
 
     if (result['success'] == true) {

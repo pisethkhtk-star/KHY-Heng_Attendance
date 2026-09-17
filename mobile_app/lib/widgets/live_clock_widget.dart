@@ -4,6 +4,8 @@ import 'package:get/get.dart';
 import 'package:intl/intl.dart';
 import '../core/constants/app_colors.dart';
 import '../controllers/language_controller.dart';
+import '../controllers/auth_controller.dart';
+import '../controllers/attendance_controller.dart';
 
 class LiveClockWidget extends StatefulWidget {
   const LiveClockWidget({super.key});
@@ -77,17 +79,28 @@ class _LiveClockWidgetState extends State<LiveClockWidget> {
                   ),
                 ],
               ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: const Text(
-                  '08:00 AM - 05:00 PM',
-                  style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600),
-                ),
-              ),
+              Obx(() {
+                final authCtrl = Get.isRegistered<AuthController>() ? Get.find<AuthController>() : null;
+                final attCtrl = Get.isRegistered<AttendanceController>() ? Get.find<AttendanceController>() : null;
+                final user = authCtrl?.user;
+                String shiftDisplay = '08:00 AM - 05:00 PM';
+                if (user != null && user.shift1Start != null && user.shift1Start!.trim().isNotEmpty) {
+                  shiftDisplay = user.formattedWorkingShift;
+                } else if (attCtrl != null) {
+                  shiftDisplay = attCtrl.workingShiftDisplay;
+                }
+                return Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    shiftDisplay,
+                    style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600),
+                  ),
+                );
+              }),
             ],
           ),
           const SizedBox(height: 16),
