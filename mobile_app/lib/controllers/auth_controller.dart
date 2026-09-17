@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../models/user_model.dart';
 import '../repositories/auth_repository.dart';
 import '../core/services/analytics_service.dart';
+import '../core/services/background_notification_service.dart';
 import 'attendance_controller.dart';
 
 class AuthController extends GetxController {
@@ -79,6 +80,9 @@ class AuthController extends GetxController {
             branch: _user.value!.branch,
             department: _user.value!.department,
           );
+          BackgroundNotificationService().subscribeUserTopics(
+            staffId: _user.value!.employeeId.isNotEmpty ? _user.value!.employeeId : _user.value!.id,
+          );
         }
       } catch (_) {
         _isAuthenticated.value = false;
@@ -127,6 +131,9 @@ class AuthController extends GetxController {
           role: result.user!.role,
           branch: result.user!.branch,
           department: result.user!.department,
+        );
+        BackgroundNotificationService().subscribeUserTopics(
+          staffId: result.user!.employeeId.isNotEmpty ? result.user!.employeeId : result.user!.id,
         );
       }
 

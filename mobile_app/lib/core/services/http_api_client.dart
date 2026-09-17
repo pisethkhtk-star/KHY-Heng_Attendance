@@ -82,10 +82,10 @@ class HttpApiClient implements BaseApiClient {
           _baseUrl = savedUrl;
         } else {
           // Outdated cached IP -> reset to newest Firebase server host
-          await prefs.remove('working_base_url');
           _baseUrl = primaryUrl;
         }
       }
+      await prefs.setString('working_base_url', _baseUrl);
     } catch (_) {}
     debugPrint('[HttpApiClient] Initialized with baseUrl: $_baseUrl');
   }

@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:intl/intl.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import '../core/constants/app_colors.dart';
@@ -14,7 +15,9 @@ import '../widgets/apply_leave_sheet.dart';
 import '../widgets/scanner_modal_sheet.dart';
 import '../widgets/checkin_on_behalf_sheet.dart';
 import '../widgets/face_enroll_modal_sheet.dart';
+import '../controllers/leave_controller.dart';
 import 'overtime_screen.dart';
+import 'leave_approval_screen.dart';
 
 class HomeScreen extends StatelessWidget {
   final Function(int) onTabSelected;
@@ -43,12 +46,16 @@ class HomeScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final authController = Get.find<AuthController>();
     final attendanceController = Get.find<AttendanceController>();
+    final leaveController = Get.find<LeaveController>();
     final langController = Get.find<LanguageController>();
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return RefreshIndicator(
       onRefresh: () async {
-        await attendanceController.fetchRemoteHistory(staffId: authController.user?.employeeId);
+        await Future.wait([
+          attendanceController.fetchRemoteHistory(staffId: authController.user?.employeeId),
+          leaveController.checkApprovalEligibility(),
+        ]);
       },
       child: SingleChildScrollView(
         physics: const AlwaysScrollableScrollPhysics(),
@@ -417,6 +424,17 @@ class HomeScreen extends StatelessWidget {
                     );
                   },
                 ),
+                if (leaveController.canApprove.value)
+                  _buildActionCard(
+                    context,
+                    icon: LucideIcons.fileCheck2,
+                    title: langController.tr('approve_leaves'),
+                    color: const Color(0xFF8B5CF6),
+                    badgeCount: leaveController.pendingApprovalsCount.value,
+                    onTap: () {
+                      Get.to(() => const LeaveApprovalScreen());
+                    },
+                  ),
                 _buildActionCard(
                   context,
                   icon: LucideIcons.history,
@@ -546,11 +564,31 @@ class HomeScreen extends StatelessWidget {
           }),
           const SizedBox(height: 24),
 
-          // Monthly Statistics Summary (Attendance Statistics)
+          // Monthly Statistics Summary (Attendance Statistics - This Month)
           Obx(
-            () => Text(
-              langController.tr('quick_stats'),
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            () => Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  langController.tr('quick_stats'),
+                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: AppColors.primary.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Text(
+                    DateFormat('MMMM yyyy').format(DateTime.now()),
+                    style: const TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.primary,
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
           const SizedBox(height: 12),
@@ -622,26 +660,61 @@ class HomeScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildActionCard(BuildContext context, {required IconData icon, required String title, required Color color, required VoidCallback onTap}) {
+  Widget _buildActionCard(
+    BuildContext context, {
+    required IconData icon,
+    required String title,
+    required Color color,
+    required VoidCallback onTap,
+    int badgeCount = 0,
+  }) {
     return CustomCard(
       onTap: onTap,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.center,
+      child: Stack(
+        clipBehavior: Clip.none,
         children: [
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(12),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(icon, color: color, size: 22),
+              ),
+              const SizedBox(height: 10),
+              Text(
+                title,
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+              ),
+            ],
+          ),
+          if (badgeCount > 0)
+            Positioned(
+              top: 0,
+              right: 0,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                decoration: BoxDecoration(
+                  color: AppColors.danger,
+                  borderRadius: BorderRadius.circular(10),
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppColors.danger.withValues(alpha: 0.4),
+                      blurRadius: 4,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: Text(
+                  '$badgeCount',
+                  style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                ),
+              ),
             ),
-            child: Icon(icon, color: color, size: 22),
-          ),
-          const SizedBox(height: 10),
-          Text(
-            title,
-            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-          ),
         ],
       ),
     );

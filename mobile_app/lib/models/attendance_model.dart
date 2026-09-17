@@ -77,13 +77,37 @@ class AttendanceRecord {
 
     final isLateBool = json['isLate'] == true;
     final isEarlyBool = json['isEarlyLeave'] == true;
-    String calculatedStatus = 'Present';
-    if (isLateBool) {
+
+    final cIn1 = json['checkin1'] ?? json['checkIn1'] ?? json['checkIn'];
+    final cOut1 = json['checkout1'] ?? json['checkOut1'] ?? json['checkOut'];
+    final cIn2 = json['checkin2'] ?? json['checkIn2'];
+    final cOut2 = json['checkout2'] ?? json['checkOut2'];
+
+    final bool hasAnyScan = (cIn1 != null && cIn1.toString().trim().isNotEmpty && cIn1 != '--:--' && cIn1 != '-') ||
+        (cOut1 != null && cOut1.toString().trim().isNotEmpty && cOut1 != '--:--' && cOut1 != '-') ||
+        (cIn2 != null && cIn2.toString().trim().isNotEmpty && cIn2 != '--:--' && cIn2 != '-') ||
+        (cOut2 != null && cOut2.toString().trim().isNotEmpty && cOut2 != '--:--' && cOut2 != '-');
+
+    final noteStr = (json['note'] ?? '').toString().toLowerCase();
+    final rawStatusStr = (json['status'] ?? '').toString().toLowerCase();
+    final bool isOnLeave = rawStatusStr.contains('leave') ||
+        noteStr.contains('leave') ||
+        noteStr.contains('ច្បាប់');
+
+    String calculatedStatus;
+    if (isOnLeave) {
+      calculatedStatus = 'On Leave';
+    } else if (!hasAnyScan) {
+      // If check1 and check2 in/out are ALL null / empty -> Absent
+      calculatedStatus = 'Absent';
+    } else if (isLateBool || rawStatusStr == 'late') {
       calculatedStatus = 'Late';
-    } else if (isEarlyBool) {
+    } else if (isEarlyBool || rawStatusStr == 'early leave') {
       calculatedStatus = 'Early Leave';
-    } else if (json['status'] != null) {
-      calculatedStatus = json['status'].toString();
+    } else if (json['status'] != null && json['status'].toString().trim().isNotEmpty) {
+      calculatedStatus = json['status'].toString().trim();
+    } else {
+      calculatedStatus = 'Present';
     }
 
     final empObj = json['employee'];

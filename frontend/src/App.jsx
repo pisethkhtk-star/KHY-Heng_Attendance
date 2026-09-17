@@ -33,6 +33,7 @@ import LeaveAllowances from './pages/LeaveAllowances'; // verified
 import WorkHours from './pages/WorkHours'; // verified
 import ApprovalManage from './pages/ApprovalManage';
 import TelegramSettings from './pages/TelegramSettings';
+import PushNotifications from './pages/PushNotifications';
 import PayrollRun from './pages/PayrollRun';
 import PayrollSalaryStructure from './pages/PayrollSalaryStructure';
 import PayrollPayslips from './pages/PayrollPayslips';
@@ -269,6 +270,16 @@ function App() {
                 element={
                   <ProtectedRoute roles={['Admin', 'HR']}>
                     <TelegramSettings />
+                  </ProtectedRoute>
+                }
+              />
+
+              {/* Push Notifications Management */}
+              <Route
+                path="push-notifications"
+                element={
+                  <ProtectedRoute roles={['Admin', 'HR', 'Manager']}>
+                    <PushNotifications />
                   </ProtectedRoute>
                 }
               />

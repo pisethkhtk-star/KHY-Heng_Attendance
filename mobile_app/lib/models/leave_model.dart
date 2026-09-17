@@ -7,6 +7,13 @@ class LeaveItem {
   final String reason;
   final String status; // Pending, Approved, Rejected
   final String appliedDate;
+  final String? staffId;
+  final String? employeeName;
+  final String? employeeNameKh;
+  final String? departmentName;
+  final String? positionTitle;
+  final String? photoUrl;
+  final String? managerName;
 
   LeaveItem({
     required this.id,
@@ -17,6 +24,13 @@ class LeaveItem {
     required this.reason,
     required this.status,
     required this.appliedDate,
+    this.staffId,
+    this.employeeName,
+    this.employeeNameKh,
+    this.departmentName,
+    this.positionTitle,
+    this.photoUrl,
+    this.managerName,
   });
 
   factory LeaveItem.fromJson(Map<String, dynamic> json) {
@@ -30,6 +44,27 @@ class LeaveItem {
     final double daysVal = json['amountDays'] != null
         ? (double.tryParse(json['amountDays'].toString()) ?? 1.0)
         : (double.tryParse((json['totalDays'] ?? '1').toString()) ?? 1.0);
+
+    String? sId = json['staffId']?.toString();
+    String? empName;
+    String? empNameKh;
+    String? deptName;
+    String? posTitle;
+    String? photo;
+
+    if (json['employee'] is Map) {
+      final emp = json['employee'] as Map<String, dynamic>;
+      sId ??= emp['staffId']?.toString();
+      empName = emp['nameEn']?.toString();
+      empNameKh = emp['nameKh']?.toString();
+      photo = emp['photoUrl']?.toString();
+      if (emp['department'] is Map) {
+        deptName = emp['department']['nameEn']?.toString() ?? emp['department']['nameKh']?.toString();
+      }
+      if (emp['position'] is Map) {
+        posTitle = emp['position']['titleEn']?.toString() ?? emp['position']['titleKh']?.toString();
+      }
+    }
 
     return LeaveItem(
       id: json['id']?.toString() ?? '',
@@ -49,6 +84,13 @@ class LeaveItem {
       reason: json['reason'] ?? '',
       status: json['status'] ?? 'Pending',
       appliedDate: json['requestedAt']?.toString().split('T')[0] ?? json['createdAt']?.toString().split('T')[0] ?? dateStr,
+      staffId: sId,
+      employeeName: empName,
+      employeeNameKh: empNameKh,
+      departmentName: deptName,
+      positionTitle: posTitle,
+      photoUrl: photo,
+      managerName: json['managerName']?.toString(),
     );
   }
 }

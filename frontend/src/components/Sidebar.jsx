@@ -210,6 +210,11 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
       icon: GlobeAltIcon,
       subItems: [
         {
+          path: "/push-notifications",
+          name: isKhmer ? "ផ្ញើការជូនដំណឹង (Push Notifications)" : "Push Notifications",
+          resource: "push_notifications",
+        },
+        {
           path: "/telegram-settings",
           name: t("telegramGroup"),
           resource: "telegram_settings",

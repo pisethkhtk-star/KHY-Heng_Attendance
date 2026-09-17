@@ -120,13 +120,50 @@ class NotificationsSheet extends StatelessWidget {
                 separatorBuilder: (context, index) => const SizedBox(height: 10),
                 itemBuilder: (context, index) {
                   final item = list[index];
-                  final isApproved = item.type == 'approved';
-                  final statusColor = isApproved ? const Color(0xFF10B981) : const Color(0xFFEF4444);
+                  final typeLower = item.type.toLowerCase();
+                  final isApproved = typeLower == 'approved' || typeLower == 'leave_approved';
+                  final isRejected = typeLower == 'rejected' || typeLower == 'leave_rejected';
+                  final isRequest = typeLower == 'leave_request';
+                  final isDeleted = typeLower == 'leave_deleted' || typeLower == 'leave_cancelled';
+
+                  final isAnnouncement = typeLower == 'announcement';
+                  final isUrgent = typeLower == 'urgent';
+                  final isEvent = typeLower == 'event';
+                  final isReminder = typeLower == 'reminder';
+
+                  final Color statusColor = isApproved
+                      ? const Color(0xFF10B981)
+                      : (isRejected || isUrgent)
+                          ? const Color(0xFFEF4444)
+                          : isEvent
+                              ? const Color(0xFF9333EA)
+                              : isReminder
+                                  ? const Color(0xFFD97706)
+                                  : (isRequest || isAnnouncement)
+                                      ? const Color(0xFF3B82F6)
+                                      : isDeleted
+                                          ? const Color(0xFFE11D48)
+                                          : AppColors.primary;
+
+                  final IconData statusIcon = isApproved
+                      ? LucideIcons.checkCheck
+                      : (isRejected || isUrgent)
+                          ? LucideIcons.circleAlert
+                          : isEvent
+                              ? LucideIcons.partyPopper
+                              : isReminder
+                                  ? LucideIcons.clock
+                                  : isAnnouncement
+                                      ? LucideIcons.megaphone
+                                      : isRequest
+                                          ? LucideIcons.fileText
+                                          : isDeleted
+                                              ? LucideIcons.trash2
+                                              : LucideIcons.bellRing;
 
                   return InkWell(
                     onTap: () {
-                      item.isRead = true;
-                      notifController.notifications.refresh();
+                      notifController.markAsRead(item.id);
                       Navigator.of(context).pop();
                       if (onNavigateToLeave != null) {
                         onNavigateToLeave!();
@@ -157,7 +194,7 @@ class NotificationsSheet extends StatelessWidget {
                               shape: BoxShape.circle,
                             ),
                             child: Icon(
-                              isApproved ? LucideIcons.checkCheck : LucideIcons.circleAlert,
+                              statusIcon,
                               color: statusColor,
                               size: 20,
                             ),

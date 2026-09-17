@@ -6,18 +6,50 @@ class AnalyticsService {
   factory AnalyticsService() => _instance;
   AnalyticsService._internal();
 
-  final FirebaseAnalytics _analytics = FirebaseAnalytics.instance;
+  FirebaseAnalytics? _analytics;
+  FirebaseAnalyticsObserver? _observer;
+
+  FirebaseAnalytics? get analytics {
+    try {
+      _analytics ??= FirebaseAnalytics.instance;
+      return _analytics;
+    } catch (e) {
+      debugPrint('[Analytics Warning] FirebaseAnalytics.instance: $e');
+      return null;
+    }
+  }
 
   /// Getter សម្រាប់ប្រើជាមួយ Navigator Observers (GetMaterialApp navigatorObservers)
-  FirebaseAnalyticsObserver get observer =>
-      FirebaseAnalyticsObserver(analytics: _analytics);
+  FirebaseAnalyticsObserver? get observer {
+    try {
+      final a = analytics;
+      if (a != null) {
+        _observer ??= FirebaseAnalyticsObserver(analytics: a);
+        return _observer;
+      }
+    } catch (e) {
+      debugPrint('[Analytics Warning] observer: $e');
+    }
+    return null;
+  }
 
-  FirebaseAnalytics get analytics => _analytics;
+  /// ចាប់ផ្តើម និងបើកដំណើរការ Firebase Analytics
+  Future<void> init() async {
+    try {
+      final a = analytics;
+      if (a == null) return;
+      await a.setAnalyticsCollectionEnabled(true);
+      await a.logAppOpen();
+      debugPrint('[Analytics] Firebase Analytics initialized successfully & AppOpen logged');
+    } catch (e) {
+      debugPrint('[Analytics Error] init: $e');
+    }
+  }
 
   /// កំណត់ User ID នៅពេល Login
   Future<void> setUserId(String? userId) async {
     try {
-      await _analytics.setUserId(id: userId);
+      await analytics?.setUserId(id: userId);
       debugPrint('[Analytics] User ID set to: $userId');
     } catch (e) {
       debugPrint('[Analytics Error] setUserId: $e');
@@ -30,7 +62,7 @@ class AnalyticsService {
     required String? value,
   }) async {
     try {
-      await _analytics.setUserProperty(name: name, value: value);
+      await analytics?.setUserProperty(name: name, value: value);
       debugPrint('[Analytics] UserProperty $name = $value');
     } catch (e) {
       debugPrint('[Analytics Error] setUserProperty: $e');
@@ -53,8 +85,8 @@ class AnalyticsService {
   /// Clear User Session ពេល Logout
   Future<void> logLogout() async {
     try {
-      await _analytics.logEvent(name: 'app_logout');
-      await _analytics.setUserId(id: null);
+      await analytics?.logEvent(name: 'app_logout');
+      await analytics?.setUserId(id: null);
       debugPrint('[Analytics] User logged out, user ID reset');
     } catch (e) {
       debugPrint('[Analytics Error] logLogout: $e');
@@ -64,7 +96,7 @@ class AnalyticsService {
   /// Track Login Event
   Future<void> logLogin({required String method}) async {
     try {
-      await _analytics.logLogin(loginMethod: method);
+      await analytics?.logLogin(loginMethod: method);
       debugPrint('[Analytics] Login logged with method: $method');
     } catch (e) {
       debugPrint('[Analytics Error] logLogin: $e');
@@ -79,7 +111,7 @@ class AnalyticsService {
     String? errorMessage,
   }) async {
     try {
-      await _analytics.logEvent(
+      await analytics?.logEvent(
         name: 'attendance_check_in',
         parameters: {
           'method': method,
@@ -102,7 +134,7 @@ class AnalyticsService {
     String? errorMessage,
   }) async {
     try {
-      await _analytics.logEvent(
+      await analytics?.logEvent(
         name: 'attendance_check_out',
         parameters: {
           'method': method,
@@ -123,7 +155,7 @@ class AnalyticsService {
     required double durationDays,
   }) async {
     try {
-      await _analytics.logEvent(
+      await analytics?.logEvent(
         name: 'submit_leave_request',
         parameters: {
           'leave_type': leaveType,
@@ -142,7 +174,7 @@ class AnalyticsService {
     String? reason,
   }) async {
     try {
-      await _analytics.logEvent(
+      await analytics?.logEvent(
         name: 'submit_overtime_request',
         parameters: {
           'hours': hours,
@@ -161,7 +193,7 @@ class AnalyticsService {
     String? screenClass,
   }) async {
     try {
-      await _analytics.logScreenView(
+      await analytics?.logScreenView(
         screenName: screenName,
         screenClass: screenClass ?? screenName,
       );
@@ -177,7 +209,7 @@ class AnalyticsService {
     Map<String, Object>? parameters,
   }) async {
     try {
-      await _analytics.logEvent(
+      await analytics?.logEvent(
         name: name,
         parameters: parameters,
       );

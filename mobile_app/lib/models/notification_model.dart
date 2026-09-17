@@ -28,12 +28,12 @@ class AppNotificationItem {
   };
 
   factory AppNotificationItem.fromJson(Map<String, dynamic> json) => AppNotificationItem(
-    id: json['id'] ?? '',
-    title: json['title'] ?? '',
-    message: json['message'] ?? '',
-    type: json['type'] ?? 'info',
-    timestamp: DateTime.tryParse(json['timestamp'] ?? '') ?? DateTime.now(),
-    isRead: json['isRead'] ?? false,
-    targetId: json['targetId'],
+    id: json['id']?.toString() ?? '',
+    title: json['title']?.toString() ?? '',
+    message: json['message']?.toString() ?? '',
+    type: json['type']?.toString() ?? 'info',
+    timestamp: DateTime.tryParse(json['createdAt']?.toString() ?? json['timestamp']?.toString() ?? '') ?? DateTime.now(),
+    isRead: json['isRead'] == true,
+    targetId: json['targetId']?.toString(),
   );
 }

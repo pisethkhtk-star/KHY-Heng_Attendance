@@ -37,6 +37,7 @@ public class LeaveController {
     private final LeaveApprovalRuleRepository leaveApprovalRuleRepository;
     private final com.hrchomnan.backend.repository.EmployeeFaceDataRepository employeeFaceDataRepository;
     private final com.hrchomnan.backend.service.TelegramNotificationService telegramNotificationService;
+    private final com.hrchomnan.backend.service.NotificationService notificationService;
 
     @GetMapping
     @PreAuthorize("@perm.has('leaves')")
@@ -147,6 +148,110 @@ public class LeaveController {
 
         return ResponseEntity.ok(response);
     }
+
+    @GetMapping("/approvals/eligibility")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<Map<String, Object>> getApprovalEligibility(Authentication authentication) {
+        if (authentication == null || !(authentication.getPrincipal() instanceof Employee currentUser)) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+
+        boolean canApprove = isApprover(currentUser);
+        long pendingCount = 0;
+        if (canApprove) {
+            pendingCount = getLeavesUserCanApprove(currentUser, LeaveStatus.Pending).size();
+        }
+
+        return ResponseEntity.ok(Map.of(
+                "canApprove", canApprove,
+                "pendingCount", pendingCount
+        ));
+    }
+
+    @GetMapping("/approvals/pending")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<List<Map<String, Object>>> getPendingApprovals(Authentication authentication) {
+        if (authentication == null || !(authentication.getPrincipal() instanceof Employee currentUser)) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+
+        if (!isApprover(currentUser)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Collections.emptyList());
+        }
+
+        List<Leave> leaves = getLeavesUserCanApprove(currentUser, LeaveStatus.Pending);
+        leaves.sort(Comparator.comparing(Leave::getRequestedAt, Comparator.nullsLast(Comparator.reverseOrder()))
+                .thenComparing(Leave::getLeaveDate, Comparator.nullsLast(Comparator.reverseOrder())));
+
+        Map<String, Employee> empMap = employeeRepository.findAll().stream()
+                .collect(Collectors.toMap(Employee::getStaffId, e -> e, (a, b) -> a));
+        Map<UUID, Department> deptMap = departmentRepository.findAll().stream()
+                .collect(Collectors.toMap(Department::getId, d -> d, (a, b) -> a));
+        Map<UUID, Position> posMap = positionRepository.findAll().stream()
+                .collect(Collectors.toMap(Position::getId, p -> p, (a, b) -> a));
+        Map<String, String> faceDataMap = employeeFaceDataRepository.findAll().stream()
+                .filter(f -> f.getStaffId() != null && f.getPhotoUrl() != null)
+                .collect(Collectors.toMap(com.hrchomnan.backend.model.EmployeeFaceData::getStaffId, com.hrchomnan.backend.model.EmployeeFaceData::getPhotoUrl, (a, b) -> a));
+
+        List<Map<String, Object>> response = leaves.stream()
+                .map(l -> enrichLeave(l, empMap, deptMap, posMap, faceDataMap))
+                .collect(Collectors.toList());
+
+        return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/approvals/history")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<List<Map<String, Object>>> getApprovalHistory(Authentication authentication) {
+        if (authentication == null || !(authentication.getPrincipal() instanceof Employee currentUser)) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+
+        if (!isApprover(currentUser)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Collections.emptyList());
+        }
+
+        Map<String, Employee> empMap = employeeRepository.findAll().stream()
+                .collect(Collectors.toMap(Employee::getStaffId, e -> e, (a, b) -> a));
+
+        List<Leave> allNonPending = leaveRepository.findAll().stream()
+                .filter(l -> l.getStatus() == LeaveStatus.Approved || l.getStatus() == LeaveStatus.Rejected)
+                .collect(Collectors.toList());
+
+        List<Leave> filtered;
+        if (currentUser.getRole() == Role.Admin) {
+            filtered = allNonPending;
+        } else {
+            filtered = allNonPending.stream()
+                    .filter(l -> {
+                        if (currentUser.getNameEn() != null && currentUser.getNameEn().equalsIgnoreCase(l.getManagerName())) {
+                            return true;
+                        }
+                        Employee emp = empMap.get(l.getStaffId());
+                        return isUserAuthorizedForEmployee(currentUser, l.getStaffId(), emp != null ? emp.getDepartmentId() : null);
+                    })
+                    .collect(Collectors.toList());
+        }
+
+        filtered.sort(Comparator.comparing(Leave::getApprovedAt, Comparator.nullsLast(Comparator.reverseOrder()))
+                .thenComparing(Leave::getLeaveDate, Comparator.nullsLast(Comparator.reverseOrder())));
+
+        Map<UUID, Department> deptMap = departmentRepository.findAll().stream()
+                .collect(Collectors.toMap(Department::getId, d -> d, (a, b) -> a));
+        Map<UUID, Position> posMap = positionRepository.findAll().stream()
+                .collect(Collectors.toMap(Position::getId, p -> p, (a, b) -> a));
+        Map<String, String> faceDataMap = employeeFaceDataRepository.findAll().stream()
+                .filter(f -> f.getStaffId() != null && f.getPhotoUrl() != null)
+                .collect(Collectors.toMap(com.hrchomnan.backend.model.EmployeeFaceData::getStaffId, com.hrchomnan.backend.model.EmployeeFaceData::getPhotoUrl, (a, b) -> a));
+
+        List<Map<String, Object>> response = filtered.stream()
+                .limit(100)
+                .map(l -> enrichLeave(l, empMap, deptMap, posMap, faceDataMap))
+                .collect(Collectors.toList());
+
+        return ResponseEntity.ok(response);
+    }
+
 
     @Data
     public static class CreateLeaveRequest {
@@ -323,8 +428,13 @@ public class LeaveController {
                     totalDays,
                     request.getReason()
             );
+
+            // In-App Notification for designated approver(s)
+            for (Leave savedLeave : createdLeaves) {
+                notificationService.notifyApproversOnLeaveRequest(savedLeave, empOpt.get(), durType, totalDays);
+            }
         } catch (Exception e) {
-            log.error("Error sending Telegram leave notification:", e);
+            log.error("Error sending Telegram / in-app leave notification:", e);
         }
 
         return ResponseEntity.status(HttpStatus.CREATED).body(enrichLeave(createdLeaves.get(0), empMap, deptMap, posMap));
@@ -334,10 +444,11 @@ public class LeaveController {
     public static class StatusUpdateRequest {
         private String status; // Approved, Rejected
         private String managerName;
+        private String reason;
     }
 
     @PutMapping("/{id}/status")
-    @PreAuthorize("@perm.has('approve_leaves') or hasAnyRole('Admin', 'HR', 'Manager')")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<?> updateStatus(
             @PathVariable UUID id,
             @RequestBody StatusUpdateRequest request,
@@ -361,33 +472,37 @@ public class LeaveController {
         }
         Employee employee = empOpt.get();
 
-        // Approver validation (Admins can bypass)
+        // Approver validation
         Employee currentUser = (authentication != null && authentication.getPrincipal() instanceof Employee emp) ? emp : null;
-        if (currentUser != null && currentUser.getRole() != Role.Admin) {
-            List<LeaveApprovalRule> indRules = leaveApprovalRuleRepository.findByTargetStaffId(leave.getStaffId()).stream()
-                    .filter(r -> "Employee".equalsIgnoreCase(r.getScope()) && ("LEAVE".equalsIgnoreCase(r.getRuleType()) || r.getRuleType() == null))
-                    .collect(Collectors.toList());
-
-            List<LeaveApprovalRule> deptRules = (employee.getDepartmentId() != null)
-                    ? leaveApprovalRuleRepository.findByTargetDeptId(employee.getDepartmentId()).stream()
-                    .filter(r -> "Department".equalsIgnoreCase(r.getScope()) && ("LEAVE".equalsIgnoreCase(r.getRuleType()) || r.getRuleType() == null))
-                    .collect(Collectors.toList())
-                    : Collections.emptyList();
-
-            Set<String> allowedApprovers = new HashSet<>();
-            indRules.forEach(r -> allowedApprovers.add(r.getApproverId().toLowerCase()));
-            deptRules.forEach(r -> allowedApprovers.add(r.getApproverId().toLowerCase()));
-
-            if (!allowedApprovers.isEmpty() && !allowedApprovers.contains(currentUser.getStaffId().toLowerCase())) {
-                return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of(
-                        "message", "អ្នកមិនមានសិទ្ធិអនុម័តច្បាប់របស់បុគ្គលិកនេះទេ! (You are not the designated approver for this employee)"
-                ));
-            }
+        if (currentUser == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("message", "User not authenticated"));
         }
 
+        if (currentUser.getStaffId() != null && currentUser.getStaffId().equalsIgnoreCase(leave.getStaffId())) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of(
+                    "message", "អ្នកមិនអាចអនុម័តពាក្យស្នើសុំច្បាប់របស់ខ្លួនឯងបានទេ (Cannot approve own leave request)"
+            ));
+        }
+
+        if (!isUserAuthorizedForEmployee(currentUser, leave.getStaffId(), employee.getDepartmentId())) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of(
+                    "message", "អ្នកមិនមានសិទ្ធិអនុម័តច្បាប់របស់បុគ្គលិកនេះទេ! (You are not authorized to approve leave for this employee)"
+            ));
+        }
+
+        String approverDisplayName = request.getManagerName() != null && !request.getManagerName().isBlank()
+                ? request.getManagerName()
+                : (currentUser.getNameKh() != null && !currentUser.getNameKh().isBlank()
+                    ? currentUser.getNameKh() + " (" + currentUser.getNameEn() + ")"
+                    : currentUser.getNameEn());
+
         leave.setStatus(newStatus);
-        leave.setManagerName(request.getManagerName() != null ? request.getManagerName() : (currentUser != null ? currentUser.getNameEn() : "System Admin"));
+        leave.setManagerName(approverDisplayName);
         leave.setApprovedAt(LocalDateTime.now());
+        if (request.getReason() != null && !request.getReason().isBlank()) {
+            String remark = "[" + (newStatus == LeaveStatus.Approved ? "Approved note: " : "Reject note: ") + request.getReason().trim() + "]";
+            leave.setReason((leave.getReason() != null && !leave.getReason().isBlank()) ? leave.getReason() + " | " + remark : remark);
+        }
         Leave updated = leaveRepository.save(leave);
 
         if (newStatus == LeaveStatus.Approved) {
@@ -439,10 +554,19 @@ public class LeaveController {
                     leave.getLeaveDate() != null ? leave.getLeaveDate().toString() : "-",
                     newStatus.name(),
                     leave.getManagerName(),
-                    leave.getReason()
+                    request.getReason() != null && !request.getReason().isBlank() ? request.getReason() : leave.getReason()
+            );
+
+            // In-App Notification back to the employee
+            notificationService.notifyEmployeeOnLeaveAction(
+                    updated,
+                    employee,
+                    newStatus.name(),
+                    updated.getManagerName(),
+                    request.getReason() != null && !request.getReason().isBlank() ? request.getReason() : leave.getReason()
             );
         } catch (Exception e) {
-            log.error("Error sending Telegram leave status notification:", e);
+            log.error("Error sending Telegram / in-app leave status notification:", e);
         }
 
         return ResponseEntity.ok(enrichLeave(updated, empMap, deptMap, posMap));
@@ -469,6 +593,25 @@ public class LeaveController {
         }
 
         cleanUpAttendanceLeave(leave.getStaffId(), leave.getLeaveDate(), leave.getId());
+
+        // Notify relevant party (Employee or Approvers) and Telegram
+        try {
+            Optional<Employee> leaveEmpOpt = employeeRepository.findByStaffId(leave.getStaffId());
+            if (leaveEmpOpt.isPresent()) {
+                Employee leaveEmp = leaveEmpOpt.get();
+                notificationService.notifyOnLeaveDeletion(leave, leaveEmp, currentUser);
+                telegramNotificationService.sendLeaveDeleteNotification(
+                        leaveEmp,
+                        leave.getLeaveType(),
+                        leave.getLeaveDate() != null ? leave.getLeaveDate().toString() : "-",
+                        currentUser != null ? currentUser.getNameEn() : "System Admin",
+                        leave.getReason()
+                );
+            }
+        } catch (Exception e) {
+            log.error("Error sending notifications on leave delete:", e);
+        }
+
         leaveRepository.deleteById(id);
         return ResponseEntity.ok(Map.of("success", true, "message", "Leave request deleted successfully"));
     }
@@ -800,4 +943,60 @@ public class LeaveController {
         }
         return null;
     }
+
+    public boolean isApprover(Employee user) {
+        if (user == null) return false;
+        if (user.getRole() == Role.Admin || user.getRole() == Role.Manager || user.getRole() == Role.HR) {
+            return true;
+        }
+        List<LeaveApprovalRule> myRules = leaveApprovalRuleRepository.findByApproverId(user.getStaffId()).stream()
+                .filter(r -> "LEAVE".equalsIgnoreCase(r.getRuleType()) || r.getRuleType() == null)
+                .collect(Collectors.toList());
+        return !myRules.isEmpty();
+    }
+
+    public boolean isUserAuthorizedForEmployee(Employee currentUser, String targetStaffId, UUID targetDeptId) {
+        if (currentUser == null) return false;
+        if (currentUser.getRole() == Role.Admin) return true;
+
+        List<LeaveApprovalRule> indRules = leaveApprovalRuleRepository.findByTargetStaffId(targetStaffId).stream()
+                .filter(r -> "Employee".equalsIgnoreCase(r.getScope()) && ("LEAVE".equalsIgnoreCase(r.getRuleType()) || r.getRuleType() == null))
+                .collect(Collectors.toList());
+
+        List<LeaveApprovalRule> deptRules = (targetDeptId != null)
+                ? leaveApprovalRuleRepository.findByTargetDeptId(targetDeptId).stream()
+                .filter(r -> "Department".equalsIgnoreCase(r.getScope()) && ("LEAVE".equalsIgnoreCase(r.getRuleType()) || r.getRuleType() == null))
+                .collect(Collectors.toList())
+                : Collections.emptyList();
+
+        Set<String> allowedApprovers = new HashSet<>();
+        indRules.forEach(r -> { if (r.getApproverId() != null) allowedApprovers.add(r.getApproverId().toLowerCase().trim()); });
+        deptRules.forEach(r -> { if (r.getApproverId() != null) allowedApprovers.add(r.getApproverId().toLowerCase().trim()); });
+
+        if (!allowedApprovers.isEmpty()) {
+            return allowedApprovers.contains(currentUser.getStaffId().toLowerCase().trim());
+        }
+
+        return currentUser.getRole() == Role.Manager || currentUser.getRole() == Role.HR;
+    }
+
+    private List<Leave> getLeavesUserCanApprove(Employee currentUser, LeaveStatus status) {
+        List<Leave> allLeaves = (status != null)
+                ? leaveRepository.findAll().stream().filter(l -> l.getStatus() == status).collect(Collectors.toList())
+                : leaveRepository.findAll();
+
+        Map<String, Employee> empMap = employeeRepository.findAll().stream()
+                .collect(Collectors.toMap(Employee::getStaffId, e -> e, (a, b) -> a));
+
+        return allLeaves.stream()
+                .filter(l -> {
+                    if (l.getStaffId() != null && l.getStaffId().equalsIgnoreCase(currentUser.getStaffId())) {
+                        return false;
+                    }
+                    Employee emp = empMap.get(l.getStaffId());
+                    return isUserAuthorizedForEmployee(currentUser, l.getStaffId(), emp != null ? emp.getDepartmentId() : null);
+                })
+                .collect(Collectors.toList());
+    }
 }
+

@@ -20,31 +20,36 @@ import 'firebase_options.dart';
 import 'core/services/remote_config_service.dart';
 import 'core/services/analytics_service.dart';
 import 'core/services/local_notification_service.dart';
+import 'core/services/background_notification_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
-  // 2. Initialize Remote Config
-  await RemoteConfigService().init();
+  // 1. Initialize Firebase safely without blocking UI on error
+  try {
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
+  } catch (e) {
+    debugPrint('[Firebase Init Warning]: $e');
+  }
   
-  // 3. Initialize Local Notification Service
-  await LocalNotificationService().init();
-  
-  // Initialize and register Network Client
+  // 2. Initialize and register Network Client
   final apiClient = HttpApiClient();
-  await apiClient.init();
+  try {
+    await apiClient.init();
+  } catch (e) {
+    debugPrint('[ApiClient Init Warning]: $e');
+  }
   Get.put<BaseApiClient>(apiClient);
   
-  // Register Repositories
+  // 3. Register Repositories
   Get.put<IAuthRepository>(AuthRepository(Get.find<BaseApiClient>()));
   Get.put<IAttendanceRepository>(AttendanceRepository(Get.find<BaseApiClient>()));
   Get.put<ILeaveRepository>(LeaveRepository(Get.find<BaseApiClient>()));
   Get.put<IOvertimeRepository>(OvertimeRepository(Get.find<BaseApiClient>()));
 
-  // Register GetX Controllers globally
+  // 4. Register GetX Controllers globally
   Get.put(LanguageController());
   Get.put(ThemeController());
   Get.put(AuthController());
@@ -53,7 +58,44 @@ void main() async {
   Get.put(LeaveController());
   Get.put(OvertimeController());
 
+  // 5. RUN APP IMMEDIATELY! Renders the Flutter UI and Splash Screen immediately
   runApp(const HrAttendanceApp());
+
+  // 6. Initialize Remote Services, Analytics, & Background Push concurrently
+  // without delaying or blocking the app startup UI
+  _initAsyncServices();
+}
+
+void _initAsyncServices() {
+  Future.microtask(() async {
+    // A. Analytics
+    try {
+      await AnalyticsService().init();
+    } catch (e) {
+      debugPrint('[Analytics Service Init Warning]: $e');
+    }
+
+    // B. Remote Config (Dynamic IP, Maintenance Mode)
+    try {
+      await RemoteConfigService().init();
+    } catch (e) {
+      debugPrint('[RemoteConfig Service Init Warning]: $e');
+    }
+
+    // C. Local Notifications (System Channels & Alerts)
+    try {
+      await LocalNotificationService().init();
+    } catch (e) {
+      debugPrint('[LocalNotification Service Init Warning]: $e');
+    }
+
+    // D. Background Notification Service (FCM & WorkManager)
+    try {
+      await BackgroundNotificationService().init();
+    } catch (e) {
+      debugPrint('[BackgroundNotification Service Init Warning]: $e');
+    }
+  });
 }
 
 class HrAttendanceApp extends StatelessWidget {
@@ -62,6 +104,7 @@ class HrAttendanceApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final themeController = Get.find<ThemeController>();
+    final analyticsObserver = AnalyticsService().observer;
 
     return Obx(
       () => GetMaterialApp(
@@ -71,7 +114,7 @@ class HrAttendanceApp extends StatelessWidget {
         darkTheme: AppTheme.darkTheme,
         themeMode: themeController.themeMode,
         navigatorObservers: [
-          AnalyticsService().observer,
+          ?analyticsObserver,
         ],
         home: const SplashScreen(),
       ),

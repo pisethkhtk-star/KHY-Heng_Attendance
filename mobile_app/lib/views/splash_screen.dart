@@ -20,7 +20,8 @@ class _SplashScreenState extends State<SplashScreen> {
   void initState() {
     super.initState();
     Future.delayed(const Duration(seconds: 2), () {
-      if (mounted) {
+      if (!mounted) return;
+      try {
         // 1. Check if Firebase Remote Config has Maintenance Mode enabled
         final remoteConfig = RemoteConfigService();
         if (remoteConfig.isMaintenanceMode) {
@@ -29,12 +30,17 @@ class _SplashScreenState extends State<SplashScreen> {
         }
 
         // 2. Normal auth flow
-        final authController = Get.find<AuthController>();
-        if (authController.isAuthenticated) {
-          Get.offAll(() => const MainLayout());
-        } else {
-          Get.offAll(() => const LoginScreen());
+        if (Get.isRegistered<AuthController>()) {
+          final authController = Get.find<AuthController>();
+          if (authController.isAuthenticated) {
+            Get.offAll(() => const MainLayout());
+            return;
+          }
         }
+        Get.offAll(() => const LoginScreen());
+      } catch (e) {
+        debugPrint('[SplashScreen Error] navigation: $e');
+        Get.offAll(() => const LoginScreen());
       }
     });
   }

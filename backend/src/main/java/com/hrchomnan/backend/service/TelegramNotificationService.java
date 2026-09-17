@@ -152,6 +152,38 @@ public class TelegramNotificationService {
         });
     }
 
+    public void sendLeaveDeleteNotification(
+            Employee employee,
+            String leaveType,
+            String dateStr,
+            String deletedByName,
+            String reason
+    ) {
+        CompletableFuture.runAsync(() -> {
+            try {
+                List<TelegramSetting> settingsList = telegramSettingRepository.findAll();
+                if (settingsList.isEmpty()) return;
+
+                TelegramSetting setting = settingsList.get(0);
+                if (setting.getLeaveEnabled() == null || !setting.getLeaveEnabled()) return;
+
+                String token = (setting.getLeaveBotToken() != null && !setting.getLeaveBotToken().isBlank())
+                        ? setting.getLeaveBotToken()
+                        : setting.getBotToken();
+                String chat = (setting.getLeaveChatId() != null && !setting.getLeaveChatId().isBlank())
+                        ? setting.getLeaveChatId()
+                        : setting.getChatId();
+
+                if (token == null || token.isBlank() || chat == null || chat.isBlank()) return;
+
+                String messageText = buildLeaveDeleteMessage(employee, leaveType, dateStr, deletedByName, reason);
+                sendTelegramMessage(token, chat, messageText);
+            } catch (Exception e) {
+                log.error("Failed to send Telegram leave delete notification: {}", e.getMessage());
+            }
+        });
+    }
+
     public boolean sendTestMessage(String botToken, String chatId) {
         try {
             String testMsg = """
@@ -281,6 +313,40 @@ public class TelegramNotificationService {
         sb.append("📊 <b>Status:</b> ").append(statusDisplay).append("\n");
         if (reason != null && !reason.isBlank()) {
             sb.append("📝 <b>Note / Reason:</b> <i>").append(escapeHtml(reason)).append("</i>\n");
+        }
+        sb.append("━━━━━━━━━━━━━━━━━━━━━━━\n");
+
+        return sb.toString();
+    }
+
+    private String buildLeaveDeleteMessage(
+            Employee employee,
+            String leaveType,
+            String dateStr,
+            String deletedByName,
+            String reason
+    ) {
+        String empNameEn = employee != null && employee.getNameEn() != null ? employee.getNameEn() : "Unknown";
+        String empNameKh = employee != null && employee.getNameKh() != null ? employee.getNameKh() : "";
+        String staffId = employee != null && employee.getStaffId() != null ? employee.getStaffId() : "N/A";
+
+        StringBuilder sb = new StringBuilder();
+        sb.append("🗑️ <b>LEAVE REQUEST CANCELLED / DELETED</b>\n");
+        sb.append("━━━━━━━━━━━━━━━━━━━━━━━\n");
+        sb.append("👤 <b>Employee:</b> ").append(empNameEn);
+        if (!empNameKh.isBlank()) {
+            sb.append(" (").append(empNameKh).append(")");
+        }
+        sb.append("\n");
+        sb.append("🆔 <b>Staff ID:</b> <code>").append(staffId).append("</code>\n");
+        sb.append("📋 <b>Leave Type:</b> <b>").append(leaveType != null ? leaveType : "Leave").append("</b>\n");
+        sb.append("📅 <b>Date:</b> ").append(dateStr != null ? dateStr : "-").append("\n");
+        if (deletedByName != null && !deletedByName.isBlank()) {
+            sb.append("👤 <b>Action By:</b> ").append(deletedByName).append("\n");
+        }
+        sb.append("📊 <b>Status:</b> ❌ <b>Cancelled / Deleted</b>\n");
+        if (reason != null && !reason.isBlank()) {
+            sb.append("📝 <b>Reason:</b> <i>").append(escapeHtml(reason)).append("</i>\n");
         }
         sb.append("━━━━━━━━━━━━━━━━━━━━━━━\n");
 

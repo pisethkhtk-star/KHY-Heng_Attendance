@@ -287,13 +287,16 @@ public class AttendanceController {
             }).collect(Collectors.toList());
         }
 
-        // Only include attendance logs that have at least one check-in or check-out timestamp
-        list = list.stream().filter(a ->
-                (a.getCheckin1() != null && !a.getCheckin1().isBlank()) ||
-                (a.getCheckout1() != null && !a.getCheckout1().isBlank()) ||
-                (a.getCheckin2() != null && !a.getCheckin2().isBlank()) ||
-                (a.getCheckout2() != null && !a.getCheckout2().isBlank())
-        ).collect(Collectors.toList());
+        // If staffId is not specified, only include attendance logs that have at least one scan or a note
+        if (staffId == null || staffId.isBlank()) {
+            list = list.stream().filter(a ->
+                    (a.getCheckin1() != null && !a.getCheckin1().isBlank()) ||
+                    (a.getCheckout1() != null && !a.getCheckout1().isBlank()) ||
+                    (a.getCheckin2() != null && !a.getCheckin2().isBlank()) ||
+                    (a.getCheckout2() != null && !a.getCheckout2().isBlank()) ||
+                    (a.getNote() != null && !a.getNote().isBlank())
+            ).collect(Collectors.toList());
+        }
 
         list.sort(Comparator.comparing(Attendance::getAttendanceDate).reversed()
                 .thenComparing(Attendance::getStaffId, Comparator.nullsLast(String::compareToIgnoreCase)));
@@ -560,6 +563,24 @@ public class AttendanceController {
         map.put("isLate", a.getIsLate());
         map.put("isEarlyLeave", a.getIsEarlyLeave());
         map.put("note", a.getNote());
+
+        boolean hasScan = (a.getCheckin1() != null && !a.getCheckin1().isBlank() && !"-".equals(a.getCheckin1())) ||
+                          (a.getCheckout1() != null && !a.getCheckout1().isBlank() && !"-".equals(a.getCheckout1())) ||
+                          (a.getCheckin2() != null && !a.getCheckin2().isBlank() && !"-".equals(a.getCheckin2())) ||
+                          (a.getCheckout2() != null && !a.getCheckout2().isBlank() && !"-".equals(a.getCheckout2()));
+
+        String status = "Present";
+        if (a.getNote() != null && (a.getNote().toLowerCase().contains("leave") || a.getNote().contains("ច្បាប់"))) {
+            status = "On Leave";
+        } else if (!hasScan) {
+            status = "Absent";
+        } else if (Boolean.TRUE.equals(a.getIsLate())) {
+            status = "Late";
+        } else if (Boolean.TRUE.equals(a.getIsEarlyLeave())) {
+            status = "Early Leave";
+        }
+        map.put("status", status);
+
         map.put("createdAt", a.getCreatedAt());
         map.put("updatedAt", a.getUpdatedAt());
 

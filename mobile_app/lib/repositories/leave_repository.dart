@@ -16,6 +16,10 @@ abstract class ILeaveRepository {
     String? staffId,
   });
   Future<Map<String, dynamic>> cancelLeaveRequest(String id);
+  Future<Map<String, dynamic>> fetchApprovalEligibility();
+  Future<List<LeaveItem>> fetchPendingApprovals();
+  Future<List<LeaveItem>> fetchApprovalHistory();
+  Future<Map<String, dynamic>> updateLeaveStatus(String id, String status, {String? managerName, String? reason});
 }
 
 class LeaveRepository implements ILeaveRepository {
@@ -223,5 +227,70 @@ class LeaveRepository implements ILeaveRepository {
       return {'success': false, 'message': data['message'] ?? 'Failed to cancel leave request'};
     }
     return {'success': false, 'message': 'Network error during leave cancellation'};
+  }
+
+  @override
+  Future<Map<String, dynamic>> fetchApprovalEligibility() async {
+    try {
+      final response = await _apiClient.get('/leaves/approvals/eligibility');
+      if (response != null && response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (data is Map<String, dynamic>) {
+          return data;
+        }
+      }
+    } catch (_) {}
+    return {'canApprove': false, 'pendingCount': 0};
+  }
+
+  @override
+  Future<List<LeaveItem>> fetchPendingApprovals() async {
+    try {
+      final response = await _apiClient.get('/leaves/approvals/pending');
+      if (response != null && response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (data is List) {
+          return data.map((json) => LeaveItem.fromJson(json)).toList();
+        }
+      }
+    } catch (_) {}
+    return [];
+  }
+
+  @override
+  Future<List<LeaveItem>> fetchApprovalHistory() async {
+    try {
+      final response = await _apiClient.get('/leaves/approvals/history');
+      if (response != null && response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (data is List) {
+          return data.map((json) => LeaveItem.fromJson(json)).toList();
+        }
+      }
+    } catch (_) {}
+    return [];
+  }
+
+  @override
+  Future<Map<String, dynamic>> updateLeaveStatus(String id, String status, {String? managerName, String? reason}) async {
+    try {
+      final body = {
+        'status': status,
+        if (managerName != null && managerName.isNotEmpty) 'managerName': managerName,
+        if (reason != null && reason.isNotEmpty) 'reason': reason,
+      };
+      final response = await _apiClient.put('/leaves/$id/status', body: body);
+      if (response != null) {
+        final data = jsonDecode(response.body);
+        if (response.statusCode == 200) {
+          await _invalidateCache();
+          return {'success': true, 'message': 'Status updated successfully', 'data': data};
+        }
+        return {'success': false, 'message': data['message'] ?? 'Failed to update status'};
+      }
+    } catch (e) {
+      return {'success': false, 'message': e.toString()};
+    }
+    return {'success': false, 'message': 'Network error'};
   }
 }

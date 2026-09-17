@@ -392,10 +392,25 @@ class AttendanceController extends GetxController {
     final parsed = await _attendanceRepository.fetchHistoryRecords(staffId: effectiveStaffId, forceRefresh: true);
     _historyRecords.value = parsed;
 
-    _presentCount.value = _historyRecords.where((r) => r.status == 'Present').length;
-    _lateCount.value = _historyRecords.where((r) => r.status == 'Late').length;
-    _leaveCount.value = _historyRecords.where((r) => r.status == 'On Leave').length;
-    _absentCount.value = _historyRecords.where((r) => r.status == 'Absent').length;
+    // Calculate statistics strictly for THIS MONTH (Current Month & Year)
+    final now = DateTime.now();
+    final currentYear = now.year;
+    final currentMonth = now.month;
+
+    final thisMonthRecords = _historyRecords.where((r) {
+      if (r.rawDate.isNotEmpty) {
+        try {
+          final dt = DateTime.parse(r.rawDate);
+          return dt.year == currentYear && dt.month == currentMonth;
+        } catch (_) {}
+      }
+      return false;
+    }).toList();
+
+    _presentCount.value = thisMonthRecords.where((r) => r.status == 'Present' || r.status == 'Early Leave').length;
+    _lateCount.value = thisMonthRecords.where((r) => r.status == 'Late').length;
+    _leaveCount.value = thisMonthRecords.where((r) => r.status == 'On Leave').length;
+    _absentCount.value = thisMonthRecords.where((r) => r.status == 'Absent').length;
 
     // Sync today's check-in/out steps and session time slots from database for this specific employee
     final todayStr = DateFormat('yyyy-MM-dd').format(DateTime.now());

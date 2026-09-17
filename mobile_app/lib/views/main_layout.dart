@@ -41,6 +41,7 @@ class _MainLayoutState extends State<MainLayout> {
       Get.find<AttendanceController>().fetchRemoteHistory(staffId: user.employeeId);
       Get.find<LeaveController>().fetchRemoteLeaves(staffId: user.employeeId);
       Get.find<OvertimeController>().fetchRemoteOvertimes(staffId: user.employeeId);
+      Get.find<NotificationController>().fetchRemoteNotifications();
     }
   }
 

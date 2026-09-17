@@ -32,6 +32,8 @@ dependencies:
   image_picker: ^1.2.3
   firebase_analytics: ^12.6.0
   flutter_local_notifications: ^22.3.1
+  firebase_messaging: ^16.7.0
+  workmanager: ^0.10.10
 
 dev_dependencies:
   flutter_test:

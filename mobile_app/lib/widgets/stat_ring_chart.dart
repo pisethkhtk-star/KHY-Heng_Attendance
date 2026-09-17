@@ -19,7 +19,51 @@ class StatRingChart extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final total = (present + lateDays + leave + absent).toDouble();
-    if (total == 0) return const SizedBox.shrink();
+    if (total == 0) {
+      return SizedBox(
+        height: 140,
+        width: 140,
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            PieChart(
+              PieChartData(
+                sectionsSpace: 0,
+                centerSpaceRadius: 45,
+                sections: [
+                  PieChartSectionData(
+                    color: Colors.grey.withValues(alpha: 0.18),
+                    value: 1,
+                    title: '',
+                    radius: 14,
+                  ),
+                ],
+              ),
+            ),
+            const Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  '0%',
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.grey,
+                  ),
+                ),
+                Text(
+                  'This Month',
+                  style: TextStyle(
+                    fontSize: 10,
+                    color: Colors.grey,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      );
+    }
 
     return SizedBox(
       height: 140,

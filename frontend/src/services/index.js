@@ -8,3 +8,5 @@ export { positionService, default as PositionService } from './PositionService';
 export { authService, default as AuthService } from './AuthService';
 export { faceDataService, default as FaceDataService } from './FaceDataService';
 export { branchLocationService, default as BranchLocationService } from './BranchLocationService';
+export { notificationService, default as NotificationService } from './NotificationService';
+export { pushNotificationService, default as PushNotificationService } from './PushNotificationService';

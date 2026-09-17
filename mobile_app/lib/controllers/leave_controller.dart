@@ -18,6 +18,14 @@ class LeaveController extends GetxController {
   final RxBool _isSubmitting = false.obs;
   Timer? _pollingTimer;
 
+  // Approval capabilities & lists
+  final RxBool canApprove = false.obs;
+  final RxInt pendingApprovalsCount = 0.obs;
+  final RxList<LeaveItem> pendingApprovals = <LeaveItem>[].obs;
+  final RxList<LeaveItem> approvalHistory = <LeaveItem>[].obs;
+  final RxBool isLoadingApprovals = false.obs;
+  final RxBool isActioningApproval = false.obs;
+
   List<LeaveBalance> get balances => _balances;
   List<LeaveItem> get leaveRequests => _leaveRequests;
   bool get isSubmitting => _isSubmitting.value;
@@ -26,6 +34,7 @@ class LeaveController extends GetxController {
   void onInit() {
     super.onInit();
     fetchRemoteLeaves();
+    checkApprovalEligibility();
     // Background polling every 15 seconds to catch live approvals/rejections
     _pollingTimer = Timer.periodic(const Duration(seconds: 15), (_) {
       _pollLeavesSilently();
@@ -44,6 +53,7 @@ class LeaveController extends GetxController {
     if (user?.employeeId != null) {
       fetchRemoteLeaves(staffId: user?.employeeId);
     }
+    checkApprovalEligibility();
   }
 
   Future<void> fetchRemoteLeaves({String? staffId}) async {
@@ -278,4 +288,117 @@ class LeaveController extends GetxController {
       }
     } catch (_) {}
   }
+
+  /// Check whether the logged in user is eligible to approve leaves
+  Future<void> checkApprovalEligibility() async {
+    try {
+      final res = await _leaveRepository.fetchApprovalEligibility();
+      canApprove.value = res['canApprove'] == true;
+      pendingApprovalsCount.value = (res['pendingCount'] as num?)?.toInt() ?? 0;
+    } catch (_) {}
+  }
+
+  /// Fetch leaves waiting for this approver's action
+  Future<void> fetchPendingApprovals() async {
+    isLoadingApprovals.value = true;
+    try {
+      final list = await _leaveRepository.fetchPendingApprovals();
+      pendingApprovals.value = list;
+      pendingApprovalsCount.value = list.length;
+    } catch (_) {
+    } finally {
+      isLoadingApprovals.value = false;
+    }
+  }
+
+  /// Fetch leaves already decided by this approver
+  Future<void> fetchApprovalHistory() async {
+    isLoadingApprovals.value = true;
+    try {
+      final list = await _leaveRepository.fetchApprovalHistory();
+      approvalHistory.value = list;
+    } catch (_) {
+    } finally {
+      isLoadingApprovals.value = false;
+    }
+  }
+
+  /// Approve a pending leave request
+  Future<bool> approveLeave(String id, {String? reason}) async {
+    isActioningApproval.value = true;
+    try {
+      String? approverName;
+      if (Get.isRegistered<AuthController>()) {
+        final u = Get.find<AuthController>().user;
+        approverName = u?.name;
+      }
+
+      final res = await _leaveRepository.updateLeaveStatus(
+        id,
+        'Approved',
+        managerName: approverName,
+        reason: reason,
+      );
+
+      if (res['success'] == true) {
+        // Refresh local approval lists
+        await fetchPendingApprovals();
+        await fetchApprovalHistory();
+        await checkApprovalEligibility();
+        return true;
+      } else {
+        Get.snackbar(
+          'Error',
+          res['message']?.toString() ?? 'Failed to approve leave request',
+          snackPosition: SnackPosition.BOTTOM,
+        );
+        return false;
+      }
+    } catch (e) {
+      Get.snackbar('Error', e.toString(), snackPosition: SnackPosition.BOTTOM);
+      return false;
+    } finally {
+      isActioningApproval.value = false;
+    }
+  }
+
+  /// Reject a pending leave request
+  Future<bool> rejectLeave(String id, {String? reason}) async {
+    isActioningApproval.value = true;
+    try {
+      String? approverName;
+      if (Get.isRegistered<AuthController>()) {
+        final u = Get.find<AuthController>().user;
+        approverName = u?.name;
+      }
+
+      final res = await _leaveRepository.updateLeaveStatus(
+        id,
+        'Rejected',
+        managerName: approverName,
+        reason: reason,
+      );
+
+      if (res['success'] == true) {
+        // Refresh local approval lists
+        await fetchPendingApprovals();
+        await fetchApprovalHistory();
+        await checkApprovalEligibility();
+        return true;
+      } else {
+        Get.snackbar(
+          'Error',
+          res['message']?.toString() ?? 'Failed to reject leave request',
+          snackPosition: SnackPosition.BOTTOM,
+        );
+        return false;
+      }
+    } catch (e) {
+      Get.snackbar('Error', e.toString(), snackPosition: SnackPosition.BOTTOM);
+      return false;
+    } finally {
+      isActioningApproval.value = false;
+    }
+  }
 }
+
