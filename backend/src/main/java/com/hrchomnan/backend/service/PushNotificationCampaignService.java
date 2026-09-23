@@ -40,6 +40,7 @@ public class PushNotificationCampaignService {
     private final EmployeeRepository employeeRepository;
     private final DepartmentRepository departmentRepository;
     private final TelegramSettingRepository telegramSettingRepository;
+    private final FcmNotificationService fcmNotificationService;
 
     private final HttpClient httpClient = HttpClient.newBuilder()
             .connectTimeout(Duration.ofSeconds(10))
@@ -231,6 +232,34 @@ public class PushNotificationCampaignService {
         // Cross-post to Telegram if enabled
         if (Boolean.TRUE.equals(campaign.getSendTelegram())) {
             sendTelegramBroadcast(campaign);
+        }
+
+        // Dispatch real FCM Push to phone status bars (even if app is closed/killed)
+        dispatchFcmPush(campaign, targetEmployees);
+    }
+
+    private void dispatchFcmPush(PushNotificationCampaign campaign, List<Employee> targetEmployees) {
+        if (fcmNotificationService == null) return;
+
+        Map<String, String> data = new HashMap<>();
+        data.put("type", campaign.getType() != null ? campaign.getType() : "ANNOUNCEMENT");
+        data.put("targetId", campaign.getId() != null ? campaign.getId().toString() : "");
+        data.put("title", campaign.getTitle());
+        data.put("message", campaign.getMessage());
+
+        String targetAudience = campaign.getTargetAudience() != null ? campaign.getTargetAudience().toUpperCase() : "ALL";
+
+        if ("ALL".equals(targetAudience)) {
+            fcmNotificationService.sendToAll(campaign.getTitle(), campaign.getMessage(), data);
+        } else if ("DEPARTMENT".equals(targetAudience) && campaign.getTargetDepartmentId() != null) {
+            fcmNotificationService.sendToDepartment(campaign.getTargetDepartmentId(), campaign.getTitle(), campaign.getMessage(), data);
+        } else {
+            // INDIVIDUAL or targeted list: send to each staff's dedicated topic
+            for (Employee emp : targetEmployees) {
+                if (emp.getStaffId() != null && !emp.getStaffId().isBlank()) {
+                    fcmNotificationService.sendToStaff(emp.getStaffId(), campaign.getTitle(), campaign.getMessage(), data);
+                }
+            }
         }
     }
 

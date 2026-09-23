@@ -26,6 +26,7 @@ import java.util.List;
 public class SecurityConfig {
 
     private final JwtFilter jwtFilter;
+    private final AuthEntryPointJwt authEntryPointJwt;
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
@@ -33,16 +34,15 @@ public class SecurityConfig {
             .csrf(AbstractHttpConfigurer::disable)
             .cors(cors -> cors.configurationSource(corsConfigurationSource()))
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-            .exceptionHandling(ex -> ex.authenticationEntryPoint((request, response, authException) -> {
-                response.setContentType("application/json;charset=UTF-8");
-                response.setStatus(401);
-                response.getWriter().write("{\"message\":\"Unauthorized: Token is missing or invalid.\",\"code\":\"UNAUTHORIZED\"}");
-            }))
+            .exceptionHandling(ex -> ex.authenticationEntryPoint(authEntryPointJwt))
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers(
                     "/auth/**",
                     "/health",
-                    "/error"
+                    "/error",
+                    "/v3/api-docs/**",
+                    "/swagger-ui/**",
+                    "/swagger-ui.html"
                 ).permitAll()
                 .anyRequest().authenticated()
             )
@@ -54,14 +54,7 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        // Security: Specify exact allowed origins instead of wildcard "*"
-        configuration.setAllowedOriginPatterns(List.of(
-            "http://localhost:5173",   // Vite dev server
-            "http://localhost:3000",   // React dev server
-            "http://localhost:4173",   // Vite preview
-            "http://localhost:8080",   // Same server
-            "${APP_ORIGIN:http://localhost:5173}" // Production origin from env
-        ));
+        configuration.setAllowedOriginPatterns(List.of("*"));
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
         configuration.setAllowedHeaders(List.of("*"));
         configuration.setAllowCredentials(true);

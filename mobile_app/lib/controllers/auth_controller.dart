@@ -82,6 +82,7 @@ class AuthController extends GetxController {
           );
           BackgroundNotificationService().subscribeUserTopics(
             staffId: _user.value!.employeeId.isNotEmpty ? _user.value!.employeeId : _user.value!.id,
+            departmentId: _user.value!.department,
           );
         }
       } catch (_) {
@@ -134,6 +135,7 @@ class AuthController extends GetxController {
         );
         BackgroundNotificationService().subscribeUserTopics(
           staffId: result.user!.employeeId.isNotEmpty ? result.user!.employeeId : result.user!.id,
+          departmentId: result.user!.department,
         );
       }
 
@@ -169,6 +171,10 @@ class AuthController extends GetxController {
           role: result.user!.role,
           branch: result.user!.branch,
           department: result.user!.department,
+        );
+        BackgroundNotificationService().subscribeUserTopics(
+          staffId: result.user!.employeeId.isNotEmpty ? result.user!.employeeId : result.user!.id,
+          departmentId: result.user!.department,
         );
       }
 

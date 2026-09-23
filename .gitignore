@@ -47,3 +47,4 @@ lerna-debug.log*
 local.properties
 *.apk
 ~$*
+springboot-jwt-api/

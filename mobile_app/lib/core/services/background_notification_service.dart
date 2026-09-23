@@ -25,12 +25,16 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
     final String body = notification?.body ?? data['body'] ?? data['message'] ?? '';
     final String type = data['type'] ?? 'ANNOUNCEMENT';
 
-    await LocalNotificationService().showPushNotification(
-      title: title,
-      body: body,
-      payload: data['targetId'] ?? data['id'],
-      type: type,
-    );
+    // If message contains a notification payload, the OS displays it automatically in the status bar.
+    // We only trigger local notification manually if it's a data-only payload to avoid duplicate alerts.
+    if (notification == null && (title.isNotEmpty || body.isNotEmpty)) {
+      await LocalNotificationService().showPushNotification(
+        title: title,
+        body: body,
+        payload: data['targetId'] ?? data['id'],
+        type: type,
+      );
+    }
   } catch (e) {
     debugPrint('[FCM Background Error]: $e');
   }
@@ -120,19 +124,6 @@ void workmanagerCallbackDispatcher() {
           debugPrint('[WorkManager Background] Sync complete. Pushed $newPushedCount new notifications.');
         }
       }
-
-      // Chain next background sync in 1 minute to ensure background notifications arrive quickly
-      try {
-        await Workmanager().registerOneOffTask(
-          'hr_sync_chain_${DateTime.now().millisecondsSinceEpoch}',
-          'sync_notifications_task',
-          initialDelay: const Duration(minutes: 1),
-          existingWorkPolicy: ExistingWorkPolicy.replace,
-          constraints: Constraints(
-            networkType: NetworkType.connected,
-          ),
-        );
-      } catch (_) {}
 
       return Future.value(true);
     } catch (e) {
@@ -232,14 +223,11 @@ class BackgroundNotificationService {
         debugPrint('[BackgroundNotificationService] subscribeToTopic all_employees warning: $topicError');
       }
 
-      // 6. Initialize WorkManager for persistent background sync
+      // 6. Cancel legacy WorkManager tasks to prevent Out of Memory (FCM handles background alerts natively)
       try {
-        await Workmanager().initialize(
-          workmanagerCallbackDispatcher,
-        );
-        await registerPeriodicSync();
+        await Workmanager().cancelAll();
       } catch (wmError) {
-        debugPrint('[BackgroundNotificationService] WorkManager init warning: $wmError');
+        debugPrint('[BackgroundNotificationService] WorkManager cancel warning: $wmError');
       }
 
       _isInitialized = true;
@@ -251,38 +239,12 @@ class BackgroundNotificationService {
 
   /// Register background periodic sync with Android WorkManager
   Future<void> registerPeriodicSync() async {
-    try {
-      await Workmanager().registerPeriodicTask(
-        'hr_attendance_bg_sync',
-        'sync_notifications_task',
-        frequency: const Duration(minutes: 15),
-        existingWorkPolicy: ExistingPeriodicWorkPolicy.update,
-        constraints: Constraints(
-          networkType: NetworkType.connected,
-        ),
-      );
-      debugPrint('[BackgroundNotificationService] Registered 15-minute background sync task');
-    } catch (e) {
-      debugPrint('[BackgroundNotificationService] registerPeriodicSync error: $e');
-    }
+    // Kept for backward compatibility, no-op since FCM handles real-time push
   }
 
   /// Trigger immediate background sync via Workmanager when app is paused/backgrounded
   Future<void> triggerImmediateBackgroundSync() async {
-    try {
-      await Workmanager().registerOneOffTask(
-        'hr_sync_immediate_${DateTime.now().millisecondsSinceEpoch}',
-        'sync_notifications_task',
-        initialDelay: const Duration(seconds: 4),
-        existingWorkPolicy: ExistingWorkPolicy.replace,
-        constraints: Constraints(
-          networkType: NetworkType.connected,
-        ),
-      );
-      debugPrint('[BackgroundNotificationService] Immediate background sync scheduled');
-    } catch (e) {
-      debugPrint('[BackgroundNotificationService] triggerImmediateBackgroundSync error: $e');
-    }
+    // Kept for backward compatibility, no-op since FCM handles real-time push
   }
 
   /// Subscribe logged in employee to targeted topics

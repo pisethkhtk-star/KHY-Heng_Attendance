@@ -3,10 +3,10 @@ import { getRemoteServerHost } from './firebase';
 
 export const formatBaseUrl = (host) => {
   if (!host || typeof host !== 'string') {
-    return 'http://192.168.88.133:8080/api';
+    return 'http://192.168.88.77:8080/api';
   }
   let clean = host.trim();
-  if (!clean) return 'http://192.168.88.133:8080/api';
+  if (!clean) return 'http://192.168.88.77:8080/api';
 
   // If host already contains protocol (http:// or https://)
   if (clean.startsWith('http://') || clean.startsWith('https://')) {
@@ -31,15 +31,7 @@ const getInitialBaseUrl = () => {
     return import.meta.env.VITE_API_BASE_URL;
   }
 
-  // Check cached server host from previous Firebase Remote Config fetch
-  try {
-    const cachedHost = localStorage.getItem('cached_server_host');
-    if (cachedHost) {
-      return formatBaseUrl(cachedHost);
-    }
-  } catch (_) { }
-
-  // Fallback based on window location if available
+  // 1. Primary for web: Dynamically use window.location if available
   if (typeof window !== 'undefined' && window.location) {
     const { port, hostname } = window.location;
     // If served via standard HTTP/HTTPS proxy (Nginx port 80/443), use relative /api
@@ -51,7 +43,17 @@ const getInitialBaseUrl = () => {
     }
   }
 
-  return 'http://192.168.88.133:8080/api';
+  // 2. Check cached server host from previous Firebase Remote Config fetch
+  try {
+    const cachedHost = localStorage.getItem('cached_server_host');
+    if (cachedHost === '192.168.88.133') {
+      localStorage.removeItem('cached_server_host');
+    } else if (cachedHost) {
+      return formatBaseUrl(cachedHost);
+    }
+  } catch (_) { }
+
+  return 'http://192.168.88.77:8080/api';
 };
 
 let cachedBaseUrl = getInitialBaseUrl();
@@ -69,12 +71,19 @@ export const initApiConfig = () => {
   if (!initPromise) {
     initPromise = (async () => {
       try {
+        const isLanHost = typeof window !== 'undefined' &&
+          window.location?.hostname &&
+          window.location.hostname !== 'localhost' &&
+          window.location.hostname !== '127.0.0.1';
+
         const host = await getRemoteServerHost();
-        if (host) {
-          const newBaseUrl = formatBaseUrl(host);
+        if (host && host !== '192.168.88.133') {
+          // If already browsing on a specific LAN host, keep using it unless remote config specifies a different non-default host
+          const effectiveHost = isLanHost ? window.location.hostname : host;
+          const newBaseUrl = formatBaseUrl(effectiveHost);
           cachedBaseUrl = newBaseUrl;
           api.defaults.baseURL = newBaseUrl;
-          console.log('[API] baseURL updated from Firebase Remote Config:', newBaseUrl);
+          console.log('[API] baseURL configured:', newBaseUrl);
           return newBaseUrl;
         }
       } catch (err) {

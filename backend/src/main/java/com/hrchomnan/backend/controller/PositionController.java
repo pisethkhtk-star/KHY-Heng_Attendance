@@ -1,136 +1,80 @@
 package com.hrchomnan.backend.controller;
 
-import com.hrchomnan.backend.model.Department;
-import com.hrchomnan.backend.model.Employee;
 import com.hrchomnan.backend.model.Position;
-import com.hrchomnan.backend.repository.DepartmentRepository;
-import com.hrchomnan.backend.repository.EmployeeRepository;
-import com.hrchomnan.backend.repository.PositionRepository;
+import com.hrchomnan.backend.service.PositionService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.*;
-import java.util.stream.Collectors;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
 
 @RestController
 @RequestMapping("/positions")
-@Transactional
 @RequiredArgsConstructor
+@Tag(name = "Positions", description = "Job positions, titles and department associations")
 public class PositionController {
 
-    private final PositionRepository positionRepository;
-    private final DepartmentRepository departmentRepository;
-    private final EmployeeRepository employeeRepository;
+    private final PositionService positionService;
 
+    @Operation(summary = "Get all positions", description = "Retrieve list of all positions with department and employee counts")
+    @ApiResponse(responseCode = "200", description = "Positions list")
     @GetMapping
     @PreAuthorize("@perm.has('positions')")
     public ResponseEntity<List<Map<String, Object>>> getAllPositions() {
-        List<Position> list = positionRepository.findAll();
-        list.sort(Comparator.comparing(Position::getTitleEn, Comparator.nullsLast(String::compareToIgnoreCase)));
-
-        Map<UUID, Department> deptMap = departmentRepository.findAll().stream()
-                .collect(Collectors.toMap(Department::getId, d -> d, (a, b) -> a));
-
-        Map<UUID, Long> empCountByPos = employeeRepository.findAll().stream()
-                .filter(e -> e.getPositionId() != null)
-                .collect(Collectors.groupingBy(Employee::getPositionId, Collectors.counting()));
-
-        List<Map<String, Object>> response = list.stream().map(p -> {
-            Map<String, Object> map = new HashMap<>();
-            map.put("id", p.getId());
-            map.put("titleEn", p.getTitleEn());
-            map.put("titleKh", p.getTitleKh());
-            map.put("departmentId", p.getDepartmentId());
-            map.put("createdAt", p.getCreatedAt());
-            map.put("updatedAt", p.getUpdatedAt());
-
-            Department d = p.getDepartmentId() != null ? deptMap.get(p.getDepartmentId()) : null;
-            if (d != null) {
-                map.put("department", Map.of("nameEn", d.getNameEn(), "nameKh", d.getNameKh()));
-            } else {
-                map.put("department", null);
-            }
-
-            map.put("_count", Map.of("employees", empCountByPos.getOrDefault(p.getId(), 0L)));
-            return map;
-        }).collect(Collectors.toList());
-
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok(positionService.getAllPositions());
     }
 
+    @Operation(summary = "Get position by ID", description = "Retrieve position details and employee counts")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Position found"),
+            @ApiResponse(responseCode = "404", description = "Position not found")
+    })
     @GetMapping("/{id}")
     @PreAuthorize("@perm.has('positions')")
-    public ResponseEntity<?> getPositionById(@PathVariable UUID id) {
-        Optional<Position> posOpt = positionRepository.findById(id);
-        if (posOpt.isEmpty()) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("message", "Position not found"));
-        }
-
-        Position p = posOpt.get();
-        Map<String, Object> map = new HashMap<>();
-        map.put("id", p.getId());
-        map.put("titleEn", p.getTitleEn());
-        map.put("titleKh", p.getTitleKh());
-        map.put("departmentId", p.getDepartmentId());
-        map.put("createdAt", p.getCreatedAt());
-        map.put("updatedAt", p.getUpdatedAt());
-
-        if (p.getDepartmentId() != null) {
-            departmentRepository.findById(p.getDepartmentId()).ifPresent(d -> {
-                map.put("department", d);
-            });
-        }
-
-        long empCount = employeeRepository.findAll().stream()
-                .filter(e -> id.equals(e.getPositionId()))
-                .count();
-        map.put("_count", Map.of("employees", empCount));
-
-        return ResponseEntity.ok(map);
+    public ResponseEntity<Map<String, Object>> getPositionById(@PathVariable UUID id) {
+        return ResponseEntity.ok(positionService.getPositionById(id));
     }
 
+    @Operation(summary = "Create position", description = "Add a new job position")
+    @ApiResponses({
+            @ApiResponse(responseCode = "201", description = "Position created"),
+            @ApiResponse(responseCode = "400", description = "Missing required fields")
+    })
     @PostMapping
     @PreAuthorize("@perm.has('add_position')")
-    public ResponseEntity<?> createPosition(@RequestBody Position position) {
-        if (position.getTitleEn() == null || position.getTitleKh() == null || position.getDepartmentId() == null) {
-            return ResponseEntity.badRequest().body(Map.of("message", "English title, Khmer title, and Department ID are required"));
-        }
-        Position saved = positionRepository.save(position);
+    public ResponseEntity<Position> createPosition(@RequestBody Position position) {
+        Position saved = positionService.createPosition(position);
         return ResponseEntity.status(HttpStatus.CREATED).body(saved);
     }
 
+    @Operation(summary = "Update position", description = "Update details of existing position")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Position updated"),
+            @ApiResponse(responseCode = "404", description = "Position not found")
+    })
     @PutMapping("/{id}")
     @PreAuthorize("@perm.has('edit_position')")
-    public ResponseEntity<?> updatePosition(@PathVariable UUID id, @RequestBody Position updated) {
-        return positionRepository.findById(id)
-                .map(existing -> {
-                    if (updated.getTitleEn() != null) existing.setTitleEn(updated.getTitleEn());
-                    if (updated.getTitleKh() != null) existing.setTitleKh(updated.getTitleKh());
-                    if (updated.getDepartmentId() != null) existing.setDepartmentId(updated.getDepartmentId());
-                    return ResponseEntity.ok(positionRepository.save(existing));
-                })
-                .orElse(ResponseEntity.status(HttpStatus.NOT_FOUND).body(null));
+    public ResponseEntity<Position> updatePosition(@PathVariable UUID id, @RequestBody Position updated) {
+        return ResponseEntity.ok(positionService.updatePosition(id, updated));
     }
 
+    @Operation(summary = "Delete position", description = "Delete job position and detach employees")
+    @ApiResponses({
+            @ApiResponse(responseCode = "204", description = "Position deleted"),
+            @ApiResponse(responseCode = "404", description = "Position not found")
+    })
     @DeleteMapping("/{id}")
     @PreAuthorize("@perm.has('delete_position')")
-    public ResponseEntity<?> deletePosition(@PathVariable UUID id) {
-        if (positionRepository.existsById(id)) {
-            // Detach employees assigned to this position
-            employeeRepository.findAll().stream()
-                    .filter(e -> id.equals(e.getPositionId()))
-                    .forEach(e -> {
-                        e.setPositionId(null);
-                        employeeRepository.save(e);
-                    });
-
-            positionRepository.deleteById(id);
-            return ResponseEntity.ok(Map.of("message", "Position deleted successfully"));
-        }
-        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("message", "Position not found"));
+    public ResponseEntity<Void> deletePosition(@PathVariable UUID id) {
+        positionService.deletePosition(id);
+        return ResponseEntity.noContent().build();
     }
 }

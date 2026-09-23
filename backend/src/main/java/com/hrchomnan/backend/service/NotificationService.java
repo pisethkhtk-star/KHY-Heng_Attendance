@@ -25,6 +25,7 @@ public class NotificationService {
     private final NotificationRepository notificationRepository;
     private final EmployeeRepository employeeRepository;
     private final LeaveApprovalRuleRepository leaveApprovalRuleRepository;
+    private final FcmNotificationService fcmNotificationService;
 
     /**
      * Notify approver(s) when an employee submits a leave request
@@ -66,6 +67,13 @@ public class NotificationService {
 
                 notificationRepository.save(notification);
                 log.info("Saved leave request notification for approver: {}", approverId);
+
+                if (fcmNotificationService != null) {
+                    fcmNotificationService.sendToStaff(approverId, title, message, Map.of(
+                            "type", "LEAVE_REQUEST",
+                            "targetId", leave.getId() != null ? leave.getId().toString() : ""
+                    ));
+                }
             }
         } catch (Exception e) {
             log.error("Error creating leave request notifications for approvers:", e);
@@ -107,6 +115,13 @@ public class NotificationService {
 
             notificationRepository.save(notification);
             log.info("Saved leave action notification for employee: {}", leave.getStaffId());
+
+            if (fcmNotificationService != null) {
+                fcmNotificationService.sendToStaff(leave.getStaffId(), title, message, Map.of(
+                        "type", isApproved ? "LEAVE_APPROVED" : "LEAVE_REJECTED",
+                        "targetId", leave.getId() != null ? leave.getId().toString() : ""
+                ));
+            }
         } catch (Exception e) {
             log.error("Error creating leave action notification for employee:", e);
         }
@@ -144,6 +159,13 @@ public class NotificationService {
 
                 notificationRepository.save(notification);
                 log.info("Saved leave deletion notification for employee: {}", leave.getStaffId());
+
+                if (fcmNotificationService != null) {
+                    fcmNotificationService.sendToStaff(leave.getStaffId(), title, message, Map.of(
+                            "type", "LEAVE_DELETED",
+                            "targetId", leave.getId() != null ? leave.getId().toString() : ""
+                    ));
+                }
             } else {
                 // Employee deleted own pending leave -> notify designated approvers
                 Set<String> approverStaffIds = findApproversForEmployee(employee);
@@ -171,6 +193,13 @@ public class NotificationService {
                             .build();
 
                     notificationRepository.save(notification);
+
+                    if (fcmNotificationService != null) {
+                        fcmNotificationService.sendToStaff(approverId, title, message, Map.of(
+                                "type", "LEAVE_CANCELLED",
+                                "targetId", leave.getId() != null ? leave.getId().toString() : ""
+                        ));
+                    }
                 }
                 log.info("Saved leave cancellation notifications for approvers of staff: {}", employee.getStaffId());
             }

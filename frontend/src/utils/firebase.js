@@ -27,7 +27,7 @@ export const getRemoteConfigInstance = () => {
             };
             // កំណត់ Default Fallback បើសិនជា fetch មិនទាន់មកដល់
             remoteConfigInstance.defaultConfig = {
-                server_host: "192.168.88.133"
+                server_host: "192.168.88.77"
             };
         } catch (e) {
             console.warn("Failed to initialize Firebase Remote Config:", e);
@@ -38,16 +38,25 @@ export const getRemoteConfigInstance = () => {
 
 export const remoteConfig = typeof window !== 'undefined' ? getRemoteConfigInstance() : null;
 
+const getFallbackHost = () => {
+    if (typeof window !== 'undefined' && window.location?.hostname && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+        return window.location.hostname;
+    }
+    return "192.168.88.77";
+};
+
 // Function សម្រាប់ទាញយក host ពី Firebase
 export const getRemoteServerHost = async () => {
+    const fallback = getFallbackHost();
     try {
         const rc = getRemoteConfigInstance();
         if (!rc) {
-            return localStorage.getItem('cached_server_host') || "192.168.88.133";
+            const cached = localStorage.getItem('cached_server_host');
+            return (cached && cached !== '192.168.88.133') ? cached : fallback;
         }
         await fetchAndActivate(rc);
         const host = getValue(rc, "server_host").asString()?.trim();
-        if (host) {
+        if (host && host !== '192.168.88.133') {
             console.log("[Firebase RemoteConfig] Server host fetched successfully:", host);
             try {
                 localStorage.setItem('cached_server_host', host);
@@ -60,8 +69,8 @@ export const getRemoteServerHost = async () => {
 
     try {
         const cached = localStorage.getItem('cached_server_host');
-        if (cached) return cached;
+        if (cached && cached !== '192.168.88.133') return cached;
     } catch (_) {}
 
-    return "192.168.88.133";
+    return fallback;
 };

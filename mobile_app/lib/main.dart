@@ -16,6 +16,7 @@ import 'controllers/overtime_controller.dart';
 import 'controllers/notification_controller.dart';
 import 'views/splash_screen.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'firebase_options.dart';
 import 'core/services/remote_config_service.dart';
 import 'core/services/analytics_service.dart';
@@ -30,6 +31,8 @@ void main() async {
     await Firebase.initializeApp(
       options: DefaultFirebaseOptions.currentPlatform,
     );
+    // Register top-level background message handler for FCM
+    FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
   } catch (e) {
     debugPrint('[Firebase Init Warning]: $e');
   }

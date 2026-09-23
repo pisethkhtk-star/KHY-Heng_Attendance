@@ -40,11 +40,8 @@ class NotificationController extends GetxController with WidgetsBindingObserver 
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.paused || state == AppLifecycleState.inactive || state == AppLifecycleState.hidden) {
-      // User minimized the app -> schedule immediate background sync
-      BackgroundNotificationService().triggerImmediateBackgroundSync();
-    } else if (state == AppLifecycleState.resumed) {
-      // User reopened the app -> refresh immediately
+    if (state == AppLifecycleState.resumed) {
+      // User reopened the app -> refresh notifications immediately
       fetchRemoteNotifications();
     }
   }
