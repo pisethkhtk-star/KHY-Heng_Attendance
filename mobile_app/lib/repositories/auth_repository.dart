@@ -134,21 +134,36 @@ class AuthRepository implements IAuthRepository {
     if (response != null) {
       try {
         final data = jsonDecode(response.body);
-        if (response.statusCode == 200 && data['user'] != null) {
+        final isHttpOk = response.statusCode == 200 || response.statusCode == 201;
+
+        Map<String, dynamic>? userMap;
+        if (data is Map<String, dynamic>) {
+          if (data['data'] is Map && data['data']['user'] is Map) {
+            userMap = Map<String, dynamic>.from(data['data']['user']);
+          } else if (data['user'] is Map) {
+            userMap = Map<String, dynamic>.from(data['user']);
+          } else if (data['data'] is Map && (data['data']['staffId'] != null || data['data']['id'] != null)) {
+            userMap = Map<String, dynamic>.from(data['data']);
+          }
+        }
+
+        if (isHttpOk) {
           final prefs = await SharedPreferences.getInstance();
-          await prefs.setString('user_data', jsonEncode(data['user']));
+          if (userMap != null) {
+            await prefs.setString('user_data', jsonEncode(userMap));
+          }
           return AuthResponse(
             success: true,
-            user: UserModel.fromJson(data['user']),
-            message: data['message'] ?? 'Avatar updated successfully',
+            user: userMap != null ? UserModel.fromJson(userMap) : null,
+            message: data is Map ? (data['messageKh'] ?? data['message'] ?? 'Avatar updated successfully') : 'Avatar updated successfully',
           );
         } else {
           return AuthResponse(
             success: false,
-            message: data['message'] ?? 'Server error (${response.statusCode})',
+            message: (data is Map ? (data['messageKh'] ?? data['message']) : null) ?? 'Server error (${response.statusCode})',
           );
         }
-      } catch (_) {
+      } catch (e) {
         return AuthResponse(
           success: false,
           message: 'Server error (${response.statusCode})',

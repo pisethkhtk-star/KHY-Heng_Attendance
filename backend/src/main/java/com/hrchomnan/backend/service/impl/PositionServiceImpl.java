@@ -32,10 +32,10 @@ public class PositionServiceImpl implements PositionService {
         List<Position> list = positionRepository.findAll();
         list.sort(Comparator.comparing(Position::getTitleEn, Comparator.nullsLast(String::compareToIgnoreCase)));
 
-        Map<UUID, Department> deptMap = departmentRepository.findAll().stream()
+        Map<Long, Department> deptMap = departmentRepository.findAll().stream()
                 .collect(Collectors.toMap(Department::getId, d -> d, (a, b) -> a));
 
-        Map<UUID, Long> empCountByPos = employeeRepository.findAll().stream()
+        Map<Long, Long> empCountByPos = employeeRepository.findAll().stream()
                 .filter(e -> e.getPositionId() != null)
                 .collect(Collectors.groupingBy(Employee::getPositionId, Collectors.counting()));
 
@@ -62,7 +62,7 @@ public class PositionServiceImpl implements PositionService {
 
     @Override
     @Transactional(readOnly = true)
-    public Map<String, Object> getPositionById(UUID id) {
+    public Map<String, Object> getPositionById(Long id) {
         Position p = positionRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Position", "id", id));
 
@@ -99,7 +99,7 @@ public class PositionServiceImpl implements PositionService {
 
     @Override
     @Transactional
-    public Position updatePosition(UUID id, Position updated) {
+    public Position updatePosition(Long id, Position updated) {
         Position existing = positionRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Position", "id", id));
 
@@ -112,7 +112,7 @@ public class PositionServiceImpl implements PositionService {
 
     @Override
     @Transactional
-    public void deletePosition(UUID id) {
+    public void deletePosition(Long id) {
         if (!positionRepository.existsById(id)) {
             throw new ResourceNotFoundException("Position", "id", id);
         }

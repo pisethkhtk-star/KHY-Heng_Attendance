@@ -16,7 +16,6 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.UUID;
 
 @RestController
 @RequestMapping("/notifications")
@@ -53,7 +52,7 @@ public class NotificationController {
 
     @PutMapping("/{id}/read")
     @PreAuthorize("isAuthenticated()")
-    public ResponseEntity<?> markAsRead(@PathVariable UUID id, Authentication authentication) {
+    public ResponseEntity<?> markAsRead(@PathVariable Long id, Authentication authentication) {
         Employee currentUser = getCurrentUser(authentication);
         if (currentUser == null || currentUser.getStaffId() == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
@@ -95,7 +94,7 @@ public class NotificationController {
 
     @DeleteMapping("/{id}")
     @PreAuthorize("isAuthenticated()")
-    public ResponseEntity<?> deleteNotification(@PathVariable UUID id, Authentication authentication) {
+    public ResponseEntity<?> deleteNotification(@PathVariable Long id, Authentication authentication) {
         Employee currentUser = getCurrentUser(authentication);
         if (currentUser == null || currentUser.getStaffId() == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();

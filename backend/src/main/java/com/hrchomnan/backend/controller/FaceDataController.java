@@ -105,7 +105,7 @@ public class FaceDataController {
     }
 
     @GetMapping("/all")
-    @PreAuthorize("@perm.has('facescan') or @perm.has('attendance') or hasRole('Admin')")
+    @PreAuthorize("@perm.has('facescan') or @perm.has('attendance') or hasAnyRole('Admin', 'HR', 'Manager') or isAuthenticated()")
     public ResponseEntity<?> getAllFaceData() {
         List<EmployeeFaceData> list = faceDataRepository.findAll();
         Map<String, Employee> empMap = new HashMap<>();
@@ -126,6 +126,7 @@ public class FaceDataController {
             item.put("nameEn", emp.getNameEn());
             item.put("nameKh", emp.getNameKh());
             item.put("photoUrl", f.getPhotoUrl());
+            item.put("updatedAt", f.getUpdatedAt() != null ? f.getUpdatedAt().toString() : (f.getCreatedAt() != null ? f.getCreatedAt().toString() : ""));
             try {
                 List<Double> desc = objectMapper.readValue(f.getFaceDescriptor(), new TypeReference<List<Double>>() {});
                 item.put("descriptor", desc);
@@ -136,6 +137,64 @@ public class FaceDataController {
         }
 
         return ResponseEntity.ok(result);
+    }
+
+    @GetMapping("/sync")
+    @PreAuthorize("@perm.has('facescan') or @perm.has('attendance') or hasAnyRole('Admin', 'HR', 'Manager') or isAuthenticated()")
+    public ResponseEntity<?> syncFaceData(@RequestParam(required = false) String clientVersion) {
+        List<EmployeeFaceData> list = faceDataRepository.findAll();
+        long count = list.size();
+        String latestUpdate = list.stream()
+                .map(f -> f.getUpdatedAt() != null ? f.getUpdatedAt() : f.getCreatedAt())
+                .filter(Objects::nonNull)
+                .max(java.time.LocalDateTime::compareTo)
+                .map(java.time.LocalDateTime::toString)
+                .orElse("0");
+        String currentVersion = count + "_" + latestUpdate;
+
+        if (clientVersion != null && clientVersion.trim().equals(currentVersion)) {
+            return ResponseEntity.ok(Map.of(
+                    "upToDate", true,
+                    "version", currentVersion,
+                    "count", count,
+                    "faces", List.of()
+            ));
+        }
+
+        Map<String, Employee> empMap = new HashMap<>();
+        for (Employee emp : employeeRepository.findAll()) {
+            if (emp.getStaffId() != null && emp.getStatus() == Status.Active) {
+                empMap.put(emp.getStaffId(), emp);
+            }
+        }
+
+        List<Map<String, Object>> result = new ArrayList<>();
+        for (EmployeeFaceData f : list) {
+            if (f.getStaffId() == null || f.getFaceDescriptor() == null) continue;
+            Employee emp = empMap.get(f.getStaffId());
+            if (emp == null) continue;
+
+            Map<String, Object> item = new HashMap<>();
+            item.put("staffId", f.getStaffId());
+            item.put("nameEn", emp.getNameEn());
+            item.put("nameKh", emp.getNameKh());
+            item.put("photoUrl", f.getPhotoUrl());
+            item.put("updatedAt", f.getUpdatedAt() != null ? f.getUpdatedAt().toString() : (f.getCreatedAt() != null ? f.getCreatedAt().toString() : ""));
+            try {
+                List<Double> desc = objectMapper.readValue(f.getFaceDescriptor(), new TypeReference<List<Double>>() {});
+                item.put("descriptor", desc);
+            } catch (Exception e) {
+                item.put("descriptor", f.getFaceDescriptor());
+            }
+            result.add(item);
+        }
+
+        return ResponseEntity.ok(Map.of(
+                "upToDate", false,
+                "version", currentVersion,
+                "count", count,
+                "faces", result
+        ));
     }
 
     @GetMapping("/{staffId}")

@@ -5,7 +5,6 @@ import lombok.*;
 import org.hibernate.annotations.UpdateTimestamp;
 
 import java.time.LocalDateTime;
-import java.util.UUID;
 
 @Entity
 @Table(name = "kiosk_settings")
@@ -17,8 +16,8 @@ import java.util.UUID;
 public class KioskSetting {
 
     @Id
-    @GeneratedValue
-    private UUID id;
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
 
     @Builder.Default
     private String name = "Branch Location";

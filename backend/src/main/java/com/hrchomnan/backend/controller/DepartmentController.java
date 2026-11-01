@@ -14,7 +14,6 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
 
 @RestController
 @RequestMapping("/departments")
@@ -39,7 +38,7 @@ public class DepartmentController {
     })
     @GetMapping("/{id}")
     @PreAuthorize("@perm.has('departments')")
-    public ResponseEntity<Map<String, Object>> getDepartmentById(@PathVariable UUID id) {
+    public ResponseEntity<Map<String, Object>> getDepartmentById(@PathVariable Long id) {
         return ResponseEntity.ok(departmentService.getDepartmentById(id));
     }
 
@@ -62,7 +61,7 @@ public class DepartmentController {
     })
     @PutMapping("/{id}")
     @PreAuthorize("@perm.has('edit_department')")
-    public ResponseEntity<Department> updateDepartment(@PathVariable UUID id, @RequestBody Department updated) {
+    public ResponseEntity<Department> updateDepartment(@PathVariable Long id, @RequestBody Department updated) {
         return ResponseEntity.ok(departmentService.updateDepartment(id, updated));
     }
 
@@ -73,7 +72,7 @@ public class DepartmentController {
     })
     @DeleteMapping("/{id}")
     @PreAuthorize("@perm.has('delete_department')")
-    public ResponseEntity<Void> deleteDepartment(@PathVariable UUID id) {
+    public ResponseEntity<Void> deleteDepartment(@PathVariable Long id) {
         departmentService.deleteDepartment(id);
         return ResponseEntity.noContent().build();
     }

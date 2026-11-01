@@ -1,5 +1,7 @@
 @import "tailwindcss";
 
+@custom-variant dark (&:where(.dark, .dark *));
+
 @theme {
   --color-slate-950: var(--slate-950);
   --color-slate-900: var(--slate-900);
@@ -235,6 +237,9 @@ html.light .text-slate-400 {
 html.light .text-slate-300 {
   color: var(--text-secondary) !important;
 }
+html.light .text-slate-200 {
+  color: var(--text-primary) !important;
+}
 html.light .text-slate-100 {
   color: var(--text-primary) !important;
 }
@@ -273,6 +278,16 @@ html.light select option {
 
 .font-battambang {
   font-family: 'Battambang', 'Khmer OS Battambang', 'Kantumruy Pro', 'Segoe UI', Tahoma, sans-serif !important;
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  20%, 60% { transform: translateX(-4px); }
+  40%, 80% { transform: translateX(4px); }
+}
+
+.animate-shake {
+  animation: shake 0.4s ease-in-out;
 }
 
 /* Print Overrides */

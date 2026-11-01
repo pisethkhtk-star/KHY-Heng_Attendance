@@ -1,28 +1,46 @@
 class ApiConfig {
-  /// Default fallback server IP or Domain address
-  static const String defaultServerHost = '10.10.1.186';
+  /// Default server host (used only as fallback if Firebase Remote Config is not yet loaded)
+  static const String defaultServerHost = '';
 
-  /// The server IP or Domain address (fallback)
-  static const String serverHost = defaultServerHost;
-
-  /// Set port (e.g. '8080' for direct Spring Boot, '' or '80' / '443' for standard web ports)
+  /// Default port if host does not specify one
   static const String serverPort = '8080';
 
-  /// Set to true if your server is configured with SSL/HTTPS
+  /// Set to true if server uses HTTPS
   static const bool useHttps = false;
 
-  // Backward compatibility alias
-  static const String serverIp = serverHost;
-
-  /// Generate baseUrl dynamically for any given host
+  /// Generate baseUrl dynamically from Firebase Remote Config host
   static String getBaseUrl(String host) {
-    final cleanHost = host.trim();
-    final scheme = useHttps ? 'https' : 'http';
-    if (serverPort.isEmpty || (useHttps && serverPort == '443') || (!useHttps && serverPort == '80')) {
-      return '$scheme://$cleanHost/api';
+    var clean = host.trim();
+    if (clean.isEmpty) {
+      return '';
     }
-    return '$scheme://$cleanHost:$serverPort/api';
+
+    // Remove any trailing slashes
+    clean = clean.replaceAll(RegExp(r'/+$'), '');
+
+    // 1. If host already starts with http:// or https://
+    if (clean.startsWith('http://') || clean.startsWith('https://')) {
+      if (clean.endsWith('/api')) {
+        return clean;
+      }
+      return '$clean/api';
+    }
+
+    // 2. Host does not specify scheme
+    final scheme = useHttps ? 'https' : 'http';
+
+    
+    if (clean.contains(':')) {
+      return '$scheme://$clean/api';
+    }
+
+  
+    if (serverPort.isNotEmpty && serverPort != '80' && serverPort != '443') {
+      return '$scheme://$clean:$serverPort/api';
+    }
+
+    return '$scheme://$clean/api';
   }
 
-  static String get baseUrl => getBaseUrl(serverHost);
+  static String get baseUrl => getBaseUrl(defaultServerHost);
 }

@@ -80,9 +80,9 @@ public class LeaveLimitController {
                             && !l.getLeaveDate().isAfter(endDate))
                     .collect(Collectors.toList());
 
-            Map<UUID, Department> deptMap = departmentRepository.findAll().stream()
+            Map<Long, Department> deptMap = departmentRepository.findAll().stream()
                     .collect(Collectors.toMap(Department::getId, d -> d, (a, b) -> a));
-            Map<UUID, Position> posMap = positionRepository.findAll().stream()
+            Map<Long, Position> posMap = positionRepository.findAll().stream()
                     .collect(Collectors.toMap(Position::getId, p -> p, (a, b) -> a));
             Map<String, String> faceDataMap = employeeFaceDataRepository.findAll().stream()
                     .filter(f -> f.getStaffId() != null && f.getPhotoUrl() != null)

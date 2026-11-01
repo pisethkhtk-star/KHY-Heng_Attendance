@@ -14,7 +14,6 @@ import java.io.FileInputStream;
 import java.io.InputStream;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
 @Service
@@ -94,7 +93,7 @@ public class FcmNotificationService {
     /**
      * Send push notification to a specific department topic: 'dept_{cleanDeptId}'
      */
-    public void sendToDepartment(UUID departmentId, String title, String body, Map<String, String> data) {
+    public void sendToDepartment(Long departmentId, String title, String body, Map<String, String> data) {
         if (departmentId == null) return;
         String cleanDept = departmentId.toString().replaceAll("[^a-zA-Z0-9_-]", "_");
         sendToTopic("dept_" + cleanDept, title, body, data);

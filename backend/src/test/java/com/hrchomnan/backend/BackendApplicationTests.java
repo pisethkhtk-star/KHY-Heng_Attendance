@@ -11,6 +11,7 @@ import org.springframework.security.test.context.support.WithMockUser;
 import java.util.ArrayList;
 import java.util.List;
 
+@org.springframework.test.context.ActiveProfiles("h2")
 @SpringBootTest
 class BackendApplicationTests {
 
@@ -26,7 +27,7 @@ class BackendApplicationTests {
 				.filter(e -> e.getRole() == com.hrchomnan.backend.enums.Role.Admin)
 				.findFirst()
 				.orElseGet(() -> com.hrchomnan.backend.model.Employee.builder()
-						.id(java.util.UUID.randomUUID())
+						.id(999999L)
 						.staffId("ADMIN-TEST")
 						.role(com.hrchomnan.backend.enums.Role.Admin)
 						.build());

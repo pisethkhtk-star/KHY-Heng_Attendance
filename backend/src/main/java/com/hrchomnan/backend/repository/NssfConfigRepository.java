@@ -5,9 +5,8 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
 import java.util.Optional;
-import java.util.UUID;
 
 @Repository
-public interface NssfConfigRepository extends JpaRepository<NssfConfig, UUID> {
+public interface NssfConfigRepository extends JpaRepository<NssfConfig, Long> {
     Optional<NssfConfig> findFirstByIsActiveTrueOrderByCreatedAtDesc();
 }

@@ -6,10 +6,9 @@ import org.springframework.stereotype.Repository;
 
 import java.util.List;
 import java.util.Optional;
-import java.util.UUID;
 
 @Repository
-public interface EmployeeFaceDataRepository extends JpaRepository<EmployeeFaceData, UUID> {
+public interface EmployeeFaceDataRepository extends JpaRepository<EmployeeFaceData, Long> {
     List<EmployeeFaceData> findAllByStaffId(String staffId);
     Optional<EmployeeFaceData> findByStaffId(String staffId);
     void deleteByStaffId(String staffId);

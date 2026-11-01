@@ -6,12 +6,11 @@ import org.springframework.stereotype.Repository;
 
 import java.util.List;
 import java.util.Optional;
-import java.util.UUID;
 
 @Repository
-public interface PayslipRepository extends JpaRepository<Payslip, UUID> {
-    List<Payslip> findByPayrollRunIdOrderByStaffIdAsc(UUID payrollRunId);
-    Optional<Payslip> findByPayrollRunIdAndStaffId(UUID payrollRunId, String staffId);
+public interface PayslipRepository extends JpaRepository<Payslip, Long> {
+    List<Payslip> findByPayrollRunIdOrderByStaffIdAsc(Long payrollRunId);
+    Optional<Payslip> findByPayrollRunIdAndStaffId(Long payrollRunId, String staffId);
     List<Payslip> findByStaffIdOrderByCreatedAtDesc(String staffId);
-    void deleteByPayrollRunId(UUID payrollRunId);
+    void deleteByPayrollRunId(Long payrollRunId);
 }

@@ -52,7 +52,7 @@ public class PushNotificationCampaignService {
         private String message;
         private String type = "ANNOUNCEMENT"; // ANNOUNCEMENT, URGENT, EVENT, REMINDER, GENERAL
         private String targetAudience = "ALL"; // ALL, DEPARTMENT, INDIVIDUAL
-        private UUID targetDepartmentId;
+        private Long targetDepartmentId;
         private List<String> targetStaffIds;
         private String scheduledAt; // ISO string e.g. "2026-09-17T16:00:00"
         private Boolean sendTelegram = false;
@@ -144,7 +144,7 @@ public class PushNotificationCampaignService {
     }
 
     @Transactional
-    public PushNotificationCampaign cancelCampaign(UUID id) {
+    public PushNotificationCampaign cancelCampaign(Long id) {
         PushNotificationCampaign campaign = campaignRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Campaign not found"));
 
@@ -157,7 +157,7 @@ public class PushNotificationCampaignService {
     }
 
     @Transactional
-    public void deleteCampaign(UUID id) {
+    public void deleteCampaign(Long id) {
         campaignRepository.deleteById(id);
     }
 
@@ -265,7 +265,7 @@ public class PushNotificationCampaignService {
 
     private List<Employee> resolveTargetEmployees(
             String targetAudience,
-            UUID targetDepartmentId,
+            Long targetDepartmentId,
             List<String> targetStaffIds
     ) {
         List<Employee> all = employeeRepository.findAll();

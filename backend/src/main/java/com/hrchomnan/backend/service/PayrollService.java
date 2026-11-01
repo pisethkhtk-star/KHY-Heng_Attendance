@@ -90,9 +90,9 @@ public class PayrollService {
                 .sorted(Comparator.comparing(Employee::getStaffId))
                 .toList();
 
-        Map<UUID, Department> deptMap = departmentRepository.findAll().stream()
+        Map<Long, Department> deptMap = departmentRepository.findAll().stream()
                 .collect(Collectors.toMap(Department::getId, d -> d, (a, b) -> a));
-        Map<UUID, Position> posMap = positionRepository.findAll().stream()
+        Map<Long, Position> posMap = positionRepository.findAll().stream()
                 .collect(Collectors.toMap(Position::getId, p -> p, (a, b) -> a));
 
         List<Attendance> attendances = attendanceRepository.findByAttendanceDateBetween(startDate, endDate);
@@ -229,7 +229,7 @@ public class PayrollService {
     /**
      * Adjust an individual payslip in Draft mode
      */
-    public Payslip adjustPayslip(UUID payslipId, BigDecimal bonus, BigDecimal commission, BigDecimal advance, BigDecimal otherDeductions, String remarks) {
+    public Payslip adjustPayslip(Long payslipId, BigDecimal bonus, BigDecimal commission, BigDecimal advance, BigDecimal otherDeductions, String remarks) {
         Payslip payslip = payslipRepository.findById(payslipId)
                 .orElseThrow(() -> new IllegalArgumentException("Payslip not found: " + payslipId));
 
@@ -322,7 +322,7 @@ public class PayrollService {
         payrollRunRepository.save(run);
     }
 
-    public PayrollRun approvePayrollRun(UUID runId, String approvedBy) {
+    public PayrollRun approvePayrollRun(Long runId, String approvedBy) {
         PayrollRun run = payrollRunRepository.findById(runId)
                 .orElseThrow(() -> new IllegalArgumentException("Payroll run not found: " + runId));
         run.setStatus(PayrollStatus.Approved);
@@ -331,7 +331,7 @@ public class PayrollService {
         return payrollRunRepository.save(run);
     }
 
-    public PayrollRun markPaidPayrollRun(UUID runId) {
+    public PayrollRun markPaidPayrollRun(Long runId) {
         PayrollRun run = payrollRunRepository.findById(runId)
                 .orElseThrow(() -> new IllegalArgumentException("Payroll run not found: " + runId));
         run.setStatus(PayrollStatus.Paid);
@@ -343,7 +343,7 @@ public class PayrollService {
     }
 
     @Transactional
-    public void deletePayrollRun(UUID runId) {
+    public void deletePayrollRun(Long runId) {
         PayrollRun run = payrollRunRepository.findById(runId)
                 .orElseThrow(() -> new IllegalArgumentException("Payroll run not found: " + runId));
         payslipRepository.deleteByPayrollRunId(runId);
@@ -354,16 +354,16 @@ public class PayrollService {
         return payrollRunRepository.findAllByOrderByYearDescMonthDesc();
     }
 
-    public PayrollRun getPayrollRunById(UUID runId) {
+    public PayrollRun getPayrollRunById(Long runId) {
         return payrollRunRepository.findById(runId)
                 .orElseThrow(() -> new IllegalArgumentException("Payroll run not found: " + runId));
     }
 
-    public List<Payslip> getPayslipsByRunId(UUID runId) {
+    public List<Payslip> getPayslipsByRunId(Long runId) {
         return payslipRepository.findByPayrollRunIdOrderByStaffIdAsc(runId);
     }
 
-    public Payslip getPayslipById(UUID payslipId) {
+    public Payslip getPayslipById(Long payslipId) {
         return payslipRepository.findById(payslipId)
                 .orElseThrow(() -> new IllegalArgumentException("Payslip not found: " + payslipId));
     }
@@ -374,9 +374,9 @@ public class PayrollService {
         Map<String, EmployeeSalaryProfile> profileMap = salaryProfileRepository.findAll().stream()
                 .collect(Collectors.toMap(EmployeeSalaryProfile::getStaffId, p -> p, (a, b) -> a));
 
-        Map<UUID, Department> deptMap = departmentRepository.findAll().stream()
+        Map<Long, Department> deptMap = departmentRepository.findAll().stream()
                 .collect(Collectors.toMap(Department::getId, d -> d, (a, b) -> a));
-        Map<UUID, Position> posMap = positionRepository.findAll().stream()
+        Map<Long, Position> posMap = positionRepository.findAll().stream()
                 .collect(Collectors.toMap(Position::getId, p -> p, (a, b) -> a));
 
         return employees.stream()

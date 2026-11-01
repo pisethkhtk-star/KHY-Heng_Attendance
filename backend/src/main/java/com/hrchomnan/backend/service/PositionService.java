@@ -4,12 +4,11 @@ import com.hrchomnan.backend.model.Position;
 
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
 
 public interface PositionService {
     List<Map<String, Object>> getAllPositions();
-    Map<String, Object> getPositionById(UUID id);
+    Map<String, Object> getPositionById(Long id);
     Position createPosition(Position position);
-    Position updatePosition(UUID id, Position updated);
-    void deletePosition(UUID id);
+    Position updatePosition(Long id, Position updated);
+    void deletePosition(Long id);
 }

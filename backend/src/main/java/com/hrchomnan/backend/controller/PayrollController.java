@@ -18,7 +18,6 @@ import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
 
 @RestController
 @RequestMapping("/payroll")
@@ -59,7 +58,7 @@ public class PayrollController {
 
     @GetMapping("/runs/{id}")
     @PreAuthorize("@perm.has('payroll')")
-    public ResponseEntity<?> getRunById(@PathVariable UUID id) {
+    public ResponseEntity<?> getRunById(@PathVariable Long id) {
         try {
             return ResponseEntity.ok(payrollService.getPayrollRunById(id));
         } catch (Exception e) {
@@ -69,7 +68,7 @@ public class PayrollController {
 
     @PutMapping("/runs/{id}/approve")
     @PreAuthorize("@perm.has('payroll')")
-    public ResponseEntity<?> approveRun(@PathVariable UUID id, Authentication auth) {
+    public ResponseEntity<?> approveRun(@PathVariable Long id, Authentication auth) {
         try {
             String approvedBy = auth != null ? auth.getName() : "HR Admin";
             return ResponseEntity.ok(payrollService.approvePayrollRun(id, approvedBy));
@@ -80,7 +79,7 @@ public class PayrollController {
 
     @PutMapping("/runs/{id}/mark-paid")
     @PreAuthorize("@perm.has('payroll')")
-    public ResponseEntity<?> markPaid(@PathVariable UUID id) {
+    public ResponseEntity<?> markPaid(@PathVariable Long id) {
         try {
             return ResponseEntity.ok(payrollService.markPaidPayrollRun(id));
         } catch (Exception e) {
@@ -90,7 +89,7 @@ public class PayrollController {
 
     @DeleteMapping("/runs/{id}")
     @PreAuthorize("@perm.has('payroll')")
-    public ResponseEntity<?> deleteRun(@PathVariable UUID id) {
+    public ResponseEntity<?> deleteRun(@PathVariable Long id) {
         try {
             payrollService.deletePayrollRun(id);
             return ResponseEntity.ok(Map.of("message", "Payroll run deleted/cleared successfully"));
@@ -102,13 +101,13 @@ public class PayrollController {
 
     @GetMapping("/runs/{id}/payslips")
     @PreAuthorize("@perm.has('payroll')")
-    public ResponseEntity<List<Payslip>> getPayslipsByRun(@PathVariable UUID id) {
+    public ResponseEntity<List<Payslip>> getPayslipsByRun(@PathVariable Long id) {
         return ResponseEntity.ok(payrollService.getPayslipsByRunId(id));
     }
 
     @GetMapping("/payslips/{id}")
     @PreAuthorize("@perm.has('payroll')")
-    public ResponseEntity<?> getPayslipById(@PathVariable UUID id) {
+    public ResponseEntity<?> getPayslipById(@PathVariable Long id) {
         try {
             return ResponseEntity.ok(payrollService.getPayslipById(id));
         } catch (Exception e) {
@@ -118,7 +117,7 @@ public class PayrollController {
 
     @PutMapping("/payslips/{id}/adjust")
     @PreAuthorize("@perm.has('payroll')")
-    public ResponseEntity<?> adjustPayslip(@PathVariable UUID id, @RequestBody Map<String, Object> body) {
+    public ResponseEntity<?> adjustPayslip(@PathVariable Long id, @RequestBody Map<String, Object> body) {
         try {
             BigDecimal bonus = body.containsKey("bonusAmount") && body.get("bonusAmount") != null
                     ? new BigDecimal(body.get("bonusAmount").toString()) : null;
@@ -139,7 +138,7 @@ public class PayrollController {
 
     @GetMapping("/runs/{id}/export/bank")
     @PreAuthorize("@perm.has('payroll')")
-    public ResponseEntity<byte[]> exportBankBulkPayment(@PathVariable UUID id) {
+    public ResponseEntity<byte[]> exportBankBulkPayment(@PathVariable Long id) {
         PayrollRun run = payrollService.getPayrollRunById(id);
         List<Payslip> payslips = payrollService.getPayslipsByRunId(id);
 

@@ -13,7 +13,6 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
 
 @RestController
 @RequestMapping("/push-campaigns")
@@ -56,7 +55,7 @@ public class PushNotificationCampaignController {
 
     @PutMapping("/{id}/cancel")
     @PreAuthorize("hasAnyRole('Admin', 'HR', 'Manager') or @perm.has('push_notifications')")
-    public ResponseEntity<?> cancelCampaign(@PathVariable UUID id) {
+    public ResponseEntity<?> cancelCampaign(@PathVariable Long id) {
         try {
             PushNotificationCampaign campaign = campaignService.cancelCampaign(id);
             return ResponseEntity.ok(campaign);
@@ -69,7 +68,7 @@ public class PushNotificationCampaignController {
 
     @DeleteMapping("/{id}")
     @PreAuthorize("hasAnyRole('Admin', 'HR', 'Manager') or @perm.has('push_notifications')")
-    public ResponseEntity<?> deleteCampaign(@PathVariable UUID id) {
+    public ResponseEntity<?> deleteCampaign(@PathVariable Long id) {
         try {
             campaignService.deleteCampaign(id);
             return ResponseEntity.ok(Map.of("success", true, "message", "Campaign deleted successfully"));

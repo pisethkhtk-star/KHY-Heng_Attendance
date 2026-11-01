@@ -62,7 +62,7 @@ public class AttendanceLogController {
 
         Map<String, Employee> empMap = employeeRepository.findAll().stream()
                 .collect(Collectors.toMap(Employee::getStaffId, e -> e, (a, b) -> a));
-        Map<UUID, Department> deptMap = departmentRepository.findAll().stream()
+        Map<Long, Department> deptMap = departmentRepository.findAll().stream()
                 .collect(Collectors.toMap(Department::getId, d -> d, (a, b) -> a));
 
         List<Map<String, Object>> response = list.stream().map(log -> {

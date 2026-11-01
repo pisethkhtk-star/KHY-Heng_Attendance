@@ -71,27 +71,13 @@ void workmanagerCallbackDispatcher() {
           },
         ));
 
-        // Candidate URLs to guarantee connection across environments
-        final List<String> candidateUrls = [
-          '$cleanBase/notifications',
-          if (cleanBase != ApiConfig.baseUrl) '${ApiConfig.baseUrl}/notifications',
-          'http://10.10.1.186:8080/api/notifications',
-          'http://192.168.88.133:8080/api/notifications',
-        ];
-
         Response? response;
-        for (final url in candidateUrls) {
-          try {
-            final res = await dio.get(url);
-            if (res.statusCode == 200) {
-              response = res;
-              // Remember working base url
-              final newBase = url.replaceAll('/notifications', '');
-              await prefs.setString('working_base_url', newBase);
-              break;
-            }
-          } catch (_) {}
-        }
+        try {
+          final res = await dio.get('$cleanBase/notifications');
+          if (res.statusCode == 200) {
+            response = res;
+          }
+        } catch (_) {}
 
         if (response != null && response.statusCode == 200 && response.data is List) {
           final List<dynamic> list = response.data;

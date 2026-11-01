@@ -47,6 +47,14 @@ class RemoteConfigService {
       await rc.fetchAndActivate();
       debugPrint('[RemoteConfig] Fetched successfully! server_host: $serverHost');
 
+      // Update HttpApiClient base URL dynamically immediately on fetch
+      if (serverHost.isNotEmpty && Get.isRegistered<BaseApiClient>()) {
+        final client = Get.find<BaseApiClient>();
+        if (client is HttpApiClient) {
+          client.updateServerHost(serverHost);
+        }
+      }
+
       // Realtime listener (ចាប់ការកែប្រែភ្លាមៗពី Firebase Console)
       rc.onConfigUpdated.listen((event) async {
         try {

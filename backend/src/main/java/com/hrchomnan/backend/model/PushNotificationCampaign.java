@@ -6,7 +6,6 @@ import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
 import java.time.LocalDateTime;
-import java.util.UUID;
 
 @Entity
 @Table(name = "push_notification_campaigns")
@@ -18,8 +17,8 @@ import java.util.UUID;
 public class PushNotificationCampaign {
 
     @Id
-    @GeneratedValue
-    private UUID id;
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
 
     @Column(nullable = false)
     private String title;
@@ -36,7 +35,7 @@ public class PushNotificationCampaign {
     private String targetAudience = "ALL"; // ALL, DEPARTMENT, INDIVIDUAL
 
     @Column(name = "target_department_id")
-    private UUID targetDepartmentId;
+    private Long targetDepartmentId;
 
     @Column(name = "target_department_name")
     private String targetDepartmentName;

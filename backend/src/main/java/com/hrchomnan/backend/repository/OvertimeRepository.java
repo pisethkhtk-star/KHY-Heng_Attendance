@@ -10,10 +10,9 @@ import org.springframework.stereotype.Repository;
 
 import java.time.LocalDate;
 import java.util.List;
-import java.util.UUID;
 
 @Repository
-public interface OvertimeRepository extends JpaRepository<Overtime, UUID> {
+public interface OvertimeRepository extends JpaRepository<Overtime, Long> {
 
     List<Overtime> findByStaffId(String staffId);
 

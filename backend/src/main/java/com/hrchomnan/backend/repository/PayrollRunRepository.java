@@ -6,10 +6,9 @@ import org.springframework.stereotype.Repository;
 
 import java.util.List;
 import java.util.Optional;
-import java.util.UUID;
 
 @Repository
-public interface PayrollRunRepository extends JpaRepository<PayrollRun, UUID> {
+public interface PayrollRunRepository extends JpaRepository<PayrollRun, Long> {
     Optional<PayrollRun> findByMonthAndYear(Integer month, Integer year);
     List<PayrollRun> findAllByOrderByYearDescMonthDesc();
 }

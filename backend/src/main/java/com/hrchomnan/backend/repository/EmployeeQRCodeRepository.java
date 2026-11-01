@@ -6,10 +6,9 @@ import org.springframework.stereotype.Repository;
 
 import java.util.List;
 import java.util.Optional;
-import java.util.UUID;
 
 @Repository
-public interface EmployeeQRCodeRepository extends JpaRepository<EmployeeQRCode, UUID> {
+public interface EmployeeQRCodeRepository extends JpaRepository<EmployeeQRCode, Long> {
     List<EmployeeQRCode> findByStaffId(String staffId);
     Optional<EmployeeQRCode> findByQrToken(String qrToken);
     void deleteByStaffId(String staffId);

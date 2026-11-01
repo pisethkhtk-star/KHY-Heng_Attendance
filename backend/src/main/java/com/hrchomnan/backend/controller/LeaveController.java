@@ -60,9 +60,9 @@ public class LeaveController {
 
         Map<String, Employee> empMap = employeeRepository.findAll().stream()
                 .collect(Collectors.toMap(Employee::getStaffId, e -> e, (a, b) -> a));
-        Map<UUID, Department> deptMap = departmentRepository.findAll().stream()
+        Map<Long, Department> deptMap = departmentRepository.findAll().stream()
                 .collect(Collectors.toMap(Department::getId, d -> d, (a, b) -> a));
-        Map<UUID, Position> posMap = positionRepository.findAll().stream()
+        Map<Long, Position> posMap = positionRepository.findAll().stream()
                 .collect(Collectors.toMap(Position::getId, p -> p, (a, b) -> a));
         Map<String, String> faceDataMap = employeeFaceDataRepository.findAll().stream()
                 .filter(f -> f.getStaffId() != null && f.getPhotoUrl() != null)
@@ -70,10 +70,10 @@ public class LeaveController {
 
         if (departmentId != null && !departmentId.isBlank()) {
             try {
-                UUID deptUuid = UUID.fromString(departmentId);
+                Long filterDeptId = Long.parseLong(departmentId.trim());
                 list = list.stream().filter(l -> {
                     Employee e = empMap.get(l.getStaffId());
-                    return e != null && deptUuid.equals(e.getDepartmentId());
+                    return e != null && filterDeptId.equals(e.getDepartmentId());
                 }).collect(Collectors.toList());
             } catch (Exception ignored) {}
         }
@@ -134,9 +134,9 @@ public class LeaveController {
 
         Map<String, Employee> empMap = employeeRepository.findAll().stream()
                 .collect(Collectors.toMap(Employee::getStaffId, e -> e, (a, b) -> a));
-        Map<UUID, Department> deptMap = departmentRepository.findAll().stream()
+        Map<Long, Department> deptMap = departmentRepository.findAll().stream()
                 .collect(Collectors.toMap(Department::getId, d -> d, (a, b) -> a));
-        Map<UUID, Position> posMap = positionRepository.findAll().stream()
+        Map<Long, Position> posMap = positionRepository.findAll().stream()
                 .collect(Collectors.toMap(Position::getId, p -> p, (a, b) -> a));
         Map<String, String> faceDataMap = employeeFaceDataRepository.findAll().stream()
                 .filter(f -> f.getStaffId() != null && f.getPhotoUrl() != null)
@@ -185,9 +185,9 @@ public class LeaveController {
 
         Map<String, Employee> empMap = employeeRepository.findAll().stream()
                 .collect(Collectors.toMap(Employee::getStaffId, e -> e, (a, b) -> a));
-        Map<UUID, Department> deptMap = departmentRepository.findAll().stream()
+        Map<Long, Department> deptMap = departmentRepository.findAll().stream()
                 .collect(Collectors.toMap(Department::getId, d -> d, (a, b) -> a));
-        Map<UUID, Position> posMap = positionRepository.findAll().stream()
+        Map<Long, Position> posMap = positionRepository.findAll().stream()
                 .collect(Collectors.toMap(Position::getId, p -> p, (a, b) -> a));
         Map<String, String> faceDataMap = employeeFaceDataRepository.findAll().stream()
                 .filter(f -> f.getStaffId() != null && f.getPhotoUrl() != null)
@@ -236,9 +236,9 @@ public class LeaveController {
         filtered.sort(Comparator.comparing(Leave::getApprovedAt, Comparator.nullsLast(Comparator.reverseOrder()))
                 .thenComparing(Leave::getLeaveDate, Comparator.nullsLast(Comparator.reverseOrder())));
 
-        Map<UUID, Department> deptMap = departmentRepository.findAll().stream()
+        Map<Long, Department> deptMap = departmentRepository.findAll().stream()
                 .collect(Collectors.toMap(Department::getId, d -> d, (a, b) -> a));
-        Map<UUID, Position> posMap = positionRepository.findAll().stream()
+        Map<Long, Position> posMap = positionRepository.findAll().stream()
                 .collect(Collectors.toMap(Position::getId, p -> p, (a, b) -> a));
         Map<String, String> faceDataMap = employeeFaceDataRepository.findAll().stream()
                 .filter(f -> f.getStaffId() != null && f.getPhotoUrl() != null)
@@ -411,8 +411,8 @@ public class LeaveController {
         }
 
         Map<String, Employee> empMap = Map.of(empOpt.get().getStaffId(), empOpt.get());
-        Map<UUID, Department> deptMap = departmentRepository.findAll().stream().collect(Collectors.toMap(Department::getId, d -> d, (a, b) -> a));
-        Map<UUID, Position> posMap = positionRepository.findAll().stream().collect(Collectors.toMap(Position::getId, p -> p, (a, b) -> a));
+        Map<Long, Department> deptMap = departmentRepository.findAll().stream().collect(Collectors.toMap(Department::getId, d -> d, (a, b) -> a));
+        Map<Long, Position> posMap = positionRepository.findAll().stream().collect(Collectors.toMap(Position::getId, p -> p, (a, b) -> a));
 
         // Dispatch instant alert to Leave Telegram Group
         try {
@@ -450,7 +450,7 @@ public class LeaveController {
     @PutMapping("/{id}/status")
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<?> updateStatus(
-            @PathVariable UUID id,
+            @PathVariable Long id,
             @RequestBody StatusUpdateRequest request,
             Authentication authentication
     ) {
@@ -543,8 +543,8 @@ public class LeaveController {
         }
 
         Map<String, Employee> empMap = Map.of(employee.getStaffId(), employee);
-        Map<UUID, Department> deptMap = departmentRepository.findAll().stream().collect(Collectors.toMap(Department::getId, d -> d, (a, b) -> a));
-        Map<UUID, Position> posMap = positionRepository.findAll().stream().collect(Collectors.toMap(Position::getId, p -> p, (a, b) -> a));
+        Map<Long, Department> deptMap = departmentRepository.findAll().stream().collect(Collectors.toMap(Department::getId, d -> d, (a, b) -> a));
+        Map<Long, Position> posMap = positionRepository.findAll().stream().collect(Collectors.toMap(Position::getId, p -> p, (a, b) -> a));
 
         // Dispatch status update alert to Leave Telegram Group
         try {
@@ -574,7 +574,7 @@ public class LeaveController {
 
     @DeleteMapping("/{id}")
     @PreAuthorize("isAuthenticated()")
-    public ResponseEntity<?> deleteLeave(@PathVariable UUID id, Authentication authentication) {
+    public ResponseEntity<?> deleteLeave(@PathVariable Long id, Authentication authentication) {
         Optional<Leave> leaveOpt = leaveRepository.findById(id);
         if (leaveOpt.isEmpty()) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("message", "Leave request not found"));
@@ -616,7 +616,7 @@ public class LeaveController {
         return ResponseEntity.ok(Map.of("success", true, "message", "Leave request deleted successfully"));
     }
 
-    private void cleanUpAttendanceLeave(String staffId, LocalDate leaveDate, UUID excludeLeaveId) {
+    private void cleanUpAttendanceLeave(String staffId, LocalDate leaveDate, Long excludeLeaveId) {
         if (staffId == null || leaveDate == null) return;
         try {
             Optional<Attendance> existingAtt = attendanceRepository.findByStaffIdAndAttendanceDate(staffId, leaveDate);
@@ -659,8 +659,8 @@ public class LeaveController {
     private Map<String, Object> enrichLeave(
             Leave l,
             Map<String, Employee> empMap,
-            Map<UUID, Department> deptMap,
-            Map<UUID, Position> posMap
+            Map<Long, Department> deptMap,
+            Map<Long, Position> posMap
     ) {
         Map<String, String> faceDataMap = employeeFaceDataRepository.findAll().stream()
                 .filter(f -> f.getStaffId() != null && f.getPhotoUrl() != null)
@@ -671,8 +671,8 @@ public class LeaveController {
     private Map<String, Object> enrichLeave(
             Leave l,
             Map<String, Employee> empMap,
-            Map<UUID, Department> deptMap,
-            Map<UUID, Position> posMap,
+            Map<Long, Department> deptMap,
+            Map<Long, Position> posMap,
             Map<String, String> faceDataMap
     ) {
         Map<String, Object> map = new HashMap<>();
@@ -955,7 +955,7 @@ public class LeaveController {
         return !myRules.isEmpty();
     }
 
-    public boolean isUserAuthorizedForEmployee(Employee currentUser, String targetStaffId, UUID targetDeptId) {
+    public boolean isUserAuthorizedForEmployee(Employee currentUser, String targetStaffId, Long targetDeptId) {
         if (currentUser == null) return false;
         if (currentUser.getRole() == Role.Admin) return true;
 

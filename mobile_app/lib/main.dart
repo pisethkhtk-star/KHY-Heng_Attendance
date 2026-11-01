@@ -22,6 +22,8 @@ import 'core/services/remote_config_service.dart';
 import 'core/services/analytics_service.dart';
 import 'core/services/local_notification_service.dart';
 import 'core/services/background_notification_service.dart';
+import 'core/services/mock_location_service.dart';
+import 'core/services/face_database_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -52,6 +54,11 @@ void main() async {
   Get.put<ILeaveRepository>(LeaveRepository(Get.find<BaseApiClient>()));
   Get.put<IOvertimeRepository>(OvertimeRepository(Get.find<BaseApiClient>()));
 
+  // 4. Initialize and register Android Local Face Database Service
+  final faceDb = FaceDatabaseService();
+  await faceDb.init();
+  Get.put(faceDb, permanent: true);
+
   // 4. Register GetX Controllers globally
   Get.put(LanguageController());
   Get.put(ThemeController());
@@ -60,6 +67,7 @@ void main() async {
   Get.put(AttendanceController());
   Get.put(LeaveController());
   Get.put(OvertimeController());
+  Get.put(MockLocationService(), permanent: true);
 
   // 5. RUN APP IMMEDIATELY! Renders the Flutter UI and Splash Screen immediately
   runApp(const HrAttendanceApp());
@@ -97,6 +105,13 @@ void _initAsyncServices() {
       await BackgroundNotificationService().init();
     } catch (e) {
       debugPrint('[BackgroundNotification Service Init Warning]: $e');
+    }
+
+    // E. Face Database Sync (Android local database auto-sync)
+    try {
+      await FaceDatabaseService.to.syncWithServer();
+    } catch (e) {
+      debugPrint('[FaceDatabase Sync Warning]: $e');
     }
   });
 }

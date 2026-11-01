@@ -3,10 +3,10 @@ import { getRemoteServerHost } from './firebase';
 
 export const formatBaseUrl = (host) => {
   if (!host || typeof host !== 'string') {
-    return 'http://192.168.88.77:8080/api';
+    return 'http://10.10.2.76:8080/api';
   }
   let clean = host.trim();
-  if (!clean) return 'http://192.168.88.77:8080/api';
+  if (!clean) return 'http://10.10.2.76:8080/api';
 
   // If host already contains protocol (http:// or https://)
   if (clean.startsWith('http://') || clean.startsWith('https://')) {

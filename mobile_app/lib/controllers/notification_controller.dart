@@ -8,8 +8,6 @@ import '../models/notification_model.dart';
 import '../core/services/local_notification_service.dart';
 import '../core/services/base_api_client.dart';
 
-import '../core/services/background_notification_service.dart';
-
 class NotificationController extends GetxController with WidgetsBindingObserver {
   final RxList<AppNotificationItem> notifications = <AppNotificationItem>[].obs;
   static const String _storageKey = 'stored_app_notifications';

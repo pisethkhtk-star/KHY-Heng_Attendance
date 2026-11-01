@@ -1,25 +1,36 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
-import { ClockIcon } from '@heroicons/react/24/outline';
 import { Navigate } from 'react-router-dom';
-import appIcon from '../assets/app_icon.png';
 import { Html5Qrcode } from 'html5-qrcode';
+import {
+  QrCodeIcon,
+  KeyIcon,
+  ArrowPathIcon,
+  ExclamationCircleIcon,
+} from '@heroicons/react/24/outline';
 
 const Login = () => {
   const { user, login, loginWithQR } = useAuth();
   const { t, locale, setLocale } = useLanguage();
+
+  // Form states
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
-  // QR Login States & References
-  const [loginMode, setLoginMode] = useState('password'); // password, qrcode
+  // Mode states: 'password' | 'qrcode'
+  const [loginMode, setLoginMode] = useState('password');
   const [qrError, setQrError] = useState('');
   const [scanLock, setScanLock] = useState(false);
+  const [facingMode, setFacingMode] = useState('user');
   const qrScannerRef = useRef(null);
 
+  const isKhmer = locale === 'kh';
+
+  // Audio feedback
   const playSound = (type = 'success') => {
     try {
       const ctx = new (window.AudioContext || window.webkitAudioContext)();
@@ -29,17 +40,17 @@ const Login = () => {
       gain.connect(ctx.destination);
       if (type === 'success') {
         osc.frequency.setValueAtTime(800, ctx.currentTime);
-        gain.gain.setValueAtTime(0.05, ctx.currentTime);
+        gain.gain.setValueAtTime(0.06, ctx.currentTime);
         osc.start();
-        osc.frequency.setValueAtTime(1000, ctx.currentTime + 0.08);
-        gain.gain.setValueAtTime(0, ctx.currentTime + 0.16);
-        setTimeout(() => { osc.stop(); ctx.close(); }, 200);
+        osc.frequency.setValueAtTime(1050, ctx.currentTime + 0.08);
+        gain.gain.setValueAtTime(0, ctx.currentTime + 0.18);
+        setTimeout(() => { osc.stop(); ctx.close(); }, 220);
       } else {
         osc.type = 'sawtooth';
-        osc.frequency.setValueAtTime(150, ctx.currentTime);
-        gain.gain.setValueAtTime(0.1, ctx.currentTime);
+        osc.frequency.setValueAtTime(160, ctx.currentTime);
+        gain.gain.setValueAtTime(0.12, ctx.currentTime);
         osc.start();
-        gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.3);
+        gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.32);
         setTimeout(() => { osc.stop(); ctx.close(); }, 400);
       }
     } catch (err) {
@@ -47,7 +58,8 @@ const Login = () => {
     }
   };
 
-  const startQrScanner = async () => {
+  // QR Code scanner methods
+  const startQrScanner = async (targetFacing = null) => {
     setQrError('');
     if (qrScannerRef.current) {
       await stopQrScanner();
@@ -59,28 +71,27 @@ const Login = () => {
     const html5Qrcode = new Html5Qrcode("login-qr-reader");
     qrScannerRef.current = html5Qrcode;
 
-    const config = { fps: 10, qrbox: { width: 180, height: 180 } };
+    const config = { fps: 12, qrbox: { width: 200, height: 200 } };
+    const facing = targetFacing || facingMode;
 
     try {
-      // 1. Try front/user camera
       await html5Qrcode.start(
-        { facingMode: "user" },
+        { facingMode: facing },
         config,
         (decodedText) => handleQrLogin(decodedText),
         () => { }
       );
-    } catch (errUser) {
-      console.warn("User camera facingMode failed, trying environment fallback:", errUser);
+    } catch (errFacing) {
       try {
-        // 2. Try back/environment camera
+        const altFacing = facing === 'user' ? 'environment' : 'user';
         await html5Qrcode.start(
-          { facingMode: "environment" },
+          { facingMode: altFacing },
           config,
           (decodedText) => handleQrLogin(decodedText),
           () => { }
         );
-      } catch (errEnv) {
-        console.warn("Environment camera failed, trying getCameras fallback:", errEnv);
+        setFacingMode(altFacing);
+      } catch (errAlt) {
         try {
           const cameras = await Html5Qrcode.getCameras();
           if (cameras && cameras.length > 0) {
@@ -91,11 +102,10 @@ const Login = () => {
               () => { }
             );
           } else {
-            setQrError(locale === 'kh' ? 'រកមិនឃើញកាមេរ៉ាលើឧបករណ៍របស់អ្នកឡើយ' : 'No camera detected on this device');
+            setQrError(isKhmer ? 'រកមិនឃើញកាមេរ៉ាលើឧបករណ៍របស់អ្នកឡើយ' : 'No camera detected on this device');
           }
         } catch (errAll) {
-          console.error("All camera initialization failed:", errAll);
-          setQrError(locale === 'kh' ? 'មិនអាចបើកកាមេរ៉ាបានទេ (សូមពិនិត្យមើល Camera Permission)' : 'Failed to access camera. Please check permissions.');
+          setQrError(isKhmer ? 'មិនអាចបើកកាមេរ៉ាបានទេ (សូមអនុញ្ញាត Permission)' : 'Cannot access camera. Please allow permissions.');
         }
       }
     }
@@ -114,54 +124,35 @@ const Login = () => {
     }
   };
 
+  const toggleCameraFacing = async () => {
+    const nextMode = facingMode === 'user' ? 'environment' : 'user';
+    setFacingMode(nextMode);
+    await stopQrScanner();
+    await startQrScanner(nextMode);
+  };
+
   const handleQrLogin = async (decodedText) => {
     if (scanLock) return;
     setScanLock(true);
     setQrError('');
-
-    // Stop scanner temporarily during verification
     await stopQrScanner();
 
     const result = await loginWithQR(decodedText);
     if (!result.success) {
       playSound('error');
-      setQrError(result.message);
+      setQrError(result.message || (isKhmer ? 'កូដ QR មិនត្រឹមត្រូវ ឬផុតកំណត់' : 'Invalid or expired QR badge'));
       setScanLock(false);
-      // Restart scanner after 2 seconds
       setTimeout(() => {
         setScanLock(false);
         if (loginMode === 'qrcode' && qrScannerRef.current === null) {
           startQrScanner();
         }
-      }, 2000);
+      }, 2200);
     } else {
       playSound('success');
     }
   };
 
-  const handleFileQrScan = async (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    setQrError('');
-    setScanLock(true);
-
-    try {
-      let scanner = qrScannerRef.current;
-      if (!scanner) {
-        scanner = new Html5Qrcode("login-qr-reader");
-      }
-      const decodedText = await scanner.scanFile(file, true);
-      if (decodedText) {
-        await handleQrLogin(decodedText);
-      }
-    } catch (err) {
-      console.error("Error scanning file:", err);
-      playSound('error');
-      setQrError(locale === 'kh' ? 'មិនអាចអាន QR Code ពីរូបភាពនេះបានទេ សូមសាកល្បងម្ដងទៀត' : 'Could not detect a QR Code in this image. Please try again.');
-      setScanLock(false);
-    }
-  };
 
   useEffect(() => {
     if (loginMode === 'qrcode') {
@@ -189,155 +180,247 @@ const Login = () => {
 
     const result = await login(email, password);
     if (!result.success) {
-      setErrorMsg(result.message);
+      playSound('error');
+      setErrorMsg(result.message || (isKhmer ? 'អ៊ីមែល ឬពាក្យសម្ងាត់មិនត្រឹមត្រូវ' : 'Invalid email or password'));
       setSubmitting(false);
+    } else {
+      playSound('success');
     }
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-[var(--bg-app)] px-4 py-12 sm:px-6 lg:px-8 relative overflow-hidden text-[var(--text-primary)]">
-      {/* Background decorations */}
-      <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-[var(--brand-blue)]/5 rounded-full filter blur-[120px] pointer-events-none"></div>
-      <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-[var(--brand-blue)]/5 rounded-full filter blur-[120px] pointer-events-none"></div>
+    <div className="min-h-screen w-full flex flex-col lg:flex-row bg-white text-slate-800 font-sans selection:bg-[#0077C8] selection:text-white">
+      {/* ============================================================== */}
+      {/* LEFT SIDE: Solid Blue Brand Panel (Matches Figma Design)       */}
+      {/* ============================================================== */}
+      <div className="w-full lg:w-1/2 bg-[#0077C8] py-12 px-8 sm:px-12 lg:px-20 lg:min-h-screen flex flex-col justify-center">
+        <div className="max-w-md">
+          <h1 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold text-white tracking-tight leading-[1.15] font-khmer">
+            {isKhmer ? (
+              <>
+                KHY-HENG<br />
+                Attendance<br />
+                Management
+              </>
+            ) : (
+              <>
+                KHY-HENG<br />
+                Attendance<br />
+                Management
+              </>
+            )}
+          </h1>
+          {isKhmer && (
+            <p className="text-white/80 font-khmer text-lg mt-3 font-medium">
+              ប្រព័ន្ធគ្រប់គ្រងវត្តមានបុគ្គលិក
+            </p>
+          )}
+        </div>
+      </div>
 
-      <div className="w-full max-w-md space-y-8 z-10">
-        <div className="bg-[var(--bg-card)] border border-[var(--border-card)] p-8 rounded-[25px] shadow-sm glow-indigo">
-          {/* Logo & Header */}
-          <div className="flex flex-col items-center">
-            <img src={appIcon} alt="HR Chomnan Logo" className="h-12 w-12 rounded-2xl object-cover shadow-lg shadow-[var(--brand-blue)]/20" />
-            <h2 className="mt-6 text-center text-2xl font-bold tracking-tight text-[var(--text-primary)] font-khmer">
-              {locale === 'kh' ? 'គ្រប់គ្រង់ វត្តមានបុគ្គលិក' : 'Attendance Management'}
+      {/* ============================================================== */}
+      {/* RIGHT SIDE: Clean White Form with Rounded Blue-Bordered Card   */}
+      {/* ============================================================== */}
+      <div className="w-full lg:w-1/2 bg-white flex flex-col justify-between p-6 sm:p-10 lg:p-12 lg:min-h-screen">
+        {/* Top spacer */}
+        <div className="hidden lg:block h-6" />
+
+        {/* Center Container & Card */}
+        <div className="w-full max-w-[460px] mx-auto my-auto py-6">
+          <div className="bg-white rounded-[32px] border-[2.5px] border-[#0084FF] p-8 sm:p-10 shadow-sm transition-all">
+            {/* Circle "A" Icon */}
+            {/* <div className="w-13 h-13 rounded-full bg-[#0077C8] text-white flex items-center justify-center font-bold text-xl mb-6 shadow-sm">
+              A
+            </div> */}
+
+            {/* Header Titles */}
+            <h2 className="text-2xl sm:text-[26px] font-bold text-slate-900 tracking-tight font-khmer">
+              {isKhmer ? 'សូមស្វាគមន៍មកកាន់ប្រព័ន្ធ' : 'Welcome back'}
             </h2>
-          </div>
+            <p className="text-xs sm:text-sm text-slate-500 mt-1.5 mb-6 font-khmer leading-relaxed">
+              {isKhmer
+                ? 'សូមបញ្ចូលគណនីរបស់អ្នកដើម្បីចូលប្រើប្រាស់ផ្ទាំងគ្រប់គ្រងវត្តមាន។'
+                : 'Sign in to access your attendance dashboard.'}
+            </p>
 
-          {/* Login Mode Tabs */}
-          {/* <div className="flex border-b border-[var(--border-card)] mt-6 w-full">
-            <button
-              type="button"
-              onClick={() => setLoginMode('password')}
-              className={`flex-1 py-3 flex items-center justify-center gap-2 font-semibold text-[11px] transition-all cursor-pointer font-khmer border-none outline-none ${
-                loginMode === 'password'
-                  ? 'bg-[var(--brand-blue)]/5 text-[var(--brand-blue)] border-b-2 border-[var(--brand-blue)] font-bold'
-                  : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
-              }`}
-            >
-              {locale === 'kh' ? 'Password' : 'Password'}
-            </button>
-            <button
-              type="button"
-              onClick={() => setLoginMode('qrcode')}
-              className={`flex-1 py-3 flex items-center justify-center gap-2 font-semibold text-[11px] transition-all cursor-pointer font-khmer border-none outline-none ${
-                loginMode === 'qrcode'
-                  ? 'bg-[var(--brand-blue)]/5 text-[var(--brand-blue)] border-b-2 border-[var(--brand-blue)] font-bold'
-                  : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
-              }`}
-            >
-              {locale === 'kh' ? 'Scan QR Code' : 'QR Scan'}
-            </button>
-          </div> */}
+            {/* Error Message */}
+            {errorMsg && (
+              <div className="mb-5 flex items-center gap-2 p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-600 text-xs font-khmer animate-shake">
+                <ExclamationCircleIcon className="w-4 h-4 shrink-0" />
+                <span>{errorMsg}</span>
+              </div>
+            )}
 
-          {loginMode === 'password' ? (
-            /* Form */
-            <form className="mt-6 space-y-6" onSubmit={handleSubmit}>
-              {errorMsg && (
-                <div className="rounded-xl bg-rose-500/10 border border-rose-500/20 p-4 text-sm text-rose-500 text-center font-khmer">
-                  {errorMsg}
-                </div>
-              )}
-
-              <div className="space-y-4">
+            {loginMode === 'password' ? (
+              /* Password Form */
+              <form onSubmit={handleSubmit} className="space-y-4">
+                {/* Email address */}
                 <div>
-                  <label className="block text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider mb-2 font-khmer">
-                    {t("email")}
+                  <label className="block text-xs font-semibold text-slate-700 mb-2 font-khmer">
+                    {isKhmer ? 'អាសយដ្ឋានអ៊ីមែល' : 'Email address'}
                   </label>
                   <input
                     type="email"
                     required
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    className="block w-full rounded-[15px] border border-[var(--border-card)] bg-[var(--bg-app)] py-3 px-4 text-[var(--text-primary)] placeholder-[var(--text-secondary)] focus:border-[var(--brand-blue)] text-sm transition-all outline-none"
                     placeholder="name@attendance.com"
+                    className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white text-slate-900 placeholder-slate-400 text-sm focus:border-[#0084FF] focus:ring-2 focus:ring-[#0084FF]/10 outline-none transition-all"
                   />
                 </div>
-                <div>
-                  <label className="block text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider mb-2 font-khmer">
-                    {t("password")}
-                  </label>
-                  <input
-                    type="password"
-                    required
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    className="block w-full rounded-[15px] border border-[var(--border-card)] bg-[var(--bg-app)] py-3 px-4 text-[var(--text-primary)] placeholder-[var(--text-secondary)] focus:border-[var(--brand-blue)] text-sm transition-all outline-none"
-                    placeholder="••••••••"
-                  />
-                </div>
-              </div>
 
-              <div>
-                <button
-                  type="submit"
-                  disabled={submitting}
-                  className="group relative flex w-full justify-center rounded-[15px] bg-[var(--brand-blue)] py-3 px-4 text-sm font-semibold text-white hover:bg-[var(--brand-blue)]/90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500 transition-all font-khmer shadow-md shadow-[var(--brand-blue)]/25 disabled:opacity-50 cursor-pointer border-none"
-                >
-                  {submitting ? t("loading") : (locale === 'kh' ? 'ចូលប្រព័ន្ធ' : 'Sign In')}
-                </button>
-              </div>
-            </form>
-          ) : (
-            /* QR Scanner view */
-            <div className="mt-6 flex flex-col items-center">
-              <div className="relative w-full aspect-square max-w-[240px] rounded-[25px] border border-[var(--border-card)] bg-[var(--bg-app)] overflow-hidden shadow-inner flex items-center justify-center">
-                <div className="absolute inset-0 pointer-events-none border border-dashed border-[var(--brand-blue)]/30 m-4 rounded-xl flex items-center justify-center animate-pulse z-10">
-                  <div className="w-28 h-28 border border-[var(--brand-blue)]/20 rounded-lg"></div>
+                {/* Password */}
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-2 font-khmer">
+                    {isKhmer ? 'ពាក្យសម្ងាត់ (Password)' : 'Password'}
+                  </label>
+                  <div className="relative">
+                    <input
+                      type={showPassword ? 'text' : 'password'}
+                      required
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder="••••••••"
+                      className="w-full pl-4 pr-16 py-3 rounded-xl border border-slate-200 bg-white text-slate-900 placeholder-slate-400 text-sm focus:border-[#0084FF] focus:ring-2 focus:ring-[#0084FF]/10 outline-none transition-all"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute inset-y-0 right-0 pr-4 flex items-center text-xs font-medium text-[#0077C8] hover:text-[#005a96] transition-colors border-none bg-transparent cursor-pointer select-none"
+                    >
+                      {showPassword ? (isKhmer ? 'លាក់' : 'Hide') : (isKhmer ? 'បង្ហាញ' : 'Show')}
+                    </button>
+                  </div>
                 </div>
-                <div id="login-qr-reader" className="w-full h-full object-cover [&_video]:object-cover [&_video]:w-full [&_video]:h-full" />
-                {scanLock && (
-                  <div className="absolute inset-0 bg-slate-950/70 backdrop-blur-xs flex items-center justify-center z-20">
-                    <div className="flex flex-col items-center gap-2">
-                      <div className="w-8 h-8 border-3 border-indigo-400 border-t-transparent rounded-full animate-spin"></div>
-                      <span className="text-xs font-semibold text-white font-khmer">កំពុងផ្ទៀងផ្ទាត់...</span>
+
+                {/* Forgot password */}
+                {/* <div className="pt-0.5">
+                  <a
+                    href="#forgot"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      alert(isKhmer ? 'សូមទាក់ទងមកកាន់អ្នកគ្រប់គ្រងប្រព័ន្ធ (Admin) ដើម្បីកំណត់លេខសម្ងាត់ឡើងវិញ' : 'Please contact your system administrator to reset your password.');
+                    }}
+                    className="text-xs font-semibold text-[#0077C8] hover:underline transition-colors font-khmer inline-block"
+                  >
+                    {isKhmer ? 'ភ្លេចលេខសម្ងាត់?' : 'Forgot password?'}
+                  </a>
+                </div> */}
+
+                {/* Sign in Button */}
+                <div className="pt-2">
+                  <button
+                    type="submit"
+                    disabled={submitting}
+                    className="w-full py-3.5 px-4 rounded-xl font-semibold text-sm text-white bg-[#1814F3] hover:bg-[#120fd0] active:scale-[0.99] transition-all duration-150 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 border-none cursor-pointer font-khmer"
+                  >
+                    {submitting ? (
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    ) : (
+                      <span>{isKhmer ? 'ចូលប្រព័ន្ធ' : 'Sign in'}</span>
+                    )}
+                  </button>
+                </div>
+
+                {/* Clean QR Switcher option */}
+                <div className="pt-2 text-center">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setLoginMode('qrcode');
+                      setErrorMsg('');
+                    }}
+                    className="inline-flex items-center gap-1.5 text-xs text-slate-500 hover:text-[#0077C8] font-khmer transition-colors border-none bg-transparent cursor-pointer"
+                  >
+                    <QrCodeIcon className="w-4 h-4" />
+                    <span>{isKhmer ? 'ឬស្កេនកាតសម្គាល់ខ្លួន (QR Badge)' : 'Or sign in with QR Badge'}</span>
+                  </button>
+                </div>
+              </form>
+            ) : (
+              /* QR Code Scanner Mode inside same clean card */
+              <div className="space-y-4">
+                <div className="relative w-full aspect-square max-w-[260px] mx-auto rounded-2xl border-2 border-dashed border-[#0084FF] bg-slate-50 overflow-hidden flex items-center justify-center">
+                  <div
+                    id="login-qr-reader"
+                    className="w-full h-full object-cover [&_video]:object-cover [&_video]:w-full [&_video]:h-full"
+                  />
+
+                  {scanLock && (
+                    <div className="absolute inset-0 bg-white/90 backdrop-blur-xs flex items-center justify-center z-20">
+                      <div className="flex flex-col items-center gap-2">
+                        <div className="w-8 h-8 border-3 border-[#0077C8] border-t-transparent rounded-full animate-spin" />
+                        <span className="text-xs font-semibold text-slate-700 font-khmer">
+                          {isKhmer ? 'កំពុងផ្ទៀងផ្ទាត់...' : 'Verifying...'}
+                        </span>
+                      </div>
                     </div>
+                  )}
+                </div>
+
+                {qrError && (
+                  <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-600 text-xs font-khmer text-center">
+                    {qrError}
                   </div>
                 )}
-              </div>
 
-              {qrError && (
-                <div className="mt-4 w-full rounded-xl bg-rose-500/10 border border-rose-500/20 p-3 text-xs text-rose-500 text-center font-khmer">
-                  ⚠️ {qrError}
+                <div className="flex items-center justify-between text-xs text-slate-600 font-khmer pt-1">
+                  <span className="flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                    {isKhmer ? 'កាមេរ៉ាសកម្ម' : 'Camera active'}
+                  </span>
+
+                  <button
+                    type="button"
+                    onClick={toggleCameraFacing}
+                    className="inline-flex items-center gap-1 text-[#0077C8] hover:underline cursor-pointer border-none bg-transparent"
+                  >
+                    <ArrowPathIcon className="w-3.5 h-3.5" />
+                    <span>{isKhmer ? 'ប្តូរកាមេរ៉ា' : 'Flip camera'}</span>
+                  </button>
                 </div>
-              )}
 
-              <div className="mt-4 text-[11px] font-semibold text-[var(--text-secondary)] font-khmer flex gap-2 items-center">
-                <span className="inline-block w-2 h-2 rounded-full bg-[var(--brand-blue)] animate-ping"></span>
-                <span>{locale === 'kh' ? "សូមបង្ហាញកូដ QR ផ្ទាល់ខ្លួនរបស់លោកអ្នក" : "Please show your personal QR code badge"}</span>
+                <div className="pt-2 flex flex-col gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setLoginMode('password');
+                      setQrError('');
+                    }}
+                    className="text-xs text-[#0077C8] hover:underline font-khmer text-center cursor-pointer border-none bg-transparent py-1"
+                  >
+                    {isKhmer ? 'ត្រឡប់ទៅប្រើពាក្យសម្ងាត់' : 'Back to Password Login'}
+                  </button>
+                </div>
               </div>
+            )}
 
-              {/* Upload QR Code Image Option */}
-              <div className="mt-4 pt-3 border-t border-[var(--border-card)] w-full flex justify-center">
-                <label className="cursor-pointer inline-flex items-center gap-2 text-xs font-medium text-[var(--brand-blue)] hover:underline font-khmer">
-                  <input
-                    type="file"
-                    accept="image/*"
-                    className="hidden"
-                    onChange={handleFileQrScan}
-                  />
-                  <span>📁 {locale === 'kh' ? 'ឬផ្ទុករូបភាព QR Code ពីឧបករណ៍' : 'Or upload QR code image'}</span>
-                </label>
-              </div>
-            </div>
-          )}
-
+            {/* Card Note (Matches Figma) */}
+            <p className="text-[11px] text-slate-400 text-center mt-6 font-khmer leading-relaxed">
+              {isKhmer
+                ? 'ប្រព័ន្ធអាចនឹងតម្រូវឱ្យផ្ទៀងផ្ទាត់កត្តាពីរ (Two-factor authentication) បន្ទាប់ពីចូលប្រើប្រាស់។'
+                : 'Two-factor authentication may be required after sign in.'}
+            </p>
+          </div>
         </div>
 
-        {/* Global Language Toggle */}
-        <div className="flex justify-center">
-          <button
-            onClick={() => setLocale(locale === 'kh' ? 'en' : 'kh')}
-            className="flex items-center gap-2 text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-all text-sm font-semibold py-1.5 px-4 rounded-full bg-[var(--bg-card)] border border-[var(--border-card)] cursor-pointer"
-          >
-            <span>{locale === 'kh' ? '🇰🇭 ខ្មែរ' : '🇺🇸 English'}</span>
-          </button>
+        {/* Bottom Bar: Language Pill on Right & Copyright */}
+        <div className="w-full max-w-[460px] mx-auto flex flex-col gap-4">
+          {/* Language Selector Pill (Matches Figma) */}
+          <div className="flex justify-end">
+            <button
+              type="button"
+              onClick={() => setLocale(locale === 'kh' ? 'en' : 'kh')}
+              className="px-4 py-1.5 rounded-full border border-slate-200 bg-white hover:bg-slate-50 text-xs font-medium text-slate-700 transition-colors cursor-pointer shadow-xs"
+            >
+              {locale === 'kh' ? 'ភាសាខ្មែរ' : 'English'}
+            </button>
+          </div>
+
+          {/* Copyright (Matches Figma) */}
+          <div className="text-center text-[11px] text-slate-400 font-sans pb-2">
+            © 2026 Attendance Management
+          </div>
         </div>
       </div>
     </div>

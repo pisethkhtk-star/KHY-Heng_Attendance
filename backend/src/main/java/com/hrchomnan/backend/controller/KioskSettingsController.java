@@ -52,7 +52,7 @@ public class KioskSettingsController {
 
     @PutMapping("/{id}")
     @PreAuthorize("@perm.has('edit_branch')")
-    public ResponseEntity<?> updateSetting(@PathVariable UUID id, @RequestBody KioskSetting setting) {
+    public ResponseEntity<?> updateSetting(@PathVariable Long id, @RequestBody KioskSetting setting) {
         Optional<KioskSetting> existingOpt = kioskSettingRepository.findById(id);
         if (existingOpt.isEmpty()) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("message", "Kiosk setting not found"));
@@ -81,7 +81,7 @@ public class KioskSettingsController {
 
     @DeleteMapping("/{id}")
     @PreAuthorize("@perm.has('delete_branch')")
-    public ResponseEntity<?> deleteSetting(@PathVariable UUID id) {
+    public ResponseEntity<?> deleteSetting(@PathVariable Long id) {
         if (kioskSettingRepository.existsById(id)) {
             kioskSettingRepository.deleteById(id);
             return ResponseEntity.ok(Map.of("message", "Kiosk geofence deleted successfully"));
@@ -91,7 +91,7 @@ public class KioskSettingsController {
 
     @GetMapping("/{id}/qrcode")
     @PreAuthorize("isAuthenticated()")
-    public ResponseEntity<?> getBranchQrCode(@PathVariable UUID id) {
+    public ResponseEntity<?> getBranchQrCode(@PathVariable Long id) {
         Optional<KioskSetting> branchOpt = kioskSettingRepository.findById(id);
         if (branchOpt.isEmpty()) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("message", "Branch location not found"));

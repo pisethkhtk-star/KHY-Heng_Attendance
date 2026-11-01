@@ -744,7 +744,7 @@ const Employees = () => {
           workingDays,
         }),
         email: email.trim(),
-        role: normalizeRole(role),
+        // Note: role is not sent in payload; backend automatically assigns Role.Employee on creation, and roles are managed via Permissions
         address: address || '',
         idCardPassport: idCardPassport || '',
         facePhoto: formPhotoStatus === 'success' ? formPhoto : undefined,
@@ -1752,11 +1752,10 @@ const Employees = () => {
                     key={item}
                     type="button"
                     onClick={() => setCurrentPage(item)}
-                    className={`h-8 min-w-[32px] px-2 rounded-lg text-xs font-mono font-bold transition-all cursor-pointer ${
-                      isCurrent
-                        ? 'bg-blue-600 text-white shadow-md shadow-blue-500/25 border border-blue-500'
-                        : 'border border-white/10 bg-slate-900/60 hover:bg-slate-800 text-slate-300'
-                    }`}
+                    className={`h-8 min-w-[32px] px-2 rounded-lg text-xs font-mono font-bold transition-all cursor-pointer ${isCurrent
+                      ? 'bg-blue-600 text-white shadow-md shadow-blue-500/25 border border-blue-500'
+                      : 'border border-white/10 bg-slate-900/60 hover:bg-slate-800 text-slate-300'
+                      }`}
                   >
                     {item}
                   </button>
@@ -2026,7 +2025,7 @@ const Employees = () => {
                           : false;
 
                         return (
-                          <label key={b.id} className="flex items-center gap-2.5 text-xs text-slate-200 cursor-pointer select-none">
+                          <label key={b.id} className="flex items-center gap-2.5 text-xs text-gray-900 dark:text-gray-100 cursor-pointer select-none font-medium">
                             <input
                               type="checkbox"
                               checked={isChecked}
@@ -2040,9 +2039,9 @@ const Employees = () => {
                                 }
                                 setBranch(newList.join(', '));
                               }}
-                              className="rounded border-white/20 bg-slate-900 text-indigo-600 focus:ring-indigo-500 focus:ring-offset-0 focus:ring-offset-transparent cursor-pointer h-4 w-4"
+                              className="rounded border-gray-300 dark:border-white/20 bg-white dark:bg-slate-900 text-indigo-600 focus:ring-indigo-500 focus:ring-offset-0 focus:ring-offset-transparent cursor-pointer h-4 w-4"
                             />
-                            <span>{b.name}</span>
+                            <span className="text-gray-900 dark:text-gray-100">{b.name}</span>
                           </label>
                         );
                       })}
@@ -2075,45 +2074,51 @@ const Employees = () => {
                   </select>
                 </div>
 
-                {/* Role (Read-only / Managed via Permissions) */}
+                {/* Role (Auto-assigned: Employee / Managed via Permissions) */}
                 <div>
                   <div className="flex items-center justify-between mb-1.5">
                     <label className="block text-xs font-semibold text-slate-400 uppercase font-khmer">
                       Role ({locale === 'kh' ? 'តួនាទីប្រព័ន្ធ' : 'System Role'})
                     </label>
-                    <span className="text-[10px] text-amber-400 font-khmer flex items-center gap-1 bg-amber-500/10 px-2 py-0.5 rounded-md border border-amber-500/20">
-                      <LockClosedIcon className="w-3 h-3 text-amber-400" />
-                      {locale === 'kh' ? 'កែប្រែក្នុង Permissions' : 'Managed in Permissions'}
-                    </span>
+                    {!editId ? (
+                      <span className="text-[10px] text-emerald-400 font-khmer flex items-center gap-1 bg-emerald-500/10 px-2 py-0.5 rounded-md border border-emerald-500/20">
+                        <LockClosedIcon className="w-3 h-3 text-emerald-400" />
+                        {locale === 'kh' ? 'ស្វ័យប្រវត្តិ Employee' : 'Auto Employee'}
+                      </span>
+                    ) : (
+                      <span className="text-[10px] text-amber-400 font-khmer flex items-center gap-1 bg-amber-500/10 px-2 py-0.5 rounded-md border border-amber-500/20">
+                        <LockClosedIcon className="w-3 h-3 text-amber-400" />
+                        {locale === 'kh' ? 'កែប្រែក្នុង Permissions' : 'Managed in Permissions'}
+                      </span>
+                    )}
                   </div>
                   <div className="relative">
                     <input
                       type="text"
                       readOnly
                       disabled
-                      value={role || 'Employee'}
+                      value={!editId ? 'Employee' : (role || 'Employee')}
                       className="block w-full py-2.5 px-3.5 pr-24 border border-slate-300/60 dark:border-white/10 bg-slate-100 dark:bg-slate-900/60 text-slate-700 dark:text-slate-300 rounded-xl text-sm cursor-not-allowed select-none font-semibold font-mono shadow-inner opacity-90"
-                      title={locale === 'kh' ? 'កន្លែងនេះគ្រាន់តែបង្ហាញប៉ុណ្ណោះ។ ដើម្បីកែប្រែ Role សូមចូលទៅកាន់ទំព័រ Permissions' : 'Read-only: To assign or change roles, please go to Permissions page.'}
+                      title={locale === 'kh' ? 'បុគ្គលិកថ្មីទទួលបាន Role "Employee" ដោយស្វ័យប្រវត្តិ។ ដើម្បីកែប្រែ Role សូមចូលទៅកាន់ទំព័រ Permissions' : 'New employees automatically receive "Employee" role. Manage roles in Permissions.'}
                     />
                     <div className="absolute right-2.5 top-1/2 -translate-y-1/2 flex items-center gap-1 pointer-events-none">
-                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                        (role === 'Admin')
-                          ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
-                          : (role === 'HR')
-                            ? 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/30'
-                            : (role === 'Manager')
-                              ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
-                              : 'bg-slate-500/20 text-slate-300 border border-slate-500/30'
-                      }`}>
-                        {role || 'Employee'}
+                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${((!editId ? 'Employee' : role) === 'Admin')
+                        ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
+                        : ((!editId ? 'Employee' : role) === 'HR')
+                          ? 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/30'
+                          : ((!editId ? 'Employee' : role) === 'Manager')
+                            ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+                            : 'bg-slate-500/20 text-slate-300 border border-slate-500/30'
+                        }`}>
+                        {!editId ? 'Employee' : (role || 'Employee')}
                       </span>
                     </div>
                   </div>
-                  <p className="text-[10px] text-slate-400 font-khmer mt-1">
+                  {/* <p className="text-[10px] text-slate-400 font-khmer mt-1">
                     {locale === 'kh'
-                      ? '* តួនាទីបុគ្គលិកអាចកំណត់ និងកែប្រែបានតែនៅក្នុងទំព័រ Permissions ប៉ុណ្ណោះ'
-                      : '* Employee role can only be assigned or edited under the Permissions page'}
-                  </p>
+                      ? '* បង្កើតបុគ្គលិកថ្មីទទួលបាន Role "Employee" ដោយស្វ័យប្រវត្តិ។ ការផ្លាស់ប្តូរ Role អាចធ្វើបានតែក្នុង Permissions ដោយ Admin ប៉ុណ្ណោះ'
+                      : '* New employees are auto-assigned "Employee" role. Role changes can only be made in Permissions by Admin.'}
+                  </p> */}
                 </div>
 
                 {/* Working Days Checkboxes (Monday - Sunday) - Located Between Role and Flexible */}
@@ -2126,7 +2131,7 @@ const Employees = () => {
                       const currentWorkingDays = Array.isArray(workingDays) ? workingDays : [1, 2, 3, 4, 5, 6];
                       const isChecked = currentWorkingDays.includes(day.key);
                       return (
-                        <label key={day.key} className="flex items-center gap-2 text-xs text-slate-200 cursor-pointer select-none font-semibold">
+                        <label key={day.key} className="flex items-center gap-2 text-xs text-gray-900 dark:text-gray-100 cursor-pointer select-none font-semibold">
                           <input
                             type="checkbox"
                             checked={isChecked}
@@ -2137,9 +2142,9 @@ const Employees = () => {
                                 setWorkingDays([...currentWorkingDays, day.key]);
                               }
                             }}
-                            className="rounded border-white/20 bg-slate-900 text-indigo-600 focus:ring-indigo-500 focus:ring-offset-0 focus:ring-offset-transparent cursor-pointer h-4 w-4"
+                            className="rounded border-gray-300 dark:border-white/20 bg-white dark:bg-slate-900 text-indigo-600 focus:ring-indigo-500 focus:ring-offset-0 focus:ring-offset-transparent cursor-pointer h-4 w-4"
                           />
-                          <span className="font-khmer">{locale === 'kh' ? day.kh : day.en}</span>
+                          <span className="font-khmer text-gray-900 dark:text-gray-100">{locale === 'kh' ? day.kh : day.en}</span>
                         </label>
                       );
                     })}
@@ -3064,9 +3069,8 @@ const Employees = () => {
                         {excelRows.map((r, idx) => (
                           <tr
                             key={idx}
-                            className={`hover:bg-white/5 transition-colors ${
-                              !r.isValid ? 'bg-amber-500/5' : ''
-                            }`}
+                            className={`hover:bg-white/5 transition-colors ${!r.isValid ? 'bg-amber-500/5' : ''
+                              }`}
                           >
                             <td className="px-3 py-2 text-center text-slate-500 font-mono">{r.rowIndex}</td>
                             <td className="px-3 py-2 font-mono font-semibold text-white">

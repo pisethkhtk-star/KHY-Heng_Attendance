@@ -29,6 +29,8 @@ abstract class IAttendanceRepository {
 
   Future<Map<String, dynamic>> fetchCheckinOnBehalfEligibility();
 
+  Future<Map<String, dynamic>> syncFaceData(String? clientVersion);
+
   Future<Map<String, dynamic>?> fetchEmployeeFaceData(String staffId);
 
   Future<List<Map<String, dynamic>>> fetchAllEmployees();
@@ -219,6 +221,23 @@ class AttendanceRepository implements IAttendanceRepository {
       }
     } catch (_) {}
     return {'canCheckinOnBehalf': false, 'eligibleEmployees': []};
+  }
+
+  @override
+  Future<Map<String, dynamic>> syncFaceData(String? clientVersion) async {
+    try {
+      final query = (clientVersion != null && clientVersion.isNotEmpty)
+          ? '?clientVersion=${Uri.encodeComponent(clientVersion)}'
+          : '';
+      final response = await _apiClient.get('/face/sync$query');
+      if (response != null && response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (data is Map<String, dynamic>) {
+          return data;
+        }
+      }
+    } catch (_) {}
+    return {'upToDate': true, 'faces': []};
   }
 
   @override

@@ -9,7 +9,6 @@ import org.hibernate.annotations.UpdateTimestamp;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.UUID;
 
 @Entity
 @Table(name = "overtimes", indexes = {
@@ -26,8 +25,8 @@ import java.util.UUID;
 public class Overtime {
 
     @Id
-    @GeneratedValue
-    private UUID id;
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
 
     @Column(name = "staff_id", nullable = false)
     private String staffId;
@@ -39,7 +38,7 @@ public class Overtime {
     private String managerName;
 
     @Column(name = "branch_id")
-    private UUID branchId;
+    private Long branchId;
 
     @Builder.Default
     @Column(name = "branch")

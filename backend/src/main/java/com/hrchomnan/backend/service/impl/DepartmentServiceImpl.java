@@ -33,7 +33,7 @@ public class DepartmentServiceImpl implements DepartmentService {
         list.sort(Comparator.comparing(Department::getNameEn, Comparator.nullsLast(String::compareToIgnoreCase)));
 
         List<Employee> allEmployees = employeeRepository.findAll();
-        Map<UUID, Long> empCountByDept = allEmployees.stream()
+        Map<Long, Long> empCountByDept = allEmployees.stream()
                 .filter(e -> e.getDepartmentId() != null)
                 .collect(Collectors.groupingBy(Employee::getDepartmentId, Collectors.counting()));
 
@@ -52,7 +52,7 @@ public class DepartmentServiceImpl implements DepartmentService {
 
     @Override
     @Transactional(readOnly = true)
-    public Map<String, Object> getDepartmentById(UUID id) {
+    public Map<String, Object> getDepartmentById(Long id) {
         Department d = departmentRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Department", "id", id));
 
@@ -88,7 +88,7 @@ public class DepartmentServiceImpl implements DepartmentService {
 
     @Override
     @Transactional
-    public Department updateDepartment(UUID id, Department updated) {
+    public Department updateDepartment(Long id, Department updated) {
         Department existing = departmentRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Department", "id", id));
 
@@ -101,7 +101,7 @@ public class DepartmentServiceImpl implements DepartmentService {
 
     @Override
     @Transactional
-    public void deleteDepartment(UUID id) {
+    public void deleteDepartment(Long id) {
         if (!departmentRepository.existsById(id)) {
             throw new ResourceNotFoundException("Department", "id", id);
         }

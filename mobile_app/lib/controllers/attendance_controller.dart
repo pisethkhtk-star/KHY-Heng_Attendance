@@ -170,6 +170,10 @@ class AttendanceController extends GetxController {
     return await _attendanceRepository.fetchEmployeeFaceData(staffId);
   }
 
+  Future<Map<String, dynamic>> syncFaceData(String? clientVersion) async {
+    return await _attendanceRepository.syncFaceData(clientVersion);
+  }
+
   Future<List<Map<String, dynamic>>> fetchAllEmployees() async {
     return await _attendanceRepository.fetchAllEmployees();
   }

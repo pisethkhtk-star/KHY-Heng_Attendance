@@ -5,8 +5,10 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.hrchomnan.backend.enums.Role;
 import com.hrchomnan.backend.model.Employee;
 import com.hrchomnan.backend.model.RolePermission;
+import com.hrchomnan.backend.model.RoleEntity;
 import com.hrchomnan.backend.repository.EmployeeRepository;
 import com.hrchomnan.backend.repository.RolePermissionRepository;
+import com.hrchomnan.backend.repository.RoleRepository;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -27,6 +29,7 @@ public class PermissionController {
 
     private final RolePermissionRepository rolePermissionRepository;
     private final EmployeeRepository employeeRepository;
+    private final RoleRepository roleRepository;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     @GetMapping
@@ -86,7 +89,7 @@ public class PermissionController {
      * Get individual employee permission details
      */
     @GetMapping("/employee/{id}")
-    public ResponseEntity<?> getEmployeePermissions(@PathVariable UUID id) {
+    public ResponseEntity<?> getEmployeePermissions(@PathVariable Long id) {
         Optional<Employee> empOpt = employeeRepository.findById(id);
         if (empOpt.isEmpty()) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("message", "Employee not found"));
@@ -142,7 +145,7 @@ public class PermissionController {
      */
     @PutMapping("/employee/{id}")
     public ResponseEntity<?> updateEmployeePermissions(
-            @PathVariable UUID id,
+            @PathVariable Long id,
             @RequestBody UpdateEmployeePermissionsRequest request
     ) {
         Optional<Employee> empOpt = employeeRepository.findById(id);
@@ -181,7 +184,7 @@ public class PermissionController {
      */
     @PutMapping("/employee/{id}/toggle-web-login")
     public ResponseEntity<?> toggleWebLogin(
-            @PathVariable UUID id,
+            @PathVariable Long id,
             @RequestBody Map<String, Boolean> body
     ) {
         Optional<Employee> empOpt = employeeRepository.findById(id);
@@ -212,7 +215,7 @@ public class PermissionController {
      */
     @PutMapping("/employee/{id}/role")
     public ResponseEntity<?> updateEmployeeRole(
-            @PathVariable UUID id,
+            @PathVariable Long id,
             @RequestBody Map<String, String> body
     ) {
         Optional<Employee> empOpt = employeeRepository.findById(id);
@@ -235,11 +238,13 @@ public class PermissionController {
 
         Employee emp = empOpt.get();
         emp.setRole(newRole);
+        roleRepository.findByNameIgnoreCase(newRole.name()).ifPresent(re -> emp.setRoleId(re.getId()));
         employeeRepository.save(emp);
 
         return ResponseEntity.ok(Map.of(
                 "message", "Employee role updated successfully",
                 "role", newRole.name(),
+                "roleId", emp.getRoleId() != null ? emp.getRoleId().toString() : "",
                 "canLoginWeb", newRole == Role.Admin || Boolean.TRUE.equals(emp.getCanLoginWeb())
         ));
     }

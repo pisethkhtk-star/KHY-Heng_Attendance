@@ -6,7 +6,6 @@ import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
 import java.time.LocalDateTime;
-import java.util.UUID;
 
 @Entity
 @Table(name = "positions")
@@ -18,8 +17,8 @@ import java.util.UUID;
 public class Position {
 
     @Id
-    @GeneratedValue
-    private UUID id;
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
 
     @Column(name = "title_en", nullable = false)
     private String titleEn;
@@ -28,7 +27,7 @@ public class Position {
     private String titleKh;
 
     @Column(name = "department_id", nullable = false)
-    private UUID departmentId;
+    private Long departmentId;
 
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)

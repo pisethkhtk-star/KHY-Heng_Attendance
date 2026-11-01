@@ -42,6 +42,7 @@ const Permissions = () => {
 
   // Role Permissions State
   const [permissions, setPermissions] = useState([]);
+  const [dbRoles, setDbRoles] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [changingRole, setChangingRole] = useState(false);
@@ -71,12 +72,28 @@ const Permissions = () => {
     return '';
   };
 
-  const roles = [
+  const defaultRoles = [
     { key: 'Admin', label: 'Admin 👑', descKh: 'សិទ្ធិពេញលេញលើប្រព័ន្ធទាំងអស់', descEn: 'Full system administrative access' },
     { key: 'HR', label: 'HR 💼', descKh: 'គ្រប់គ្រងបុគ្គលិក វត្តមាន និងច្បាប់', descEn: 'Manage staff, attendance & policies' },
     { key: 'Manager', label: 'Manager 👔', descKh: 'អនុម័តច្បាប់ ថែមម៉ោង និងមើលក្រុម', descEn: 'Approve leaves, overtime & reports' },
     { key: 'Employee', label: 'Employee 👤', descKh: 'កត់ត្រាវត្តមាន ស្នើសុំច្បាប់ និង OT', descEn: 'Daily check-in & self-service' }
   ];
+
+  const roles = useMemo(() => {
+    if (!dbRoles || dbRoles.length === 0) return defaultRoles;
+    return dbRoles.map(r => {
+      const match = defaultRoles.find(dr => dr.key.toLowerCase() === r.name.toLowerCase());
+      return {
+        id: r.id,
+        key: r.name,
+        label: match ? match.label : `${r.name} 🛡️`,
+        descKh: r.nameKh || (match ? match.descKh : r.description),
+        descEn: r.description || (match ? match.descEn : r.name),
+        employeeCount: r.employeeCount || 0,
+        isSystemRole: r.isSystemRole,
+      };
+    });
+  }, [dbRoles]);
 
   // Hierarchical Structured Categorization: Groups -> Pages/Modules -> Actions (Add, Edit, Delete)
   const resourceCategories = [
@@ -635,12 +652,16 @@ const Permissions = () => {
   const fetchInitialData = async () => {
     try {
       setLoading(true);
-      const [permRes, empRes] = await Promise.all([
+      const [permRes, empRes, rolesRes] = await Promise.all([
         api.get('/permissions'),
-        api.get('/employees').catch(() => ({ data: [] }))
+        api.get('/employees').catch(() => ({ data: [] })),
+        api.get('/roles').catch(() => ({ data: [] }))
       ]);
       setPermissions(permRes.data || []);
       setEmployees(empRes.data || []);
+      if (rolesRes && Array.isArray(rolesRes.data) && rolesRes.data.length > 0) {
+        setDbRoles(rolesRes.data);
+      }
     } catch (error) {
       console.error('Error fetching permissions data:', error);
       setErrorMsg(language === 'kh' ? 'មិនអាចទាញយកទិន្នន័យសិទ្ធិបានទេ' : 'Failed to load permissions from server.');

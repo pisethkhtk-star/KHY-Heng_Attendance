@@ -6,7 +6,6 @@ import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
 import java.time.LocalDateTime;
-import java.util.UUID;
 
 @Entity
 @Table(name = "leave_approval_rules")
@@ -18,8 +17,8 @@ import java.util.UUID;
 public class LeaveApprovalRule {
 
     @Id
-    @GeneratedValue
-    private UUID id;
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
 
     @Column(name = "approver_id", nullable = false)
     private String approverId;
@@ -28,7 +27,7 @@ public class LeaveApprovalRule {
     private String scope = "Employee"; // "Department" or "Employee"
 
     @Column(name = "target_dept_id")
-    private UUID targetDeptId;
+    private Long targetDeptId;
 
     @Column(name = "target_staff_id")
     private String targetStaffId;

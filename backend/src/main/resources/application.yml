@@ -11,7 +11,8 @@ spring:
   application:
     name: backend
   datasource:
-    url: ${DATABASE_URL:jdbc:postgresql://127.0.0.1:5432/khyheng_att}
+    # url: ${DATABASE_URL:jdbc:postgresql://127.0.0.1:5432/khyheng_att}
+    url: ${DATABASE_URL:jdbc:postgresql://localhost:5432/attendance_db}
     driver-class-name: org.postgresql.Driver
     username: ${DB_USERNAME:postgres}
     password: ${DB_PASSWORD:postgres}

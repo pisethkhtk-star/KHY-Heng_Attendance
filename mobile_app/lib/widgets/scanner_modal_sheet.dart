@@ -18,6 +18,7 @@ import '../controllers/auth_controller.dart';
 import '../repositories/auth_repository.dart';
 import '../repositories/attendance_repository.dart';
 import '../models/attendance_model.dart';
+import '../core/services/mock_location_service.dart';
 
 class ScannerModalSheet extends StatefulWidget {
   final int initialTab; // 0: QR, 1: My Badge
@@ -374,6 +375,18 @@ class _ScannerModalSheetState extends State<ScannerModalSheet> with WidgetsBindi
             timeLimit: Duration(seconds: 5),
           ),
         );
+        if (!_isUserCustomLocation && position.isMocked) {
+          if (mounted) {
+            setState(() {
+              _isLoadingLocation = false;
+              _isUnlocked = false;
+              _isLocationVerified = false;
+              _statusMessage = '❌ រកឃើញ Fake GPS! សូមបិទ Fake GPS ជាមុនសិន';
+            });
+            Get.find<MockLocationService>().triggerMockDetected();
+          }
+          return;
+        }
         _clientLat = position.latitude;
         _clientLng = position.longitude;
       } catch (e) {
@@ -536,6 +549,10 @@ class _ScannerModalSheetState extends State<ScannerModalSheet> with WidgetsBindi
       ),
     ).listen((Position position) {
       if (!_isUserCustomLocation && mounted) {
+        if (position.isMocked) {
+          Get.find<MockLocationService>().triggerMockDetected();
+          return;
+        }
         setState(() {
           _clientLat = position.latitude;
           _clientLng = position.longitude;

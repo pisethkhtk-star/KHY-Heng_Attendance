@@ -8,7 +8,6 @@ import org.hibernate.annotations.UpdateTimestamp;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.UUID;
 
 @Entity
 @Table(name = "nssf_configs")
@@ -20,8 +19,8 @@ import java.util.UUID;
 public class NssfConfig {
 
     @Id
-    @GeneratedValue
-    private UUID id;
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
 
     @Column(name = "employee_rate", precision = 5, scale = 4, nullable = false)
     @Builder.Default

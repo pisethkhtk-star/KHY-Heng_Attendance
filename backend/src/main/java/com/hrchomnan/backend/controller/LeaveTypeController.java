@@ -61,7 +61,7 @@ public class LeaveTypeController {
 
     @PutMapping("/{id}")
     @PreAuthorize("@perm.has('leave_types') or hasAnyRole('Admin', 'HR')")
-    public ResponseEntity<?> updateType(@PathVariable UUID id, @RequestBody LeaveType updated) {
+    public ResponseEntity<?> updateType(@PathVariable Long id, @RequestBody LeaveType updated) {
         if (updated.getNameEn() == null || updated.getNameKh() == null || updated.getCode() == null ||
                 updated.getNameEn().isBlank() || updated.getNameKh().isBlank() || updated.getCode().isBlank()) {
             return ResponseEntity.badRequest().body(Map.of("message", "nameEn, nameKh, and code are required"));
@@ -94,7 +94,7 @@ public class LeaveTypeController {
 
     @DeleteMapping("/{id}")
     @PreAuthorize("@perm.has('leave_types') or hasAnyRole('Admin', 'HR')")
-    public ResponseEntity<?> deleteType(@PathVariable UUID id) {
+    public ResponseEntity<?> deleteType(@PathVariable Long id) {
         if (leaveTypeRepository.existsById(id)) {
             leaveTypeRepository.deleteById(id);
             return ResponseEntity.ok(Map.of("message", "Leave type deleted successfully"));

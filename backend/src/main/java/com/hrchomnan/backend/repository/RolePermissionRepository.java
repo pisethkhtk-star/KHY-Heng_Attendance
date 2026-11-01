@@ -7,10 +7,9 @@ import org.springframework.stereotype.Repository;
 
 import java.util.List;
 import java.util.Optional;
-import java.util.UUID;
 
 @Repository
-public interface RolePermissionRepository extends JpaRepository<RolePermission, UUID> {
+public interface RolePermissionRepository extends JpaRepository<RolePermission, Long> {
     List<RolePermission> findByRole(Role role);
     Optional<RolePermission> findByRoleAndResource(Role role, String resource);
 }

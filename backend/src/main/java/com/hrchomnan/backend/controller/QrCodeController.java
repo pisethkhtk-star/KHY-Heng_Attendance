@@ -280,9 +280,9 @@ public class QrCodeController {
         }
 
         String branchIdStr = cleanToken.replace("branch_qr:", "").trim();
-        UUID branchId;
+        Long branchId;
         try {
-            branchId = UUID.fromString(branchIdStr);
+            branchId = Long.parseLong(branchIdStr);
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(Map.of("success", false, "message", "Invalid branch ID in QR"));
         }

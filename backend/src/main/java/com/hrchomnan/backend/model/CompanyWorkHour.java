@@ -5,7 +5,6 @@ import lombok.*;
 import org.hibernate.annotations.UpdateTimestamp;
 
 import java.time.LocalDateTime;
-import java.util.UUID;
 
 @Entity
 @Table(name = "company_work_hours")
@@ -17,8 +16,8 @@ import java.util.UUID;
 public class CompanyWorkHour {
 
     @Id
-    @GeneratedValue
-    private UUID id;
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
 
     @Column(name = "shift_1_start")
     @Builder.Default

@@ -8,7 +8,6 @@ import org.hibernate.annotations.UpdateTimestamp;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
-import java.util.UUID;
 
 @Entity
 @Table(name = "payslips", uniqueConstraints = {
@@ -25,11 +24,11 @@ import java.util.UUID;
 public class Payslip {
 
     @Id
-    @GeneratedValue
-    private UUID id;
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
 
     @Column(name = "payroll_run_id", nullable = false)
-    private UUID payrollRunId;
+    private Long payrollRunId;
 
     @Column(name = "staff_id", nullable = false)
     private String staffId;

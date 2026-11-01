@@ -93,21 +93,21 @@ public class OvertimeController {
 
         Map<String, Employee> employeeMap = employeeRepository.findAll().stream()
                 .collect(Collectors.toMap(Employee::getStaffId, e -> e, (a, b) -> a));
-        Map<UUID, Department> deptMap = departmentRepository.findAll().stream()
+        Map<Long, Department> deptMap = departmentRepository.findAll().stream()
                 .collect(Collectors.toMap(Department::getId, d -> d, (a, b) -> a));
-        Map<UUID, Position> posMap = positionRepository.findAll().stream()
+        Map<Long, Position> posMap = positionRepository.findAll().stream()
                 .collect(Collectors.toMap(Position::getId, p -> p, (a, b) -> a));
-        Map<UUID, KioskSetting> kioskMap = kioskSettingRepository.findAll().stream()
+        Map<Long, KioskSetting> kioskMap = kioskSettingRepository.findAll().stream()
                 .collect(Collectors.toMap(KioskSetting::getId, k -> k, (a, b) -> a));
         Map<String, String> faceDataMap = employeeFaceDataRepository.findAll().stream()
                 .filter(f -> f.getStaffId() != null && f.getPhotoUrl() != null)
                 .collect(Collectors.toMap(com.hrchomnan.backend.model.EmployeeFaceData::getStaffId, com.hrchomnan.backend.model.EmployeeFaceData::getPhotoUrl, (a, b) -> a));
 
         if (departmentId != null && !departmentId.isBlank()) {
-            UUID deptUuid = UUID.fromString(departmentId);
+            Long filterDeptId = Long.parseLong(departmentId.trim());
             list = list.stream().filter(o -> {
                 Employee emp = employeeMap.get(o.getStaffId());
-                return emp != null && deptUuid.equals(emp.getDepartmentId());
+                return emp != null && filterDeptId.equals(emp.getDepartmentId());
             }).collect(Collectors.toList());
         }
 
@@ -135,11 +135,11 @@ public class OvertimeController {
         List<Overtime> list = overtimeRepository.findByStaffIdOrderByRequestedAtDesc(staffId);
         Map<String, Employee> employeeMap = employeeRepository.findAll().stream()
                 .collect(Collectors.toMap(Employee::getStaffId, e -> e, (a, b) -> a));
-        Map<UUID, Department> deptMap = departmentRepository.findAll().stream()
+        Map<Long, Department> deptMap = departmentRepository.findAll().stream()
                 .collect(Collectors.toMap(Department::getId, d -> d, (a, b) -> a));
-        Map<UUID, Position> posMap = positionRepository.findAll().stream()
+        Map<Long, Position> posMap = positionRepository.findAll().stream()
                 .collect(Collectors.toMap(Position::getId, p -> p, (a, b) -> a));
-        Map<UUID, KioskSetting> kioskMap = kioskSettingRepository.findAll().stream()
+        Map<Long, KioskSetting> kioskMap = kioskSettingRepository.findAll().stream()
                 .collect(Collectors.toMap(KioskSetting::getId, k -> k, (a, b) -> a));
 
         List<Map<String, Object>> response = list.stream()
@@ -158,7 +158,7 @@ public class OvertimeController {
         private String endTime;
         private Double amountDay;
         private String reason;
-        private UUID branchId;
+        private Long branchId;
         private String branch;
     }
 
@@ -195,7 +195,7 @@ public class OvertimeController {
         }
 
         String resolvedBranchName = request.getBranch() != null ? request.getBranch() : (employee.getBranch() != null ? employee.getBranch() : "");
-        UUID resolvedBranchId = request.getBranchId();
+        Long resolvedBranchId = request.getBranchId();
 
         if (resolvedBranchId == null && !resolvedBranchName.isBlank()) {
             final String branchLower = resolvedBranchName.toLowerCase();
@@ -285,11 +285,11 @@ public class OvertimeController {
 
         Map<String, Employee> employeeMap = employeeRepository.findAll().stream()
                 .collect(Collectors.toMap(Employee::getStaffId, e -> e, (a, b) -> a));
-        Map<UUID, Department> deptMap = departmentRepository.findAll().stream()
+        Map<Long, Department> deptMap = departmentRepository.findAll().stream()
                 .collect(Collectors.toMap(Department::getId, d -> d, (a, b) -> a));
-        Map<UUID, Position> posMap = positionRepository.findAll().stream()
+        Map<Long, Position> posMap = positionRepository.findAll().stream()
                 .collect(Collectors.toMap(Position::getId, p -> p, (a, b) -> a));
-        Map<UUID, KioskSetting> kioskMap = kioskSettingRepository.findAll().stream()
+        Map<Long, KioskSetting> kioskMap = kioskSettingRepository.findAll().stream()
                 .collect(Collectors.toMap(KioskSetting::getId, k -> k, (a, b) -> a));
 
         return ResponseEntity.status(HttpStatus.CREATED).body(enrichOvertime(saved, employeeMap, deptMap, posMap, kioskMap));
@@ -305,7 +305,7 @@ public class OvertimeController {
     @PutMapping("/{id}/status")
     @PreAuthorize("@perm.has('approve_overtime') or hasAnyRole('Admin', 'HR', 'Manager')")
     public ResponseEntity<?> updateStatus(
-            @PathVariable UUID id,
+            @PathVariable Long id,
             @RequestBody StatusUpdateRequest request,
             Authentication authentication
     ) {
@@ -377,11 +377,11 @@ public class OvertimeController {
 
         Map<String, Employee> employeeMap = employeeRepository.findAll().stream()
                 .collect(Collectors.toMap(Employee::getStaffId, e -> e, (a, b) -> a));
-        Map<UUID, Department> deptMap = departmentRepository.findAll().stream()
+        Map<Long, Department> deptMap = departmentRepository.findAll().stream()
                 .collect(Collectors.toMap(Department::getId, d -> d, (a, b) -> a));
-        Map<UUID, Position> posMap = positionRepository.findAll().stream()
+        Map<Long, Position> posMap = positionRepository.findAll().stream()
                 .collect(Collectors.toMap(Position::getId, p -> p, (a, b) -> a));
-        Map<UUID, KioskSetting> kioskMap = kioskSettingRepository.findAll().stream()
+        Map<Long, KioskSetting> kioskMap = kioskSettingRepository.findAll().stream()
                 .collect(Collectors.toMap(KioskSetting::getId, k -> k, (a, b) -> a));
 
         return ResponseEntity.ok(enrichOvertime(updated, employeeMap, deptMap, posMap, kioskMap));
@@ -390,7 +390,7 @@ public class OvertimeController {
     @DeleteMapping("/{id}")
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<?> deleteOvertime(
-            @PathVariable UUID id,
+            @PathVariable Long id,
             Authentication authentication
     ) {
         Optional<Overtime> existingOpt = overtimeRepository.findById(id);
@@ -417,9 +417,9 @@ public class OvertimeController {
     private Map<String, Object> enrichOvertime(
             Overtime o,
             Map<String, Employee> employeeMap,
-            Map<UUID, Department> deptMap,
-            Map<UUID, Position> posMap,
-            Map<UUID, KioskSetting> kioskMap
+            Map<Long, Department> deptMap,
+            Map<Long, Position> posMap,
+            Map<Long, KioskSetting> kioskMap
     ) {
         Map<String, String> faceDataMap = employeeFaceDataRepository.findAll().stream()
                 .filter(f -> f.getStaffId() != null && f.getPhotoUrl() != null)
@@ -430,9 +430,9 @@ public class OvertimeController {
     private Map<String, Object> enrichOvertime(
             Overtime o,
             Map<String, Employee> employeeMap,
-            Map<UUID, Department> deptMap,
-            Map<UUID, Position> posMap,
-            Map<UUID, KioskSetting> kioskMap,
+            Map<Long, Department> deptMap,
+            Map<Long, Position> posMap,
+            Map<Long, KioskSetting> kioskMap,
             Map<String, String> faceDataMap
     ) {
         Map<String, Object> map = new HashMap<>();

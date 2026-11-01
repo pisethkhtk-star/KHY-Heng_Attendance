@@ -220,7 +220,7 @@ const WorkHours = () => {
                   {WEEKDAYS.map(day => {
                     const isChecked = workingDays.includes(day.key);
                     return (
-                      <label key={day.key} className="flex items-center gap-2 text-xs text-slate-200 cursor-pointer select-none">
+                      <label key={day.key} className="flex items-center gap-2 text-xs text-gray-900 dark:text-gray-100 cursor-pointer select-none font-semibold">
                         <input
                           type="checkbox"
                           checked={isChecked}
@@ -231,9 +231,9 @@ const WorkHours = () => {
                               setWorkingDays([...workingDays, day.key]);
                             }
                           }}
-                          className="rounded border-white/20 bg-slate-900 text-indigo-600 focus:ring-indigo-500 focus:ring-offset-0 focus:ring-offset-transparent cursor-pointer h-4 w-4"
+                          className="rounded border-gray-300 dark:border-white/20 bg-white dark:bg-slate-900 text-indigo-600 focus:ring-indigo-500 focus:ring-offset-0 focus:ring-offset-transparent cursor-pointer h-4 w-4"
                         />
-                        <span className="font-khmer">{language === 'kh' ? day.kh : day.en}</span>
+                        <span className="font-khmer text-gray-900 dark:text-gray-100">{language === 'kh' ? day.kh : day.en}</span>
                       </label>
                     );
                   })}

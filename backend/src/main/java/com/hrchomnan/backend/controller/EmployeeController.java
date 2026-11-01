@@ -40,6 +40,7 @@ public class EmployeeController {
     private final LeaveApprovalRuleRepository leaveApprovalRuleRepository;
     private final PasswordEncoder passwordEncoder;
     private final SecurityPermissionService securityPermissionService;
+    private final RoleRepository roleRepository;
 
     @GetMapping
     @PreAuthorize("@perm.has('employees')")
@@ -47,44 +48,44 @@ public class EmployeeController {
             @RequestParam(required = false) String search,
             @RequestParam(required = false) String departmentId,
             @RequestParam(required = false) String branch,
-            @RequestParam(required = false) String status
-    ) {
+            @RequestParam(required = false) String status) {
         List<Employee> list = employeeRepository.findAll();
 
         if (status != null && !status.isBlank()) {
             try {
                 Status st = Status.valueOf(status);
                 list = list.stream().filter(e -> e.getStatus() == st).collect(Collectors.toList());
-            } catch (IllegalArgumentException ignored) {}
+            } catch (IllegalArgumentException ignored) {
+            }
         }
 
         if (branch != null && !branch.isBlank()) {
             final String b = branch.trim().toLowerCase();
-            list = list.stream().filter(e -> e.getBranch() != null && e.getBranch().toLowerCase().contains(b)).collect(Collectors.toList());
+            list = list.stream().filter(e -> e.getBranch() != null && e.getBranch().toLowerCase().contains(b))
+                    .collect(Collectors.toList());
         }
 
         if (departmentId != null && !departmentId.isBlank()) {
             try {
-                UUID deptUuid = UUID.fromString(departmentId);
-                list = list.stream().filter(e -> deptUuid.equals(e.getDepartmentId())).collect(Collectors.toList());
-            } catch (Exception ignored) {}
+                Long filterDeptId = Long.parseLong(departmentId.trim());
+                list = list.stream().filter(e -> filterDeptId.equals(e.getDepartmentId())).collect(Collectors.toList());
+            } catch (Exception ignored) {
+            }
         }
 
         if (search != null && !search.isBlank()) {
             final String s = search.trim().toLowerCase();
-            list = list.stream().filter(e ->
-                    (e.getNameEn() != null && e.getNameEn().toLowerCase().contains(s)) ||
+            list = list.stream().filter(e -> (e.getNameEn() != null && e.getNameEn().toLowerCase().contains(s)) ||
                     (e.getNameKh() != null && e.getNameKh().toLowerCase().contains(s)) ||
                     (e.getStaffId() != null && e.getStaffId().toLowerCase().contains(s)) ||
-                    (e.getEmail() != null && e.getEmail().toLowerCase().contains(s))
-            ).collect(Collectors.toList());
+                    (e.getEmail() != null && e.getEmail().toLowerCase().contains(s))).collect(Collectors.toList());
         }
 
         list.sort(Comparator.comparing(Employee::getStaffId, Comparator.nullsLast(String::compareToIgnoreCase)));
 
-        Map<UUID, Department> deptMap = departmentRepository.findAll().stream()
+        Map<Long, Department> deptMap = departmentRepository.findAll().stream()
                 .collect(Collectors.toMap(Department::getId, d -> d, (a, b) -> a));
-        Map<UUID, Position> posMap = positionRepository.findAll().stream()
+        Map<Long, Position> posMap = positionRepository.findAll().stream()
                 .collect(Collectors.toMap(Position::getId, p -> p, (a, b) -> a));
         Map<String, String> faceDataMap = employeeFaceDataRepository.findAll().stream()
                 .filter(f -> f.getStaffId() != null && f.getPhotoUrl() != null)
@@ -99,15 +100,15 @@ public class EmployeeController {
 
     @GetMapping("/{id}")
     @PreAuthorize("@perm.has('employees')")
-    public ResponseEntity<?> getEmployeeById(@PathVariable UUID id) {
+    public ResponseEntity<?> getEmployeeById(@PathVariable Long id) {
         Optional<Employee> empOpt = employeeRepository.findById(id);
         if (empOpt.isEmpty()) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("message", "Employee not found"));
         }
 
-        Map<UUID, Department> deptMap = departmentRepository.findAll().stream()
+        Map<Long, Department> deptMap = departmentRepository.findAll().stream()
                 .collect(Collectors.toMap(Department::getId, d -> d, (a, b) -> a));
-        Map<UUID, Position> posMap = positionRepository.findAll().stream()
+        Map<Long, Position> posMap = positionRepository.findAll().stream()
                 .collect(Collectors.toMap(Position::getId, p -> p, (a, b) -> a));
         Map<String, String> faceDataMap = employeeFaceDataRepository.findAll().stream()
                 .filter(f -> f.getStaffId() != null && f.getPhotoUrl() != null)
@@ -124,9 +125,9 @@ public class EmployeeController {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("message", "Employee not found"));
         }
 
-        Map<UUID, Department> deptMap = departmentRepository.findAll().stream()
+        Map<Long, Department> deptMap = departmentRepository.findAll().stream()
                 .collect(Collectors.toMap(Department::getId, d -> d, (a, b) -> a));
-        Map<UUID, Position> posMap = positionRepository.findAll().stream()
+        Map<Long, Position> posMap = positionRepository.findAll().stream()
                 .collect(Collectors.toMap(Position::getId, p -> p, (a, b) -> a));
         Map<String, String> faceDataMap = employeeFaceDataRepository.findAll().stream()
                 .filter(f -> f.getStaffId() != null && f.getPhotoUrl() != null)
@@ -141,8 +142,8 @@ public class EmployeeController {
         private String nameEn;
         private String nameKh;
         private String gender;
-        private UUID positionId;
-        private UUID departmentId;
+        private Long positionId;
+        private Long departmentId;
         private String departmentName;
         private String positionTitle;
         private String branch;
@@ -164,14 +165,16 @@ public class EmployeeController {
         private String flexibleSchedule;
     }
 
+    // komleng allow null
     @PostMapping
     @PreAuthorize("@perm.has('add_employee')")
     public ResponseEntity<?> createEmployee(@RequestBody EmployeeCreateDto dto) {
         if (dto.getStaffId() == null || dto.getNameEn() == null || dto.getNameKh() == null ||
-                dto.getEmail() == null || dto.getPassword() == null || dto.getPositionId() == null || dto.getDepartmentId() == null) {
+                dto.getEmail() == null || dto.getPassword() == null || dto.getPositionId() == null
+                || dto.getDepartmentId() == null) {
             return ResponseEntity.badRequest().body(Map.of("message", "Required fields are missing"));
         }
-
+        // compare merl staff id
         if (employeeRepository.findByStaffId(dto.getStaffId()).isPresent()) {
             return ResponseEntity.badRequest().body(Map.of("message", "Staff ID already exists"));
         }
@@ -180,7 +183,11 @@ public class EmployeeController {
             return ResponseEntity.badRequest().body(Map.of("message", "Email already registered"));
         }
 
-        Role role = parseRole(dto.getRole());
+        // កំណត់ Role.Employee ដោយស្វ័យប្រវត្តិតែម្តង មិនបាច់ parseRole(dto.getRole()) ទេ ដើម្បីការពារ user change ទៅជា Admin
+        Role role = Role.Employee;
+        Long roleId = roleRepository.findByNameIgnoreCase("Employee")
+                .map(com.hrchomnan.backend.model.RoleEntity::getId)
+                .orElse(null);
 
         Status status = parseStatus(dto.getStatus());
 
@@ -207,6 +214,7 @@ public class EmployeeController {
                 .email(dto.getEmail())
                 .password(passwordEncoder.encode(dto.getPassword()))
                 .role(role)
+                .roleId(roleId)
                 .photoUrl(dto.getProfilePhoto())
                 .build();
 
@@ -221,9 +229,9 @@ public class EmployeeController {
                     .build());
         }
 
-        Map<UUID, Department> deptMap = departmentRepository.findAll().stream()
+        Map<Long, Department> deptMap = departmentRepository.findAll().stream()
                 .collect(Collectors.toMap(Department::getId, d -> d, (a, b) -> a));
-        Map<UUID, Position> posMap = positionRepository.findAll().stream()
+        Map<Long, Position> posMap = positionRepository.findAll().stream()
                 .collect(Collectors.toMap(Position::getId, p -> p, (a, b) -> a));
         Map<String, String> faceDataMap = employeeFaceDataRepository.findAll().stream()
                 .filter(f -> f.getStaffId() != null && f.getPhotoUrl() != null)
@@ -272,12 +280,12 @@ public class EmployeeController {
             }
 
             // Resolve department
-            UUID deptId = dto.getDepartmentId();
+            Long deptId = dto.getDepartmentId();
             if (deptId == null && dto.getDepartmentName() != null && !dto.getDepartmentName().isBlank()) {
                 final String dName = dto.getDepartmentName().trim().toLowerCase();
                 Department matchedDept = allDepts.stream()
                         .filter(d -> (d.getNameEn() != null && d.getNameEn().equalsIgnoreCase(dName)) ||
-                                     (d.getNameKh() != null && d.getNameKh().equalsIgnoreCase(dName)))
+                                (d.getNameKh() != null && d.getNameKh().equalsIgnoreCase(dName)))
                         .findFirst()
                         .orElse(null);
                 if (matchedDept == null) {
@@ -295,12 +303,12 @@ public class EmployeeController {
             }
 
             // Resolve position
-            UUID posId = dto.getPositionId();
+            Long posId = dto.getPositionId();
             if (posId == null && dto.getPositionTitle() != null && !dto.getPositionTitle().isBlank()) {
                 final String pTitle = dto.getPositionTitle().trim().toLowerCase();
                 Position matchedPos = allPositions.stream()
                         .filter(p -> (p.getTitleEn() != null && p.getTitleEn().equalsIgnoreCase(pTitle)) ||
-                                     (p.getTitleKh() != null && p.getTitleKh().equalsIgnoreCase(pTitle)))
+                                (p.getTitleKh() != null && p.getTitleKh().equalsIgnoreCase(pTitle)))
                         .findFirst()
                         .orElse(null);
                 if (matchedPos == null) {
@@ -317,7 +325,11 @@ public class EmployeeController {
                 posId = allPositions.get(0).getId();
             }
 
-            Role role = parseRole(dto.getRole());
+            // All batch created / imported employees strictly default to Role.Employee
+            Role role = Role.Employee;
+            Long defaultRoleId = roleRepository.findByNameIgnoreCase("Employee")
+                    .map(com.hrchomnan.backend.model.RoleEntity::getId)
+                    .orElse(null);
             Status status = parseStatus(dto.getStatus());
             LocalDate join = LocalDate.now();
             if (dto.getJoinDate() != null && !dto.getJoinDate().isBlank()) {
@@ -328,16 +340,20 @@ public class EmployeeController {
                         String[] parts = dto.getJoinDate().trim().split("[-/]");
                         if (parts.length == 3) {
                             if (parts[0].length() == 4) {
-                                join = LocalDate.of(Integer.parseInt(parts[0]), Integer.parseInt(parts[1]), Integer.parseInt(parts[2]));
+                                join = LocalDate.of(Integer.parseInt(parts[0]), Integer.parseInt(parts[1]),
+                                        Integer.parseInt(parts[2]));
                             } else if (parts[2].length() == 4) {
-                                join = LocalDate.of(Integer.parseInt(parts[2]), Integer.parseInt(parts[1]), Integer.parseInt(parts[0]));
+                                join = LocalDate.of(Integer.parseInt(parts[2]), Integer.parseInt(parts[1]),
+                                        Integer.parseInt(parts[0]));
                             }
                         }
-                    } catch (Exception ex) {}
+                    } catch (Exception ex) {
+                    }
                 }
             }
 
-            String rawPass = (dto.getPassword() != null && !dto.getPassword().isBlank()) ? dto.getPassword().trim() : "12345678";
+            String rawPass = (dto.getPassword() != null && !dto.getPassword().isBlank()) ? dto.getPassword().trim()
+                    : "12345678";
 
             Employee emp = Employee.builder()
                     .staffId(staffId)
@@ -349,8 +365,10 @@ public class EmployeeController {
                     .branch(dto.getBranch() != null ? dto.getBranch() : "")
                     .joinDate(join)
                     .status(status)
-                    .shift1Start(dto.getShift1Start() != null && !dto.getShift1Start().isBlank() ? dto.getShift1Start() : "08:00")
-                    .shift1End(dto.getShift1End() != null && !dto.getShift1End().isBlank() ? dto.getShift1End() : "12:00")
+                    .shift1Start(dto.getShift1Start() != null && !dto.getShift1Start().isBlank() ? dto.getShift1Start()
+                            : "08:00")
+                    .shift1End(
+                            dto.getShift1End() != null && !dto.getShift1End().isBlank() ? dto.getShift1End() : "12:00")
                     .shift2Start(dto.getShift2Start() != null ? dto.getShift2Start() : "13:00")
                     .shift2End(dto.getShift2End() != null ? dto.getShift2End() : "17:00")
                     .isFlexible(dto.getIsFlexible() != null ? dto.getIsFlexible() : false)
@@ -360,6 +378,7 @@ public class EmployeeController {
                     .email(email)
                     .password(passwordEncoder.encode(rawPass))
                     .role(role)
+                    .roleId(defaultRoleId)
                     .photoUrl(dto.getProfilePhoto())
                     .build();
 
@@ -372,13 +391,12 @@ public class EmployeeController {
                 "message", "Successfully inserted " + insertedCount + " employee(s)",
                 "insertedCount", insertedCount,
                 "skippedCount", skippedCount,
-                "errors", errors
-        ));
+                "errors", errors));
     }
 
     @PutMapping("/{id}")
     @PreAuthorize("@perm.canEditEmployee(#id)")
-    public ResponseEntity<?> updateEmployee(@PathVariable UUID id, @RequestBody EmployeeCreateDto dto) {
+    public ResponseEntity<?> updateEmployee(@PathVariable Long id, @RequestBody EmployeeCreateDto dto) {
         Optional<Employee> empOpt = employeeRepository.findById(id);
         if (empOpt.isEmpty()) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("message", "Employee not found"));
@@ -400,21 +418,36 @@ public class EmployeeController {
             emp.setEmail(dto.getEmail());
         }
 
-        if (dto.getNameEn() != null) emp.setNameEn(dto.getNameEn());
-        if (dto.getNameKh() != null) emp.setNameKh(dto.getNameKh());
-        if (dto.getGender() != null) emp.setGender(dto.getGender());
-        if (dto.getPositionId() != null) emp.setPositionId(dto.getPositionId());
-        if (dto.getDepartmentId() != null) emp.setDepartmentId(dto.getDepartmentId());
-        if (dto.getBranch() != null) emp.setBranch(dto.getBranch());
-        if (dto.getAddress() != null) emp.setAddress(dto.getAddress());
-        if (dto.getIdCardPassport() != null) emp.setIdCardPassport(dto.getIdCardPassport());
-        if (dto.getProfilePhoto() != null) emp.setPhotoUrl(dto.getProfilePhoto());
-        if (dto.getShift1Start() != null) emp.setShift1Start(dto.getShift1Start());
-        if (dto.getShift1End() != null) emp.setShift1End(dto.getShift1End());
-        if (dto.getShift2Start() != null) emp.setShift2Start(dto.getShift2Start());
-        if (dto.getShift2End() != null) emp.setShift2End(dto.getShift2End());
-        if (dto.getIsFlexible() != null) emp.setIsFlexible(dto.getIsFlexible());
-        if (dto.getFlexibleSchedule() != null) emp.setFlexibleSchedule(dto.getFlexibleSchedule());
+        if (dto.getNameEn() != null)
+            emp.setNameEn(dto.getNameEn());
+        if (dto.getNameKh() != null)
+            emp.setNameKh(dto.getNameKh());
+        if (dto.getGender() != null)
+            emp.setGender(dto.getGender());
+        if (dto.getPositionId() != null)
+            emp.setPositionId(dto.getPositionId());
+        if (dto.getDepartmentId() != null)
+            emp.setDepartmentId(dto.getDepartmentId());
+        if (dto.getBranch() != null)
+            emp.setBranch(dto.getBranch());
+        if (dto.getAddress() != null)
+            emp.setAddress(dto.getAddress());
+        if (dto.getIdCardPassport() != null)
+            emp.setIdCardPassport(dto.getIdCardPassport());
+        if (dto.getProfilePhoto() != null)
+            emp.setPhotoUrl(dto.getProfilePhoto());
+        if (dto.getShift1Start() != null)
+            emp.setShift1Start(dto.getShift1Start());
+        if (dto.getShift1End() != null)
+            emp.setShift1End(dto.getShift1End());
+        if (dto.getShift2Start() != null)
+            emp.setShift2Start(dto.getShift2Start());
+        if (dto.getShift2End() != null)
+            emp.setShift2End(dto.getShift2End());
+        if (dto.getIsFlexible() != null)
+            emp.setIsFlexible(dto.getIsFlexible());
+        if (dto.getFlexibleSchedule() != null)
+            emp.setFlexibleSchedule(dto.getFlexibleSchedule());
 
         if (dto.getJoinDate() != null) {
             emp.setJoinDate(LocalDate.parse(dto.getJoinDate()));
@@ -424,9 +457,8 @@ public class EmployeeController {
             emp.setStatus(parseStatus(dto.getStatus()));
         }
 
-        if (dto.getRole() != null && !dto.getRole().isBlank()) {
-            emp.setRole(parseRole(dto.getRole()));
-        }
+        // Note: Role cannot be modified here to prevent unauthorized elevation to Admin.
+        // Role changes must be managed via /permissions/employee/{id}/role by authorized administrators.
 
         if (dto.getPassword() != null && !dto.getPassword().isBlank()) {
             if (!securityPermissionService.canEditPassword(id)) {
@@ -447,9 +479,9 @@ public class EmployeeController {
                     .build());
         }
 
-        Map<UUID, Department> deptMap = departmentRepository.findAll().stream()
+        Map<Long, Department> deptMap = departmentRepository.findAll().stream()
                 .collect(Collectors.toMap(Department::getId, d -> d, (a, b) -> a));
-        Map<UUID, Position> posMap = positionRepository.findAll().stream()
+        Map<Long, Position> posMap = positionRepository.findAll().stream()
                 .collect(Collectors.toMap(Position::getId, p -> p, (a, b) -> a));
         Map<String, String> faceDataMap = employeeFaceDataRepository.findAll().stream()
                 .filter(f -> f.getStaffId() != null && f.getPhotoUrl() != null)
@@ -460,7 +492,7 @@ public class EmployeeController {
 
     @PutMapping("/{id}/avatar")
     @PreAuthorize("@perm.canEditEmployee(#id)")
-    public ResponseEntity<?> updateAvatar(@PathVariable UUID id, @RequestBody Map<String, String> body) {
+    public ResponseEntity<?> updateAvatar(@PathVariable Long id, @RequestBody Map<String, String> body) {
         Optional<Employee> empOpt = employeeRepository.findById(id);
         if (empOpt.isEmpty()) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("message", "Employee not found"));
@@ -470,9 +502,9 @@ public class EmployeeController {
         emp.setPhotoUrl(avatar);
         Employee saved = employeeRepository.save(emp);
 
-        Map<UUID, Department> deptMap = departmentRepository.findAll().stream()
+        Map<Long, Department> deptMap = departmentRepository.findAll().stream()
                 .collect(Collectors.toMap(Department::getId, d -> d, (a, b) -> a));
-        Map<UUID, Position> posMap = positionRepository.findAll().stream()
+        Map<Long, Position> posMap = positionRepository.findAll().stream()
                 .collect(Collectors.toMap(Position::getId, p -> p, (a, b) -> a));
         Map<String, String> faceDataMap = employeeFaceDataRepository.findAll().stream()
                 .filter(f -> f.getStaffId() != null && f.getPhotoUrl() != null)
@@ -483,7 +515,7 @@ public class EmployeeController {
 
     @DeleteMapping("/{id}")
     @PreAuthorize("@perm.has('delete_employee')")
-    public ResponseEntity<?> deleteEmployee(@PathVariable UUID id) {
+    public ResponseEntity<?> deleteEmployee(@PathVariable Long id) {
         Optional<Employee> empOpt = employeeRepository.findById(id);
         if (empOpt.isPresent()) {
             Employee emp = empOpt.get();
@@ -501,13 +533,15 @@ public class EmployeeController {
                 leaveApprovalRuleRepository.deleteByTargetStaffId(staffId);
             }
             employeeRepository.delete(emp);
-            return ResponseEntity.ok(Map.of("message", "Employee and all related attendance, leave, overtime, and biometric records deleted successfully"));
+            return ResponseEntity.ok(Map.of("message",
+                    "Employee and all related attendance, leave, overtime, and biometric records deleted successfully"));
         }
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("message", "Employee not found"));
     }
 
     private Role parseRole(String roleStr) {
-        if (roleStr == null || roleStr.isBlank()) return Role.Employee;
+        if (roleStr == null || roleStr.isBlank())
+            return Role.Employee;
         for (Role r : Role.values()) {
             if (r.name().equalsIgnoreCase(roleStr.trim())) {
                 return r;
@@ -517,7 +551,8 @@ public class EmployeeController {
     }
 
     private Status parseStatus(String statusStr) {
-        if (statusStr == null || statusStr.isBlank()) return Status.Active;
+        if (statusStr == null || statusStr.isBlank())
+            return Status.Active;
         for (Status s : Status.values()) {
             if (s.name().equalsIgnoreCase(statusStr.trim())) {
                 return s;
@@ -528,10 +563,9 @@ public class EmployeeController {
 
     private Map<String, Object> enrichEmployee(
             Employee e,
-            Map<UUID, Department> deptMap,
-            Map<UUID, Position> posMap,
-            Map<String, String> faceDataMap
-    ) {
+            Map<Long, Department> deptMap,
+            Map<Long, Position> posMap,
+            Map<String, String> faceDataMap) {
         Map<String, Object> map = new HashMap<>();
         map.put("id", e.getId());
         map.put("staffId", e.getStaffId());
@@ -557,6 +591,7 @@ public class EmployeeController {
         map.put("hasFaceData", faceDataMap.containsKey(e.getStaffId()));
         map.put("email", e.getEmail());
         map.put("role", e.getRole());
+        map.put("roleId", e.getRoleId());
         map.put("createdAt", e.getCreatedAt());
         map.put("updatedAt", e.getUpdatedAt());
 
@@ -604,7 +639,8 @@ public class EmployeeController {
                         .build()));
 
         Department deptFinance = departmentRepository.findAll().stream()
-                .filter(d -> "Finance & Accounting".equalsIgnoreCase(d.getNameEn()) || "Finance".equalsIgnoreCase(d.getNameEn()))
+                .filter(d -> "Finance & Accounting".equalsIgnoreCase(d.getNameEn())
+                        || "Finance".equalsIgnoreCase(d.getNameEn()))
                 .findFirst()
                 .orElseGet(() -> departmentRepository.save(Department.builder()
                         .nameEn("Finance & Accounting")
@@ -613,7 +649,8 @@ public class EmployeeController {
                         .build()));
 
         Department deptMarketing = departmentRepository.findAll().stream()
-                .filter(d -> "Marketing & Operations".equalsIgnoreCase(d.getNameEn()) || "Marketing".equalsIgnoreCase(d.getNameEn()))
+                .filter(d -> "Marketing & Operations".equalsIgnoreCase(d.getNameEn())
+                        || "Marketing".equalsIgnoreCase(d.getNameEn()))
                 .findFirst()
                 .orElseGet(() -> departmentRepository.save(Department.builder()
                         .nameEn("Marketing & Operations")
@@ -634,7 +671,8 @@ public class EmployeeController {
         Position posAccountant = getOrCreatePosition("Senior Accountant", "គណនេយ្យករជាន់ខ្ពស់", deptFinance.getId());
 
         Position posMktLead = getOrCreatePosition("Marketing Lead", "ប្រធានផ្នែកទីផ្សារ", deptMarketing.getId());
-        Position posOpsOfficer = getOrCreatePosition("Operations Officer", "មន្ត្រីប្រតិបត្តិការ", deptMarketing.getId());
+        Position posOpsOfficer = getOrCreatePosition("Operations Officer", "មន្ត្រីប្រតិបត្តិការ",
+                deptMarketing.getId());
 
         List<Employee> employeeSeedList = List.of(
                 Employee.builder()
@@ -692,183 +730,14 @@ public class EmployeeController {
                         .email("manager@attendance.com")
                         .password(passwordEncoder.encode("manager123"))
                         .role(Role.Manager)
-                        .build(),
-
-                Employee.builder()
-                        .staffId("EMP-004")
-                        .nameEn("Nguon Rath")
-                        .nameKh("ងួន រ័ត្ន")
-                        .gender("Male")
-                        .positionId(posDev.getId())
-                        .departmentId(deptIT.getId())
-                        .branch("Phnom Penh HQ")
-                        .joinDate(LocalDate.of(2025, 2, 20))
-                        .status(Status.Active)
-                        .shift1Start("08:00")
-                        .shift1End("12:00")
-                        .shift2Start("13:00")
-                        .shift2End("17:00")
-                        .email("rath@attendance.com")
-                        .password(passwordEncoder.encode("emp123"))
-                        .role(Role.Employee)
-                        .build(),
-
-                Employee.builder()
-                        .staffId("EMP-005")
-                        .nameEn("Phan Sreypov")
-                        .nameKh("ផាន់ ស្រីពៅ")
-                        .gender("Female")
-                        .positionId(posUIDesigner.getId())
-                        .departmentId(deptIT.getId())
-                        .branch("Siem Reap Branch")
-                        .joinDate(LocalDate.of(2025, 5, 1))
-                        .status(Status.Active)
-                        .shift1Start("08:30")
-                        .shift1End("12:30")
-                        .shift2Start("13:30")
-                        .shift2End("17:30")
-                        .email("sreypov@attendance.com")
-                        .password(passwordEncoder.encode("emp123"))
-                        .role(Role.Employee)
-                        .build(),
-
-                Employee.builder()
-                        .staffId("EMP-006")
-                        .nameEn("Heng Mengly")
-                        .nameKh("ហេង ម៉េងលី")
-                        .gender("Male")
-                        .positionId(posSrDev.getId())
-                        .departmentId(deptIT.getId())
-                        .branch("Phnom Penh HQ")
-                        .joinDate(LocalDate.of(2024, 6, 15))
-                        .status(Status.Active)
-                        .shift1Start("08:00")
-                        .shift1End("12:00")
-                        .shift2Start("13:00")
-                        .shift2End("17:00")
-                        .email("mengly@attendance.com")
-                        .password(passwordEncoder.encode("emp123"))
-                        .role(Role.Employee)
-                        .build(),
-
-                Employee.builder()
-                        .staffId("EMP-007")
-                        .nameEn("Youn Vichea")
-                        .nameKh("យុន វិជ្ជា")
-                        .gender("Male")
-                        .positionId(posNetwork.getId())
-                        .departmentId(deptIT.getId())
-                        .branch("Phnom Penh HQ")
-                        .joinDate(LocalDate.of(2024, 8, 1))
-                        .status(Status.Active)
-                        .shift1Start("08:00")
-                        .shift1End("12:00")
-                        .shift2Start("13:00")
-                        .shift2End("17:00")
-                        .email("vichea@attendance.com")
-                        .password(passwordEncoder.encode("emp123"))
-                        .role(Role.Employee)
-                        .build(),
-
-                Employee.builder()
-                        .staffId("EMP-008")
-                        .nameEn("Chhim Sokha")
-                        .nameKh("ឈឹម សុខា")
-                        .gender("Female")
-                        .positionId(posFinanceMgr.getId())
-                        .departmentId(deptFinance.getId())
-                        .branch("Phnom Penh HQ")
-                        .joinDate(LocalDate.of(2023, 9, 10))
-                        .status(Status.Active)
-                        .shift1Start("08:00")
-                        .shift1End("12:00")
-                        .shift2Start("13:00")
-                        .shift2End("17:00")
-                        .email("sokha@attendance.com")
-                        .password(passwordEncoder.encode("manager123"))
-                        .role(Role.Manager)
-                        .build(),
-
-                Employee.builder()
-                        .staffId("EMP-009")
-                        .nameEn("Long Bopha")
-                        .nameKh("ឡុង បុប្ផា")
-                        .gender("Female")
-                        .positionId(posAccountant.getId())
-                        .departmentId(deptFinance.getId())
-                        .branch("Battambang Branch")
-                        .joinDate(LocalDate.of(2024, 11, 20))
-                        .status(Status.Active)
-                        .shift1Start("08:00")
-                        .shift1End("12:00")
-                        .shift2Start("13:00")
-                        .shift2End("17:00")
-                        .email("bopha@attendance.com")
-                        .password(passwordEncoder.encode("emp123"))
-                        .role(Role.Employee)
-                        .build(),
-
-                Employee.builder()
-                        .staffId("EMP-010")
-                        .nameEn("Chea Sovann")
-                        .nameKh("ជា សុវណ្ណ")
-                        .gender("Male")
-                        .positionId(posMktLead.getId())
-                        .departmentId(deptMarketing.getId())
-                        .branch("Phnom Penh HQ")
-                        .joinDate(LocalDate.of(2023, 12, 5))
-                        .status(Status.Active)
-                        .shift1Start("08:00")
-                        .shift1End("12:00")
-                        .shift2Start("13:00")
-                        .shift2End("17:00")
-                        .email("sovann@attendance.com")
-                        .password(passwordEncoder.encode("manager123"))
-                        .role(Role.Manager)
-                        .build(),
-
-                Employee.builder()
-                        .staffId("EMP-011")
-                        .nameEn("Tep Kanha")
-                        .nameKh("ទេព កញ្ញា")
-                        .gender("Female")
-                        .positionId(posHRSpecialist.getId())
-                        .departmentId(deptHR.getId())
-                        .branch("Siem Reap Branch")
-                        .joinDate(LocalDate.of(2025, 1, 10))
-                        .status(Status.Active)
-                        .shift1Start("08:00")
-                        .shift1End("12:00")
-                        .shift2Start("13:00")
-                        .shift2End("17:00")
-                        .email("kanha@attendance.com")
-                        .password(passwordEncoder.encode("emp123"))
-                        .role(Role.Employee)
-                        .build(),
-
-                Employee.builder()
-                        .staffId("EMP-012")
-                        .nameEn("Vannak Rithy")
-                        .nameKh("វណ្ណៈ រិទ្ធី")
-                        .gender("Male")
-                        .positionId(posOpsOfficer.getId())
-                        .departmentId(deptMarketing.getId())
-                        .branch("Sihanoukville Branch")
-                        .joinDate(LocalDate.of(2025, 3, 1))
-                        .status(Status.Active)
-                        .shift1Start("08:00")
-                        .shift1End("12:00")
-                        .shift2Start("13:00")
-                        .shift2End("17:00")
-                        .email("rithy@attendance.com")
-                        .password(passwordEncoder.encode("emp123"))
-                        .role(Role.Employee)
                         .build()
+
         );
 
         int createdCount = 0;
         for (Employee emp : employeeSeedList) {
-            if (!employeeRepository.existsByStaffId(emp.getStaffId()) && !employeeRepository.existsByEmail(emp.getEmail())) {
+            if (!employeeRepository.existsByStaffId(emp.getStaffId())
+                    && !employeeRepository.existsByEmail(emp.getEmail())) {
                 employeeRepository.save(emp);
                 createdCount++;
             }
@@ -877,11 +746,10 @@ public class EmployeeController {
         return ResponseEntity.ok(Map.of(
                 "message", "Successfully seeded employees",
                 "createdCount", createdCount,
-                "totalCount", employeeRepository.count()
-        ));
+                "totalCount", employeeRepository.count()));
     }
 
-    private Position getOrCreatePosition(String titleEn, String titleKh, UUID deptId) {
+    private Position getOrCreatePosition(String titleEn, String titleKh, Long deptId) {
         return positionRepository.findAll().stream()
                 .filter(p -> titleEn.equalsIgnoreCase(p.getTitleEn()))
                 .findFirst()

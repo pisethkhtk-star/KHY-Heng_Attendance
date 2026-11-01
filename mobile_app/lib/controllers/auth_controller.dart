@@ -213,8 +213,15 @@ class AuthController extends GetxController {
     _errorMessage.value = null;
     try {
       final result = await _authRepository.updateAvatar(avatarBase64);
-      if (result.success && result.user != null) {
-        _user.value = result.user;
+      if (result.success) {
+        if (result.user != null) {
+          _user.value = result.user;
+        } else {
+          final meRes = await _authRepository.getMe();
+          if (meRes.success && meRes.user != null) {
+            _user.value = meRes.user;
+          }
+        }
         return true;
       } else {
         _errorMessage.value = result.message ?? 'Failed to update avatar';

@@ -18,7 +18,6 @@ import org.springframework.stereotype.Component;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
-import java.util.UUID;
 
 @Slf4j
 @Component("perm")
@@ -169,7 +168,7 @@ public class SecurityPermissionService {
      * - HR can edit self, Manager, Employee
      * - Manager can edit self only
      */
-    public boolean canEditEmployee(UUID targetId) {
+    public boolean canEditEmployee(Long targetId) {
         if (targetId == null) return false;
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         if (auth == null || !auth.isAuthenticated()) return false;
@@ -201,7 +200,7 @@ public class SecurityPermissionService {
      * - HR can edit password of self, Manager, Employee
      * - Manager can edit password of self only
      */
-    public boolean canEditPassword(UUID targetId) {
+    public boolean canEditPassword(Long targetId) {
         if (targetId == null) return false;
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         if (auth == null || !auth.isAuthenticated()) return false;

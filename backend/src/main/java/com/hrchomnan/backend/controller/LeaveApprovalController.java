@@ -56,9 +56,9 @@ public class LeaveApprovalController {
 
         Map<String, Employee> empMap = employeeRepository.findAll().stream()
                 .collect(Collectors.toMap(Employee::getStaffId, e -> e, (a, b) -> a));
-        Map<UUID, Department> deptMap = departmentRepository.findAll().stream()
+        Map<Long, Department> deptMap = departmentRepository.findAll().stream()
                 .collect(Collectors.toMap(Department::getId, d -> d, (a, b) -> a));
-        Map<UUID, com.hrchomnan.backend.model.Position> posMap = positionRepository.findAll().stream()
+        Map<Long, com.hrchomnan.backend.model.Position> posMap = positionRepository.findAll().stream()
                 .collect(Collectors.toMap(com.hrchomnan.backend.model.Position::getId, p -> p, (a, b) -> a));
         Map<String, String> faceDataMap = employeeFaceDataRepository.findAll().stream()
                 .filter(f -> f.getStaffId() != null && f.getPhotoUrl() != null)
@@ -150,7 +150,7 @@ public class LeaveApprovalController {
     public static class CreateRuleRequest {
         private String approverId;
         private String scope; // "Department" or "Employee"
-        private UUID targetDeptId;
+        private Long targetDeptId;
         private String targetStaffId;
         private List<String> targetStaffIds;
         private String ruleType; // "LEAVE" or "OVERTIME"
@@ -251,7 +251,7 @@ public class LeaveApprovalController {
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<?> updateRule(@PathVariable UUID id, @RequestBody CreateRuleRequest request) {
+    public ResponseEntity<?> updateRule(@PathVariable Long id, @RequestBody CreateRuleRequest request) {
         if (request.getApproverId() == null || request.getScope() == null) {
             return ResponseEntity.badRequest().body(Map.of("message", "Approver and Scope are required"));
         }
@@ -332,7 +332,7 @@ public class LeaveApprovalController {
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<?> deleteRule(@PathVariable UUID id) {
+    public ResponseEntity<?> deleteRule(@PathVariable Long id) {
         if (ruleRepository.existsById(id)) {
             ruleRepository.deleteById(id);
             return ResponseEntity.ok(Map.of("message", "Approval rule deleted successfully"));

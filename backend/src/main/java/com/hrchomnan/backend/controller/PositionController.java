@@ -14,7 +14,6 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
 
 @RestController
 @RequestMapping("/positions")
@@ -39,7 +38,7 @@ public class PositionController {
     })
     @GetMapping("/{id}")
     @PreAuthorize("@perm.has('positions')")
-    public ResponseEntity<Map<String, Object>> getPositionById(@PathVariable UUID id) {
+    public ResponseEntity<Map<String, Object>> getPositionById(@PathVariable Long id) {
         return ResponseEntity.ok(positionService.getPositionById(id));
     }
 
@@ -62,7 +61,7 @@ public class PositionController {
     })
     @PutMapping("/{id}")
     @PreAuthorize("@perm.has('edit_position')")
-    public ResponseEntity<Position> updatePosition(@PathVariable UUID id, @RequestBody Position updated) {
+    public ResponseEntity<Position> updatePosition(@PathVariable Long id, @RequestBody Position updated) {
         return ResponseEntity.ok(positionService.updatePosition(id, updated));
     }
 
@@ -73,7 +72,7 @@ public class PositionController {
     })
     @DeleteMapping("/{id}")
     @PreAuthorize("@perm.has('delete_position')")
-    public ResponseEntity<Void> deletePosition(@PathVariable UUID id) {
+    public ResponseEntity<Void> deletePosition(@PathVariable Long id) {
         positionService.deletePosition(id);
         return ResponseEntity.noContent().build();
     }

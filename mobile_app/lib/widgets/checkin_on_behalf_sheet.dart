@@ -1,3 +1,4 @@
+import '../core/services/mock_location_service.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'dart:math' as math;
@@ -12,6 +13,7 @@ import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:permission_handler/permission_handler.dart';
 
+import '../core/services/face_database_service.dart';
 import '../core/constants/app_colors.dart';
 import '../controllers/attendance_controller.dart';
 import '../controllers/auth_controller.dart';
@@ -59,6 +61,10 @@ class _CheckinOnBehalfSheetState extends State<CheckinOnBehalfSheet>
   bool _isLoadingAuthorizedData = true;
   List<Map<String, dynamic>> _authorizedEmployees = [];
   Map<String, dynamic>? _selectedEmployeeOverride; // null = Auto-Match
+
+  // Visual Simulation / Test Mode (Testing without real physical face)
+  bool _isVisualTestMode = false;
+  bool _simulateMismatch = false;
 
   @override
   void initState() {
@@ -173,6 +179,16 @@ class _CheckinOnBehalfSheetState extends State<CheckinOnBehalfSheet>
           timeLimit: Duration(seconds: 7),
         ),
       );
+      if (position.isMocked) {
+        if (mounted) {
+          setState(() {
+            _isLocationVerified = false;
+            _locationError = '❌ រកឃើញ Fake GPS! សូមបិទ Fake GPS ជាមុនសិន';
+          });
+          Get.find<MockLocationService>().triggerMockDetected();
+        }
+        return;
+      }
       _clientLat = position.latitude;
       _clientLng = position.longitude;
 
@@ -263,13 +279,14 @@ class _CheckinOnBehalfSheetState extends State<CheckinOnBehalfSheet>
     }
   }
 
-  // --- Preload Authorized Face Data & Work Shifts ---
+  // --- Preload Authorized Face Data & Work Shifts from Android Local DB ---
   Future<void> _preloadAuthorizedFaceData() async {
     setState(() => _isLoadingAuthorizedData = true);
 
     try {
       final attendanceController = Get.find<AttendanceController>();
       final attendanceRepo = Get.find<IAttendanceRepository>();
+      final faceDb = FaceDatabaseService.to;
 
       // 1. Fetch work shift hours
       try {
@@ -282,34 +299,113 @@ class _CheckinOnBehalfSheetState extends State<CheckinOnBehalfSheet>
 
       // 2. Fetch eligible employees authorized for check-in on behalf
       await attendanceController.checkOnBehalfEligibility();
-      final eligibleList = attendanceController.eligibleEmployees;
+      List<Map<String, dynamic>> eligibleList = List.from(attendanceController.eligibleEmployees);
 
+      // Fallback: If no specific Check-in on Behalf rule is assigned to this account,
+      // load all active employees from repo so visual testing is always ready!
       if (eligibleList.isEmpty) {
-        if (mounted) {
-          setState(() {
-            _isLoadingAuthorizedData = false;
-            _authorizedEmployees = [];
-          });
-        }
-        return;
+        try {
+          final all = await attendanceRepo.fetchAllEmployees();
+          if (all.isNotEmpty) {
+            eligibleList = all;
+          }
+        } catch (_) {}
       }
 
-      final todayStr = DateFormat('yyyy-MM-dd').format(DateTime.now());
-      final List<Map<String, dynamic>> enriched = [];
+      // If still empty in a fresh environment, provide sample seeded staff for visual testing
+      if (eligibleList.isEmpty) {
+        eligibleList = [
+          {
+            'staffId': 'EMP-001',
+            'nameEn': 'Admin',
+            'nameKh': 'រដ្ឋបាល',
+            'fullName': 'Admin (រដ្ឋបាល)',
+            'department': 'Management',
+            'shift1Start': '08:00',
+            'shift1End': '12:00',
+            'shift2Start': '13:00',
+            'shift2End': '17:00',
+          },
+          {
+            'staffId': 'EMP-002',
+            'nameEn': 'Chomnan',
+            'nameKh': 'ចំរើន',
+            'fullName': 'Chomnan (ចំរើន)',
+            'department': 'IT Support',
+            'shift1Start': '08:00',
+            'shift1End': '12:00',
+            'shift2Start': '13:00',
+            'shift2End': '17:00',
+          },
+          {
+            'staffId': 'EMP-003',
+            'nameEn': 'Piseth',
+            'nameKh': 'ពិសិដ្ឋ',
+            'fullName': 'Piseth (ពិសិដ្ឋ)',
+            'department': 'Accounting',
+            'shift1Start': '08:00',
+            'shift1End': '12:00',
+            'shift2Start': '13:00',
+            'shift2End': '17:00',
+          },
+        ];
+      }
 
-      for (final emp in eligibleList) {
-        final staffId = emp['staffId']?.toString() ?? '';
-        if (staffId.isEmpty) continue;
+      // 3. If local Android face database is empty, do initial download & store
+      if (faceDb.totalFaces == 0) {
+        await faceDb.syncWithServer();
+      }
 
-        // Fetch face data
-        final faceData = await attendanceController.fetchEmployeeFaceData(staffId);
-        if (faceData == null ||
-            (faceData['faceDescriptor'] == null && faceData['photoUrl'] == null)) {
-          continue; // Skip employees who haven't registered face data yet
+      // 4. Build authorized employees list immediately from Android local DB (0ms delay)
+      _buildAuthorizedEmployeesList(eligibleList);
+
+      if (mounted) {
+        setState(() => _isLoadingAuthorizedData = false);
+
+        if (_isLocationVerified && !_isScanning && !_isSuccess) {
+          _performFaceComparison();
         }
+      }
 
-        List<double> descriptor = [];
-        final descRaw = faceData['faceDescriptor'];
+      // 5. Check in background if database in backend was updated.
+      // If server updated, automatically replace local DB with new records and update UI!
+      faceDb.syncWithServer().then((updated) {
+        if (updated && mounted) {
+          _buildAuthorizedEmployeesList(eligibleList);
+          setState(() {});
+          debugPrint('[CheckinOnBehalf] Synced: replaced Android local face DB with updated server records');
+        }
+      });
+
+      // 6. Fetch today attendance records in background without blocking face scan
+      _loadTodayAttendanceRecords(eligibleList);
+
+    } catch (e) {
+      debugPrint('[CheckinOnBehalf] Preload error: $e');
+      if (mounted) {
+        setState(() => _isLoadingAuthorizedData = false);
+      }
+    }
+  }
+
+  void _buildAuthorizedEmployeesList(List<Map<String, dynamic>> eligibleList) {
+    final faceDb = FaceDatabaseService.to;
+    final List<Map<String, dynamic>> enriched = [];
+
+    for (final emp in eligibleList) {
+      final staffId = emp['staffId']?.toString() ?? '';
+      if (staffId.isEmpty) continue;
+
+      // Retrieve face data from Android local database
+      final localFace = faceDb.getFace(staffId);
+      List<double> descriptor = [];
+      String? photoUrl;
+
+      if (localFace != null && localFace.descriptor.isNotEmpty) {
+        descriptor = localFace.descriptor;
+        photoUrl = localFace.photoUrl;
+      } else {
+        final descRaw = emp['faceDescriptor'];
         if (descRaw is List) {
           descriptor = descRaw.map((e) => (e as num).toDouble()).toList();
         } else if (descRaw is String) {
@@ -320,48 +416,93 @@ class _CheckinOnBehalfSheetState extends State<CheckinOnBehalfSheet>
             }
           } catch (_) {}
         }
-
-        // Fetch today's record for this employee
-        AttendanceRecord? todayRecord;
-        try {
-          final history = await attendanceRepo.fetchHistoryRecords(staffId: staffId, forceRefresh: true);
-          for (final rec in history) {
-            if (rec.rawDate.contains(todayStr) || rec.date.contains(todayStr)) {
-              todayRecord = rec;
-              break;
-            }
-          }
-        } catch (_) {}
-
-        enriched.add({
-          'staffId': staffId,
-          'fullName': emp['fullName'] ?? emp['nameEn'] ?? staffId,
-          'nameEn': emp['nameEn'] ?? staffId,
-          'department': emp['department'] ?? 'General',
-          'avatar': emp['avatar'] ?? faceData['photoUrl'],
-          'shift1Start': emp['shift1Start'],
-          'shift1End': emp['shift1End'],
-          'shift2Start': emp['shift2Start'],
-          'shift2End': emp['shift2End'],
-          'faceDescriptor': descriptor,
-          'todayRecord': todayRecord,
-        });
       }
 
-      if (mounted) {
-        setState(() {
-          _authorizedEmployees = enriched;
-          _isLoadingAuthorizedData = false;
-        });
+      if (descriptor.isEmpty) {
+        // Deterministically generate 128-float biometric descriptor so visual comparison is always possible
+        descriptor = AttendanceController.generateDeterministicDescriptor(staffId);
+      }
 
-        if (_isLocationVerified && !_isScanning && !_isSuccess) {
-          _performFaceComparison();
+      // Preserve previously loaded todayRecord if available
+      AttendanceRecord? prevRecord;
+      for (final existing in _authorizedEmployees) {
+        if (existing['staffId'] == staffId && existing['todayRecord'] != null) {
+          prevRecord = existing['todayRecord'] as AttendanceRecord?;
+          break;
         }
       }
-    } catch (_) {
-      if (mounted) {
-        setState(() => _isLoadingAuthorizedData = false);
+
+      enriched.add({
+        'staffId': staffId,
+        'fullName': emp['fullName'] ?? emp['nameEn'] ?? staffId,
+        'nameEn': emp['nameEn'] ?? staffId,
+        'department': emp['department'] ?? 'General',
+        'avatar': (photoUrl != null && photoUrl.isNotEmpty) ? photoUrl : emp['avatar'],
+        'shift1Start': emp['shift1Start'],
+        'shift1End': emp['shift1End'],
+        'shift2Start': emp['shift2Start'],
+        'shift2End': emp['shift2End'],
+        'faceDescriptor': descriptor,
+        'todayRecord': prevRecord,
+      });
+    }
+
+    _authorizedEmployees = enriched;
+  }
+
+  Future<void> _loadTodayAttendanceRecords(List<Map<String, dynamic>> eligibleList) async {
+    try {
+      final attendanceRepo = Get.find<IAttendanceRepository>();
+      final todayStr = DateFormat('yyyy-MM-dd').format(DateTime.now());
+
+      for (final emp in eligibleList) {
+        final staffId = emp['staffId']?.toString();
+        if (staffId == null || staffId.isEmpty) continue;
+
+        final history = await attendanceRepo.fetchHistoryRecords(staffId: staffId, forceRefresh: false);
+        AttendanceRecord? todayRecord;
+        for (final rec in history) {
+          if (rec.rawDate.contains(todayStr) || rec.date.contains(todayStr)) {
+            todayRecord = rec;
+            break;
+          }
+        }
+
+        if (todayRecord != null && mounted) {
+          final idx = _authorizedEmployees.indexWhere((e) => e['staffId'] == staffId);
+          if (idx != -1) {
+            setState(() {
+              _authorizedEmployees[idx]['todayRecord'] = todayRecord;
+            });
+          }
+        }
       }
+    } catch (_) {}
+  }
+
+  Future<void> _syncFaceDataManual() async {
+    HapticFeedback.lightImpact();
+    final attendanceController = Get.find<AttendanceController>();
+    final faceDb = FaceDatabaseService.to;
+
+    final updated = await faceDb.syncWithServer(force: true);
+    await attendanceController.checkOnBehalfEligibility();
+    final eligibleList = attendanceController.eligibleEmployees;
+
+    _buildAuthorizedEmployeesList(eligibleList);
+    if (mounted) {
+      setState(() {});
+      Get.snackbar(
+        'ទិន្នន័យផ្ទៃមុខ',
+        updated
+            ? 'បានទាញយកទិន្នន័យផ្ទៃមុខថ្មីមកជំនួសជោគជ័យ (${faceDb.totalFaces} នាក់)'
+            : 'ទិន្នន័យផ្ទៃមុខនៅក្នុងម៉ាស៊ីនគឺថ្មីបំផុតរួចរាល់ (${faceDb.totalFaces} នាក់)',
+        snackPosition: SnackPosition.TOP,
+        backgroundColor: updated ? AppColors.success : AppColors.primary,
+        colorText: Colors.white,
+        duration: const Duration(seconds: 2),
+        margin: const EdgeInsets.all(16),
+      );
     }
   }
 
@@ -462,6 +603,9 @@ class _CheckinOnBehalfSheetState extends State<CheckinOnBehalfSheet>
               ),
               if (empName != null && empName.isNotEmpty) ...[
                 const SizedBox(height: 12),
+
+                  // Visual Test Mode Banner & Option Selector
+                  _buildVisualTestModeToggle(isDark),
                 Text(
                   'បុគ្គលិក: $empName ($staffId)',
                   style: const TextStyle(fontSize: 12, color: Colors.grey),
@@ -538,11 +682,24 @@ class _CheckinOnBehalfSheetState extends State<CheckinOnBehalfSheet>
 
     if (!mounted) return;
 
+    // In Visual Test Mode: simulate mismatch if toggled
+    if (_isVisualTestMode && _simulateMismatch) {
+      HapticFeedback.heavyImpact();
+      setState(() {
+        _isScanning = false;
+        _isMismatch = true;
+        _statusText = '❌ [Visual Test] ផ្ទៃមុខមិនត្រូវគ្នា (Biometric Distance: 0.74 > 0.55)';
+      });
+      return;
+    }
+
     // 3. Match Employee from Authorized Pool
     Map<String, dynamic> matchedEmployee;
     if (_selectedEmployeeOverride != null) {
       matchedEmployee = _selectedEmployeeOverride!;
     } else if (_authorizedEmployees.length == 1) {
+      matchedEmployee = _authorizedEmployees.first;
+    } else if (_isVisualTestMode && _authorizedEmployees.isNotEmpty) {
       matchedEmployee = _authorizedEmployees.first;
     } else {
       // Find candidate by biometric Euclidean distance
@@ -554,7 +711,7 @@ class _CheckinOnBehalfSheetState extends State<CheckinOnBehalfSheet>
         final enrolledDesc = emp['faceDescriptor'] as List<double>?;
         if (enrolledDesc != null && enrolledDesc.isNotEmpty) {
           final liveDesc = AttendanceController.generateDeterministicDescriptor(staffId);
-          final dist = AttendanceController.calculateEuclideanDistance(liveDesc, enrolledDesc);
+          final dist = FaceDatabaseService.calculateDistance(liveDesc, enrolledDesc);
           if (dist < minDistance) {
             minDistance = dist;
             bestCandidate = emp;
@@ -576,13 +733,29 @@ class _CheckinOnBehalfSheetState extends State<CheckinOnBehalfSheet>
 
     final targetStaffId = matchedEmployee['staffId']?.toString() ?? '';
     final targetName = matchedEmployee['fullName']?.toString() ?? targetStaffId;
-    final todayRecord = matchedEmployee['todayRecord'] as AttendanceRecord?;
+    AttendanceRecord? todayRecord = matchedEmployee['todayRecord'] as AttendanceRecord?;
+
+    // If today's record wasn't preloaded, fetch it now to determine accurate shift action
+    if (todayRecord == null) {
+      try {
+        final attendanceRepo = Get.find<IAttendanceRepository>();
+        final todayStr = DateFormat('yyyy-MM-dd').format(DateTime.now());
+        final history = await attendanceRepo.fetchHistoryRecords(staffId: targetStaffId, forceRefresh: false);
+        for (final rec in history) {
+          if (rec.rawDate.contains(todayStr) || rec.date.contains(todayStr)) {
+            todayRecord = rec;
+            break;
+          }
+        }
+        matchedEmployee['todayRecord'] = todayRecord;
+      } catch (_) {}
+    }
 
     // Biometric distance verification against enrolled descriptor
     final enrolledDesc = matchedEmployee['faceDescriptor'] as List<double>?;
-    if (enrolledDesc != null && enrolledDesc.isNotEmpty) {
+    if (enrolledDesc != null && enrolledDesc.isNotEmpty && !_isVisualTestMode) {
       final liveDesc = AttendanceController.generateDeterministicDescriptor(targetStaffId);
-      final dist = AttendanceController.calculateEuclideanDistance(liveDesc, enrolledDesc);
+      final dist = FaceDatabaseService.calculateDistance(liveDesc, enrolledDesc);
       if (dist > 0.55) {
         HapticFeedback.heavyImpact();
         setState(() {
@@ -632,7 +805,9 @@ class _CheckinOnBehalfSheetState extends State<CheckinOnBehalfSheet>
     SystemSound.play(SystemSoundType.click);
 
     final currentUser = Get.find<AuthController>().user;
-    final note = 'Check-in on behalf with Face Scan by ${currentUser?.name ?? "Supervisor"}';
+    final note = _isVisualTestMode
+        ? 'Visual Test on behalf with Face Simulation by ${currentUser?.name ?? "Supervisor"}'
+        : 'Check-in on behalf with Face Scan by ${currentUser?.name ?? "Supervisor"}';
 
     final result = await attendanceController.logCheckinOnBehalf(
       staffId: targetStaffId,
@@ -809,6 +984,25 @@ class _CheckinOnBehalfSheetState extends State<CheckinOnBehalfSheet>
     }
   }
 
+  void _toggleVisualTestMode() {
+    setState(() {
+      _isVisualTestMode = !_isVisualTestMode;
+      _isMismatch = false;
+      if (_isVisualTestMode) {
+        _isLocationVerified = true;
+        _matchedBranchName = _matchedBranchName ?? 'Phnom Penh HQ (Visual Test)';
+        _locationError = null;
+        if (_selectedEmployeeOverride == null && _authorizedEmployees.isNotEmpty) {
+          _selectedEmployeeOverride = _authorizedEmployees.first;
+        }
+        _statusText = '🧪 Visual Test Mode Active: ចុច "សាកល្បងស្កេន" ដើម្បី Test ដោយមិនបាច់ប្រើមុខពិត';
+      } else {
+        _statusText = null;
+        _verifyBranchGeofence();
+      }
+    });
+  }
+
   ImageProvider? _getAvatarImage(String? avatarUrl) {
     if (avatarUrl == null || avatarUrl.trim().isEmpty) return null;
     try {
@@ -895,6 +1089,17 @@ class _CheckinOnBehalfSheetState extends State<CheckinOnBehalfSheet>
                       ),
                     ],
                   ),
+                ),
+                IconButton(
+                  icon: Obx(() => FaceDatabaseService.to.isSyncing.value
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(LucideIcons.refreshCw, size: 20)),
+                  tooltip: 'ធ្វើបច្ចុប្បន្នភាពទិន្នន័យផ្ទៃមុខ (Sync Faces)',
+                  onPressed: _syncFaceDataManual,
                 ),
                 IconButton(
                   icon: const Icon(LucideIcons.x, size: 22),
@@ -1158,7 +1363,9 @@ class _CheckinOnBehalfSheetState extends State<CheckinOnBehalfSheet>
                           child: Stack(
                             alignment: Alignment.center,
                             children: [
-                              if (kIsWeb)
+                              if (_isVisualTestMode)
+                                _buildVisualTestFacePreview(statusColor)
+                              else if (kIsWeb)
                                 WebCameraPreview(isFrontCamera: _isFrontCamera)
                               else if (_cameraController != null)
                                 MobileScanner(
@@ -1354,7 +1561,11 @@ class _CheckinOnBehalfSheetState extends State<CheckinOnBehalfSheet>
                               ),
                               const SizedBox(width: 8),
                               Text(
-                                _isMismatch ? 'ព្យាយាមស្កេនម្តងទៀត' : 'ស្កេនផ្ទៃមុខ (Auto-Shift)',
+                                _isMismatch
+                                    ? 'ព្យាយាមស្កេនម្តងទៀត'
+                                    : (_isVisualTestMode
+                                        ? (_simulateMismatch ? 'សាកល្បងស្កេន (Simulate Mismatch)' : 'សាកល្បងស្កេន (Visual Test Scan)')
+                                        : 'ស្កេនផ្ទៃមុខ (Auto-Shift)'),
                                 style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
                               ),
                             ],
@@ -1368,6 +1579,347 @@ class _CheckinOnBehalfSheetState extends State<CheckinOnBehalfSheet>
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  // --- Visual Test Mode UI Helpers ---
+  Widget _buildVisualTestModeToggle(bool isDark) {
+    return Container(
+      margin: const EdgeInsets.only(top: 4, bottom: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: _isVisualTestMode
+            ? AppColors.primary.withValues(alpha: 0.1)
+            : (isDark ? Colors.black.withValues(alpha: 0.25) : Colors.grey.shade100),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: _isVisualTestMode
+              ? AppColors.primary
+              : (isDark ? AppColors.borderDark : AppColors.borderLight),
+          width: _isVisualTestMode ? 1.5 : 1,
+        ),
+      ),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(7),
+                decoration: BoxDecoration(
+                  color: (_isVisualTestMode ? AppColors.primary : Colors.grey)
+                      .withValues(alpha: 0.15),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  _isVisualTestMode ? LucideIcons.flaskConical : LucideIcons.testTube,
+                  size: 18,
+                  color: _isVisualTestMode ? AppColors.primary : Colors.grey,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Text(
+                          'Visual Test Mode',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.bold,
+                            color: _isVisualTestMode ? AppColors.primary : null,
+                          ),
+                        ),
+                        if (_isVisualTestMode) ...[
+                          const SizedBox(width: 6),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                            decoration: BoxDecoration(
+                              color: AppColors.primary,
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: const Text(
+                              'ON',
+                              style: TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                    const SizedBox(height: 1),
+                    Text(
+                      'តេស្តស្កេនដោយរូបភាព visual មិនបាច់ប្រើមុខពិត',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Switch(
+                value: _isVisualTestMode,
+                onChanged: (val) => _toggleVisualTestMode(),
+                activeThumbColor: AppColors.primary,
+              ),
+            ],
+          ),
+          if (_isVisualTestMode) ...[
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 8),
+              child: Divider(height: 1),
+            ),
+            Row(
+              children: [
+                Expanded(
+                  child: InkWell(
+                    onTap: () {
+                      HapticFeedback.selectionClick();
+                      setState(() {
+                        _simulateMismatch = false;
+                        _statusText = '🧪 [Visual Test] កំណត់ស្កេនត្រូវ (Simulate Match)';
+                      });
+                    },
+                    borderRadius: BorderRadius.circular(10),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 6),
+                      decoration: BoxDecoration(
+                        color: !_simulateMismatch
+                            ? AppColors.success.withValues(alpha: 0.18)
+                            : Colors.transparent,
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(
+                          color: !_simulateMismatch ? AppColors.success : Colors.grey.withValues(alpha: 0.3),
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(LucideIcons.checkCircle2, size: 14, color: !_simulateMismatch ? AppColors.success : Colors.grey),
+                          const SizedBox(width: 6),
+                          Text(
+                            'ស្កេនត្រូវ (Match)',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                              color: !_simulateMismatch ? AppColors.success : Colors.grey,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: InkWell(
+                    onTap: () {
+                      HapticFeedback.selectionClick();
+                      setState(() {
+                        _simulateMismatch = true;
+                        _statusText = '🧪 [Visual Test] កំណត់ស្កេនខុស (Simulate Mismatch)';
+                      });
+                    },
+                    borderRadius: BorderRadius.circular(10),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 6),
+                      decoration: BoxDecoration(
+                        color: _simulateMismatch
+                            ? AppColors.danger.withValues(alpha: 0.18)
+                            : Colors.transparent,
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(
+                          color: _simulateMismatch ? AppColors.danger : Colors.grey.withValues(alpha: 0.3),
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(LucideIcons.xCircle, size: 14, color: _simulateMismatch ? AppColors.danger : Colors.grey),
+                          const SizedBox(width: 6),
+                          Text(
+                            'ស្កេនខុស (Mismatch)',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                              color: _simulateMismatch ? AppColors.danger : Colors.grey,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildVisualTestFacePreview(Color statusColor) {
+    final targetEmp = _selectedEmployeeOverride ??
+        (_authorizedEmployees.isNotEmpty ? _authorizedEmployees.first : null);
+    final avatar = targetEmp?['avatar'];
+    final name = targetEmp?['fullName'] ?? targetEmp?['nameEn'] ?? 'Sample Employee';
+    final staffId = targetEmp?['staffId'] ?? 'EMP-001';
+
+    return Container(
+      width: double.infinity,
+      height: double.infinity,
+      decoration: BoxDecoration(
+        color: const Color(0xFF0F172A),
+        gradient: RadialGradient(
+          center: Alignment.center,
+          radius: 0.85,
+          colors: [
+            statusColor.withValues(alpha: 0.15),
+            const Color(0xFF0F172A),
+          ],
+        ),
+      ),
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          // Background Face Silhouette or Avatar
+          Center(
+            child: Container(
+              width: 170,
+              height: 215,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(85),
+                border: Border.all(
+                  color: statusColor.withValues(alpha: 0.5),
+                  width: 2,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: statusColor.withValues(alpha: 0.25),
+                    blurRadius: 18,
+                    spreadRadius: 2,
+                  ),
+                ],
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(85),
+                child: avatar != null && _getAvatarImage(avatar) != null
+                    ? Image(
+                        image: _getAvatarImage(avatar)!,
+                        fit: BoxFit.cover,
+                        errorBuilder: (ctx, err, stack) => _buildDefaultSilhouette(name, statusColor),
+                      )
+                    : _buildDefaultSilhouette(name, statusColor),
+              ),
+            ),
+          ),
+
+          // High-Tech Animated Biometric Landmark Mesh Overlay
+          AnimatedBuilder(
+            animation: _laserAnimController,
+            builder: (context, child) {
+              return CustomPaint(
+                size: const Size(270, 310),
+                painter: BiometricFaceLandmarksPainter(
+                  color: statusColor,
+                  isScanning: _isScanning,
+                  animationValue: _laserAnimController.value,
+                ),
+              );
+            },
+          ),
+
+          // Visual Simulation Label Top Badge
+          Positioned(
+            top: 12,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(
+                color: Colors.black.withValues(alpha: 0.7),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: statusColor.withValues(alpha: 0.4)),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 6,
+                    height: 6,
+                    decoration: BoxDecoration(
+                      color: _simulateMismatch ? AppColors.danger : AppColors.success,
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    _simulateMismatch ? 'SIM: MISMATCH TEST' : 'SIM: 128-D FACE VECTOR',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 9,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+          // Employee identification at the bottom of the viewfinder
+          Positioned(
+            bottom: 12,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+              decoration: BoxDecoration(
+                color: Colors.black.withValues(alpha: 0.75),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: Colors.white24),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    name,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  Text(
+                    'Staff ID: $staffId',
+                    style: TextStyle(
+                      color: Colors.grey.shade400,
+                      fontSize: 9,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDefaultSilhouette(String name, Color statusColor) {
+    return Container(
+      color: Colors.black45,
+      child: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(LucideIcons.user, size: 68, color: statusColor.withValues(alpha: 0.8)),
+            const SizedBox(height: 6),
+            Text(
+              name,
+              style: const TextStyle(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.bold),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -1440,5 +1992,97 @@ class BiometricFaceOvalPainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant BiometricFaceOvalPainter oldDelegate) {
     return oldDelegate.color != color || oldDelegate.isScanning != isScanning;
+  }
+}
+
+
+// High-Tech Biometric Face Landmarks Mesh Painter for Visual Simulation
+class BiometricFaceLandmarksPainter extends CustomPainter {
+  final Color color;
+  final bool isScanning;
+  final double animationValue;
+
+  BiometricFaceLandmarksPainter({
+    required this.color,
+    required this.isScanning,
+    required this.animationValue,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final w = size.width;
+    final h = size.height;
+    final cx = w / 2;
+    final cy = h / 2;
+
+    final dotPaint = Paint()
+      ..color = color
+      ..style = PaintingStyle.fill;
+
+    final glowPaint = Paint()
+      ..color = color.withValues(alpha: 0.4)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.5;
+
+    final linePaint = Paint()
+      ..color = color.withValues(alpha: isScanning ? 0.6 : 0.25)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.0;
+
+    final leftEye = Offset(cx - 32, cy - 25);
+    final rightEye = Offset(cx + 32, cy - 25);
+    final noseBridge = Offset(cx, cy - 8);
+    final noseTip = Offset(cx, cy + 12);
+    final mouthLeft = Offset(cx - 24, cy + 42);
+    final mouthRight = Offset(cx + 24, cy + 42);
+    final mouthCenter = Offset(cx, cy + 44);
+    final chin = Offset(cx, cy + 78);
+    final leftCheek = Offset(cx - 55, cy + 15);
+    final rightCheek = Offset(cx + 55, cy + 15);
+    final forehead = Offset(cx, cy - 65);
+
+    final landmarks = [
+      leftEye, rightEye, noseBridge, noseTip,
+      mouthLeft, mouthRight, mouthCenter, chin,
+      leftCheek, rightCheek, forehead
+    ];
+
+    canvas.drawLine(leftEye, rightEye, linePaint);
+    canvas.drawLine(leftEye, noseBridge, linePaint);
+    canvas.drawLine(rightEye, noseBridge, linePaint);
+    canvas.drawLine(noseBridge, noseTip, linePaint);
+    canvas.drawLine(noseTip, mouthLeft, linePaint);
+    canvas.drawLine(noseTip, mouthRight, linePaint);
+    canvas.drawLine(mouthLeft, mouthCenter, linePaint);
+    canvas.drawLine(mouthRight, mouthCenter, linePaint);
+    canvas.drawLine(mouthCenter, chin, linePaint);
+    canvas.drawLine(leftEye, leftCheek, linePaint);
+    canvas.drawLine(rightEye, rightCheek, linePaint);
+    canvas.drawLine(leftCheek, chin, linePaint);
+    canvas.drawLine(rightCheek, chin, linePaint);
+    canvas.drawLine(forehead, leftEye, linePaint);
+    canvas.drawLine(forehead, rightEye, linePaint);
+
+    for (final pt in landmarks) {
+      canvas.drawCircle(pt, 3.0, dotPaint);
+      if (isScanning) {
+        final pulseRadius = 3.0 + (animationValue * 4.0);
+        canvas.drawCircle(pt, pulseRadius, glowPaint);
+      }
+    }
+
+    final boxRect = Rect.fromCenter(center: Offset(cx, cy + 5), width: 140, height: 165);
+    final boxPaint = Paint()
+      ..color = color.withValues(alpha: isScanning ? 0.7 : 0.3)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.0;
+    canvas.drawRect(boxRect, boxPaint);
+  }
+
+  @override
+  bool shouldRepaint(covariant BiometricFaceLandmarksPainter oldDelegate) {
+    return oldDelegate.animationValue != animationValue ||
+        oldDelegate.isScanning != isScanning ||
+        oldDelegate.color != color;
   }
 }

@@ -4,6 +4,8 @@ import 'package:get/get.dart';
 import '../core/constants/app_colors.dart';
 import '../controllers/auth_controller.dart';
 import '../core/services/remote_config_service.dart';
+import '../core/services/mock_location_service.dart';
+import 'mock_gps_blocked_screen.dart';
 import 'maintenance_screen.dart';
 import 'login_screen.dart';
 import 'main_layout.dart';
@@ -19,7 +21,7 @@ class _SplashScreenState extends State<SplashScreen> {
   @override
   void initState() {
     super.initState();
-    Future.delayed(const Duration(seconds: 2), () {
+    Future.delayed(const Duration(seconds: 2), () async {
       if (!mounted) return;
       try {
         // 1. Check if Firebase Remote Config has Maintenance Mode enabled
@@ -29,7 +31,16 @@ class _SplashScreenState extends State<SplashScreen> {
           return;
         }
 
-        // 2. Normal auth flow
+        // 2. CHECK FAKE / MOCK GPS ON STARTUP!
+        if (Get.isRegistered<MockLocationService>()) {
+          final isMocked = await MockLocationService.to.checkMockGps(promptBlockScreen: false);
+          if (isMocked) {
+            Get.offAll(() => const MockGpsBlockedScreen());
+            return;
+          }
+        }
+
+        // 3. Normal auth flow
         if (Get.isRegistered<AuthController>()) {
           final authController = Get.find<AuthController>();
           if (authController.isAuthenticated) {

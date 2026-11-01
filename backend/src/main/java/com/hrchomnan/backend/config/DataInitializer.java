@@ -50,11 +50,17 @@ public class DataInitializer implements CommandLineRunner {
             log.warn("Note on table schema migration or photo sync: {}", e.getMessage());
         }
 
-        initializePermissions();
+        try {
+            initializePermissions();
         initializeKioskSettings();
         initializeLeaveTypes();
         initializeWorkHours();
-        ensureAdminUser();
+            ensureAdminUser();
+
+
+        } catch (Exception e) {
+            log.error("Initialization error in DataInitializer: {}", e.getMessage(), e);
+        }
         // initializeDemoData() and initializeTwoMonthsAttendanceAndLeaves() disabled
         // to prevent auto-inserting data or restoring deleted records on backend startup.
         log.info("DataInitializer completed successfully.");
@@ -332,6 +338,8 @@ public class DataInitializer implements CommandLineRunner {
         if (departmentRepository.count() > 0 || employeeRepository.count() > 0) {
             log.info("Departments or employees already exist. Skipping demo data seeding.");
             ensureAdminUser();
+
+
             return;
         }
 
@@ -636,7 +644,7 @@ public class DataInitializer implements CommandLineRunner {
         }
     }
 
-    private Position getOrCreatePosition(String titleEn, String titleKh, java.util.UUID deptId) {
+    private Position getOrCreatePosition(String titleEn, String titleKh, Long deptId) {
         return positionRepository.findAll().stream()
                 .filter(p -> titleEn.equalsIgnoreCase(p.getTitleEn()))
                 .findFirst()

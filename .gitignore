@@ -42,6 +42,9 @@ lerna-debug.log*
 /frontend/dist/
 /frontend/build/
 /frontend/out/
+/mobile_app/build/
+/mobile_app/android/build/
+/mobile_app/android/app/build/
 
 # Custom local configs
 local.properties

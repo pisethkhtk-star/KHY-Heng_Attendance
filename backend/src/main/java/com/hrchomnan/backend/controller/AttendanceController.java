@@ -84,8 +84,8 @@ public class AttendanceController {
                     request.getNote()
             );
 
-            Map<UUID, Department> deptMap = departmentRepository.findAll().stream().collect(Collectors.toMap(Department::getId, d -> d, (a, b) -> a));
-            Map<UUID, Position> posMap = positionRepository.findAll().stream().collect(Collectors.toMap(Position::getId, p -> p, (a, b) -> a));
+            Map<Long, Department> deptMap = departmentRepository.findAll().stream().collect(Collectors.toMap(Department::getId, d -> d, (a, b) -> a));
+            Map<Long, Position> posMap = positionRepository.findAll().stream().collect(Collectors.toMap(Position::getId, p -> p, (a, b) -> a));
             Map<String, Employee> empMap = Map.of(result.getEmployee().getStaffId(), result.getEmployee());
 
             return ResponseEntity.ok(Map.of(
@@ -144,7 +144,7 @@ public class AttendanceController {
         List<Employee> eligibleList;
         if (!userRules.isEmpty()) {
             Set<String> allowedStaffIds = new HashSet<>();
-            Set<UUID> allowedDeptIds = new HashSet<>();
+            Set<Long> allowedDeptIds = new HashSet<>();
             for (LeaveApprovalRule rule : userRules) {
                 if ("Employee".equalsIgnoreCase(rule.getScope()) && rule.getTargetStaffId() != null) {
                     allowedStaffIds.add(rule.getTargetStaffId().trim().toUpperCase());
@@ -162,8 +162,8 @@ public class AttendanceController {
             eligibleList = allEmployees;
         }
 
-        Map<UUID, Department> deptMap = departmentRepository.findAll().stream().collect(Collectors.toMap(Department::getId, d -> d, (a, b) -> a));
-        Map<UUID, Position> posMap = positionRepository.findAll().stream().collect(Collectors.toMap(Position::getId, p -> p, (a, b) -> a));
+        Map<Long, Department> deptMap = departmentRepository.findAll().stream().collect(Collectors.toMap(Department::getId, d -> d, (a, b) -> a));
+        Map<Long, Position> posMap = positionRepository.findAll().stream().collect(Collectors.toMap(Position::getId, p -> p, (a, b) -> a));
 
         List<Map<String, Object>> resultList = eligibleList.stream().map(e -> {
             Map<String, Object> m = new LinkedHashMap<>();
@@ -199,17 +199,17 @@ public class AttendanceController {
 
         Map<String, Employee> empMap = employeeRepository.findAll().stream()
                 .collect(Collectors.toMap(Employee::getStaffId, e -> e, (a, b) -> a));
-        Map<UUID, Department> deptMap = departmentRepository.findAll().stream()
+        Map<Long, Department> deptMap = departmentRepository.findAll().stream()
                 .collect(Collectors.toMap(Department::getId, d -> d, (a, b) -> a));
-        Map<UUID, Position> posMap = positionRepository.findAll().stream()
+        Map<Long, Position> posMap = positionRepository.findAll().stream()
                 .collect(Collectors.toMap(Position::getId, p -> p, (a, b) -> a));
 
         if (departmentId != null && !departmentId.isBlank()) {
             try {
-                UUID deptUuid = UUID.fromString(departmentId);
+                Long filterDeptId = Long.parseLong(departmentId.trim());
                 list = list.stream().filter(a -> {
                     Employee e = empMap.get(a.getStaffId());
-                    return e != null && deptUuid.equals(e.getDepartmentId());
+                    return e != null && filterDeptId.equals(e.getDepartmentId());
                 }).collect(Collectors.toList());
             } catch (Exception ignored) {}
         }
@@ -243,9 +243,9 @@ public class AttendanceController {
 
         Map<String, Employee> empMap = employeeRepository.findAll().stream()
                 .collect(Collectors.toMap(Employee::getStaffId, e -> e, (a, b) -> a));
-        Map<UUID, Department> deptMap = departmentRepository.findAll().stream()
+        Map<Long, Department> deptMap = departmentRepository.findAll().stream()
                 .collect(Collectors.toMap(Department::getId, d -> d, (a, b) -> a));
-        Map<UUID, Position> posMap = positionRepository.findAll().stream()
+        Map<Long, Position> posMap = positionRepository.findAll().stream()
                 .collect(Collectors.toMap(Position::getId, p -> p, (a, b) -> a));
 
         String query = (search != null && !search.isBlank()) ? search.trim().toLowerCase() : (staffId != null ? staffId.trim().toLowerCase() : null);
@@ -271,10 +271,10 @@ public class AttendanceController {
 
         if (departmentId != null && !departmentId.isBlank()) {
             try {
-                UUID deptUuid = UUID.fromString(departmentId);
+                Long filterDeptId = Long.parseLong(departmentId.trim());
                 list = list.stream().filter(a -> {
                     Employee e = empMap.get(a.getStaffId());
-                    return e != null && deptUuid.equals(e.getDepartmentId());
+                    return e != null && filterDeptId.equals(e.getDepartmentId());
                 }).collect(Collectors.toList());
             } catch (Exception ignored) {}
         }
@@ -356,8 +356,8 @@ public class AttendanceController {
         Attendance saved = attendanceRepository.save(attendance);
 
         Map<String, Employee> empMap = Map.of(empOpt.get().getStaffId(), empOpt.get());
-        Map<UUID, Department> deptMap = departmentRepository.findAll().stream().collect(Collectors.toMap(Department::getId, d -> d, (a, b) -> a));
-        Map<UUID, Position> posMap = positionRepository.findAll().stream().collect(Collectors.toMap(Position::getId, p -> p, (a, b) -> a));
+        Map<Long, Department> deptMap = departmentRepository.findAll().stream().collect(Collectors.toMap(Department::getId, d -> d, (a, b) -> a));
+        Map<Long, Position> posMap = positionRepository.findAll().stream().collect(Collectors.toMap(Position::getId, p -> p, (a, b) -> a));
 
         return ResponseEntity.status(HttpStatus.CREATED).body(Map.of(
                 "message", "Attendance record created successfully",
@@ -471,7 +471,7 @@ public class AttendanceController {
 
     @PutMapping("/{id}")
     @PreAuthorize("@perm.has('edit_attendance')")
-    public ResponseEntity<?> updateAttendance(@PathVariable UUID id, @RequestBody Attendance updated) {
+    public ResponseEntity<?> updateAttendance(@PathVariable Long id, @RequestBody Attendance updated) {
         Optional<Attendance> existingOpt = attendanceRepository.findById(id);
         if (existingOpt.isEmpty()) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("message", "Attendance record not found"));
@@ -490,8 +490,8 @@ public class AttendanceController {
         Attendance saved = attendanceRepository.save(existing);
 
         Map<String, Employee> empMap = empOpt.map(employee -> Map.of(employee.getStaffId(), employee)).orElseGet(Collections::emptyMap);
-        Map<UUID, Department> deptMap = departmentRepository.findAll().stream().collect(Collectors.toMap(Department::getId, d -> d, (a, b) -> a));
-        Map<UUID, Position> posMap = positionRepository.findAll().stream().collect(Collectors.toMap(Position::getId, p -> p, (a, b) -> a));
+        Map<Long, Department> deptMap = departmentRepository.findAll().stream().collect(Collectors.toMap(Department::getId, d -> d, (a, b) -> a));
+        Map<Long, Position> posMap = positionRepository.findAll().stream().collect(Collectors.toMap(Position::getId, p -> p, (a, b) -> a));
 
         return ResponseEntity.ok(Map.of(
                 "message", "Attendance record updated successfully",
@@ -501,7 +501,7 @@ public class AttendanceController {
 
     @DeleteMapping("/{id}")
     @PreAuthorize("@perm.has('delete_attendance')")
-    public ResponseEntity<?> deleteAttendance(@PathVariable UUID id) {
+    public ResponseEntity<?> deleteAttendance(@PathVariable Long id) {
         if (attendanceRepository.existsById(id)) {
             attendanceRepository.deleteById(id);
             return ResponseEntity.ok(Map.of("message", "Attendance record deleted successfully"));
@@ -549,8 +549,8 @@ public class AttendanceController {
     private Map<String, Object> enrichAttendance(
             Attendance a,
             Map<String, Employee> empMap,
-            Map<UUID, Department> deptMap,
-            Map<UUID, Position> posMap
+            Map<Long, Department> deptMap,
+            Map<Long, Position> posMap
     ) {
         Map<String, Object> map = new HashMap<>();
         map.put("id", a.getId());

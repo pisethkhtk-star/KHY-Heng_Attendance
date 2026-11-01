@@ -9,7 +9,8 @@ import org.hibernate.annotations.UpdateTimestamp;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.UUID;
+import java.util.HashSet;
+import java.util.Set;
 
 @Entity
 @Table(name = "employees")
@@ -21,8 +22,8 @@ import java.util.UUID;
 public class Employee {
 
     @Id
-    @GeneratedValue
-    private UUID id;
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
 
     @Column(name = "staff_id", unique = true, nullable = false)
     private String staffId;
@@ -37,10 +38,10 @@ public class Employee {
     private String gender;
 
     @Column(name = "position_id")
-    private UUID positionId;
+    private Long positionId;
 
     @Column(name = "department_id")
-    private UUID departmentId;
+    private Long departmentId;
 
     @Builder.Default
     private String branch = "";
@@ -91,6 +92,16 @@ public class Employee {
 
     @Column(nullable = false)
     private String password;
+
+    @Column(name = "role_id")
+    private Long roleId;
+
+    @ManyToMany(fetch = FetchType.LAZY)
+    @JoinTable(name = "user_roles",
+            joinColumns = @JoinColumn(name = "user_id"),
+            inverseJoinColumns = @JoinColumn(name = "role_id"))
+    @Builder.Default
+    private Set<RoleEntity> roles = new HashSet<>();
 
     @Enumerated(EnumType.STRING)
     @Builder.Default

@@ -6,10 +6,9 @@ import org.springframework.stereotype.Repository;
 
 import java.util.List;
 import java.util.Optional;
-import java.util.UUID;
 
 @Repository
-public interface EmployeeLeaveLimitRepository extends JpaRepository<EmployeeLeaveLimit, UUID> {
+public interface EmployeeLeaveLimitRepository extends JpaRepository<EmployeeLeaveLimit, Long> {
     List<EmployeeLeaveLimit> findByStaffId(String staffId);
     Optional<EmployeeLeaveLimit> findByStaffIdAndLeaveCode(String staffId, String leaveCode);
     void deleteByStaffId(String staffId);
