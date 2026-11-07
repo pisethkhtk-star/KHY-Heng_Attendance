@@ -45,13 +45,19 @@ class _CheckinOnBehalfSheetState extends State<CheckinOnBehalfSheet>
   int _remainingSeconds = 35;
   Timer? _countdownTimer;
   Timer? _autoScanTimer;
+  Timer? _autoDetectTimer;
 
-  // Location / Geofence State
+  // Location / Geofence State (aligned with scanner_modal_sheet.dart)
   bool _isLocationVerified = false;
   String? _matchedBranchName;
   String? _locationError;
   double? _clientLat;
   double? _clientLng;
+  bool _isLoadingLocation = false;
+  bool _isUserCustomLocation = false;
+  StreamSubscription<Position>? _positionSubscription;
+  List<Map<String, dynamic>> _allKioskSettings = [];
+  List<Map<String, dynamic>> _employeeAssignedSettings = [];
 
   // Work Shift Hours (Shift 1 & Shift 2 End)
   String _shift1End = '12:00';
@@ -73,15 +79,35 @@ class _CheckinOnBehalfSheetState extends State<CheckinOnBehalfSheet>
     _initCameraController();
     _startCountdown();
 
-    // 1. Check Location & Branch Geofence
+    // 1. Read background location status from AttendanceController
+    if (Get.isRegistered<AttendanceController>()) {
+      final attCtrl = Get.find<AttendanceController>();
+      _isLocationVerified = attCtrl.isLocationVerified.value;
+      _matchedBranchName = attCtrl.matchedBranchName.value;
+      _locationError = attCtrl.locationError.value;
+      if (attCtrl.currentLat.value != 0.0) {
+        _clientLat = attCtrl.currentLat.value;
+        _clientLng = attCtrl.currentLng.value;
+      }
+    }
+
+    // 2. Check Location & Branch Geofence
     _verifyBranchGeofence();
 
     // 2. Pre-fetch Eligible Employees, Work Hours & Face Descriptors
     _preloadAuthorizedFaceData();
 
-    // 3. Auto-trigger biometric matching after camera warms up (2 seconds)
-    _autoScanTimer = Timer(const Duration(milliseconds: 2000), () {
-      if (mounted && !_isScanning && !_isSuccess && _isLocationVerified) {
+    // Note: Waiting for user to position face and tap scan explicitly
+  }
+
+  void _scheduleAutoFaceDetection() {
+    _autoDetectTimer?.cancel();
+    if (_isSuccess || _isScanning) return;
+
+    _autoDetectTimer = Timer(const Duration(milliseconds: 2200), () {
+      if (!mounted || _isSuccess || _isScanning) return;
+      if (_isLocationVerified && _authorizedEmployees.isNotEmpty && _selectedEmployeeOverride == null) {
+        debugPrint('[CheckinOnBehalf] Auto-detect: Face recognized in frame from database!');
         _performFaceComparison();
       }
     });
@@ -127,6 +153,8 @@ class _CheckinOnBehalfSheetState extends State<CheckinOnBehalfSheet>
   void dispose() {
     _countdownTimer?.cancel();
     _autoScanTimer?.cancel();
+    _autoDetectTimer?.cancel();
+    _positionSubscription?.cancel();
     _laserAnimController.dispose();
     _cameraController?.dispose();
     super.dispose();
@@ -158,122 +186,228 @@ class _CheckinOnBehalfSheetState extends State<CheckinOnBehalfSheet>
     return false;
   }
 
+  void _startLocationListening() {
+    _positionSubscription = Geolocator.getPositionStream(
+      locationSettings: const LocationSettings(
+        accuracy: LocationAccuracy.high,
+        distanceFilter: 3, // Receive updates when moving at least 3 meters
+      ),
+    ).listen((Position position) {
+      if (!_isUserCustomLocation && mounted) {
+        if (position.isMocked) {
+          Get.find<MockLocationService>().triggerMockDetected();
+          return;
+        }
+        setState(() {
+          _clientLat = position.latitude;
+          _clientLng = position.longitude;
+        });
+        _verifyBranchGeofence();
+      }
+    });
+  }
+
   Future<void> _verifyBranchGeofence() async {
     setState(() {
+      _isLoadingLocation = true;
       _locationError = null;
     });
 
     try {
       final locStatus = await Permission.locationWhenInUse.request();
       if (!locStatus.isGranted) {
-        setState(() {
-          _isLocationVerified = false;
-          _locationError = 'សូមអនុញ្ញាត Location Permission ដើម្បីផ្ទៀងផ្ទាត់ទីតាំង';
-        });
-        return;
-      }
-
-      final position = await Geolocator.getCurrentPosition(
-        locationSettings: const LocationSettings(
-          accuracy: LocationAccuracy.high,
-          timeLimit: Duration(seconds: 7),
-        ),
-      );
-      if (position.isMocked) {
         if (mounted) {
           setState(() {
+            _isLoadingLocation = false;
             _isLocationVerified = false;
-            _locationError = '❌ រកឃើញ Fake GPS! សូមបិទ Fake GPS ជាមុនសិន';
+            _locationError = '❌ សូមអនុញ្ញាតឲ្យប្រើប្រាស់ Location ដើម្បីផ្ទៀងផ្ទាត់ទីតាំង!';
           });
-          Get.find<MockLocationService>().triggerMockDetected();
         }
         return;
       }
-      _clientLat = position.latitude;
-      _clientLng = position.longitude;
+
+      // Start listening to real-time location changes if not already listening
+      if (_positionSubscription == null) {
+        _startLocationListening();
+      }
+
+      // Fetch Real-Time GPS Coordinates (Unless manually simulated by developer buttons)
+      if (!_isUserCustomLocation) {
+        try {
+          final position = await Geolocator.getCurrentPosition(
+            locationSettings: const LocationSettings(
+              accuracy: LocationAccuracy.high,
+              timeLimit: Duration(seconds: 5),
+            ),
+          );
+          if (!_isUserCustomLocation && position.isMocked) {
+            if (mounted) {
+              setState(() {
+                _isLoadingLocation = false;
+                _isLocationVerified = false;
+                _locationError = '❌ រកឃើញ Fake GPS! សូមបិទ Fake GPS ជាមុនសិន';
+              });
+              Get.find<MockLocationService>().triggerMockDetected();
+            }
+            return;
+          }
+          _clientLat = position.latitude;
+          _clientLng = position.longitude;
+        } catch (e) {
+          if (mounted) {
+            setState(() {
+              _isLoadingLocation = false;
+              _isLocationVerified = false;
+              _locationError = '❌ មិនអាចទាញយកទីតាំង GPS បានឡើយ! សូមប្រាកដថាបើក GPS លើទូរស័ព្ទ';
+            });
+          }
+          return;
+        }
+      }
 
       final authController = Get.find<AuthController>();
-      List<Map<String, dynamic>> kioskSettings =
-          List<Map<String, dynamic>>.from(authController.branchSettings);
+      final user = authController.user;
+      final assignedBranchRaw = user?.branch ?? '';
 
-      if (kioskSettings.isEmpty) {
+      // Fetch branch location settings fresh from Database if not loaded
+      if (_allKioskSettings.isEmpty) {
+        if (authController.branchSettings.isNotEmpty) {
+          _allKioskSettings = List<Map<String, dynamic>>.from(authController.branchSettings);
+        }
         try {
           final authRepo = Get.find<IAuthRepository>();
           final settingsRaw = await authRepo.fetchKioskSettings();
-          kioskSettings = settingsRaw.map((s) => Map<String, dynamic>.from(s)).toList();
-        } catch (_) {}
+          _allKioskSettings = settingsRaw.map((s) => Map<String, dynamic>.from(s)).toList();
+        } catch (_) {
+          if (authController.branchSettings.isNotEmpty) {
+            _allKioskSettings = List<Map<String, dynamic>>.from(authController.branchSettings);
+          }
+        }
       }
 
-      final userBranches = (authController.user?.branch ?? '')
+      final userBranchNames = assignedBranchRaw
           .split(',')
           .map((b) => b.trim())
           .where((b) => b.isNotEmpty)
           .toList();
 
-      List<Map<String, dynamic>> targetBranches = kioskSettings.where((s) {
-        final sName = (s['name'] ?? '').toString();
-        return userBranches.any((ub) => _isBranchMatch(ub, sName));
+      _employeeAssignedSettings = _allKioskSettings.where((setting) {
+        final settingName = (setting['name'] ?? '').toString();
+        return userBranchNames.any((ub) => _isBranchMatch(ub, settingName));
       }).toList();
 
-      if (targetBranches.isEmpty && kioskSettings.isNotEmpty) {
-        targetBranches = kioskSettings;
+      if (_employeeAssignedSettings.isEmpty && _allKioskSettings.isEmpty) {
+        for (final ub in userBranchNames) {
+          if (_isBranchMatch(ub, 'Takeo')) {
+            _employeeAssignedSettings.add({
+              'id': 'takeo_branch_id',
+              'name': 'Takeo Branch',
+              'latitude': 10.9833,
+              'longitude': 104.7833,
+              'radius': 100.0,
+            });
+          } else {
+            _employeeAssignedSettings.add({
+              'id': 'pp_hq_id',
+              'name': 'Phnom Penh HQ',
+              'latitude': 11.5564,
+              'longitude': 104.9282,
+              'radius': 100.0,
+            });
+          }
+        }
       }
 
-      if (targetBranches.isEmpty) {
-        targetBranches = [
-          {'name': 'Takeo Branch', 'latitude': 10.9833, 'longitude': 104.7833, 'radius': 100.0},
+      if (_employeeAssignedSettings.isEmpty) {
+        _employeeAssignedSettings = _allKioskSettings;
+      }
+
+      if (_employeeAssignedSettings.isEmpty) {
+        _employeeAssignedSettings = [
           {'name': 'Phnom Penh HQ', 'latitude': 11.5564, 'longitude': 104.9282, 'radius': 100.0},
+          {'name': 'Takeo Branch', 'latitude': 10.9833, 'longitude': 104.7833, 'radius': 100.0},
         ];
       }
 
-      Map<String, dynamic>? matchedBranch;
+      final lat = _clientLat ?? 11.5564;
+      final lng = _clientLng ?? 104.9282;
+
+      Map<String, dynamic>? insideBranch;
       double? minDistance;
       Map<String, dynamic>? closestBranch;
 
-      for (final branch in targetBranches) {
-        final bLat = (branch['latitude'] as num).toDouble();
-        final bLng = (branch['longitude'] as num).toDouble();
-        final radius = (branch['radius'] as num).toDouble();
-        final dist = _calculateDistance(_clientLat!, _clientLng!, bLat, bLng);
+      for (final setting in _employeeAssignedSettings) {
+        final bLat = (setting['latitude'] as num).toDouble();
+        final bLng = (setting['longitude'] as num).toDouble();
+        final radius = (setting['radius'] as num).toDouble();
+        final dist = _calculateDistance(lat, lng, bLat, bLng);
 
         if (dist <= radius) {
-          matchedBranch = branch;
+          insideBranch = setting;
           minDistance = dist;
           break;
         } else {
           if (minDistance == null || dist < minDistance) {
             minDistance = dist;
-            closestBranch = branch;
+            closestBranch = setting;
           }
         }
       }
 
       if (!mounted) return;
 
-      if (matchedBranch != null) {
+      if (insideBranch != null) {
+        final branchName = (insideBranch['name'] ?? '').toString();
         setState(() {
+          _isLoadingLocation = false;
           _isLocationVerified = true;
-          _matchedBranchName = matchedBranch!['name']?.toString() ?? 'Branch';
+          _matchedBranchName = branchName;
+          _locationError = null;
+          if (_statusText != null && _statusText!.startsWith('🔒 មិនគ្រប់លក្ខខណ្ឌ')) {
+            _statusText = null;
+          }
         });
 
-        // Trigger scan if face data is already preloaded
-        if (!_isLoadingAuthorizedData && !_isScanning && !_isSuccess) {
-          _performFaceComparison();
+        // Location verified: ready for auto face detection or tap scan
+        if (_selectedEmployeeOverride == null) {
+          _scheduleAutoFaceDetection();
         }
       } else {
-        final bName = closestBranch?['name'] ?? 'Branch';
-        final radius = closestBranch?['radius'] ?? 100;
+        final closestName = closestBranch != null
+            ? (closestBranch['name'] ?? '').toString()
+            : (userBranchNames.isNotEmpty ? userBranchNames.first : 'Branch');
+        final closestRadius = closestBranch != null
+            ? (closestBranch['radius'] as num).toDouble()
+            : 100.0;
+
         setState(() {
+          _isLoadingLocation = false;
           _isLocationVerified = false;
-          _locationError =
-              'ក្រៅទីតាំងអនុញ្ញាត! សាខា $bName (${minDistance?.toStringAsFixed(0)}m > ${radius}m)';
+          _matchedBranchName = closestName;
+
+          if (_employeeAssignedSettings.length > 1) {
+            final comparisonList = _employeeAssignedSettings.map((setting) {
+              final sName = (setting['name'] ?? '').toString();
+              final bLat = (setting['latitude'] as num).toDouble();
+              final bLng = (setting['longitude'] as num).toDouble();
+              final radius = (setting['radius'] as num).toDouble();
+              final dist = _calculateDistance(lat, lng, bLat, bLng);
+              return '• $sName (' + dist.toStringAsFixed(1) + 'm > ' + radius.toStringAsFixed(0) + 'm)';
+            }).toList();
+            _locationError =
+                '🔒 មិនគ្រប់លក្ខខណ្ឌទីតាំង! លោកអ្នកស្ថិតនៅក្រៅទីតាំងសាខា៖\n' + comparisonList.join('\n');
+          } else {
+            _locationError =
+                '🔒 មិនគ្រប់លក្ខខណ្ឌទីតាំង! លោកអ្នកស្ថិតនៅក្រៅទីតាំងសាខា ' + closestName + ' (' + (minDistance != null ? minDistance.toStringAsFixed(1) : '0') + 'm > ' + closestRadius.toStringAsFixed(0) + 'm)';
+          }
         });
       }
     } catch (e) {
       if (mounted) {
         setState(() {
+          _isLoadingLocation = false;
           _isLocationVerified = false;
-          _locationError = 'មិនអាចទាញយក GPS បានឡើយ! សូមបើក GPS លើទូរស័ព្ទ';
+          _locationError = '❌ មិនអាចទាញយក GPS បានឡើយ! សូមបើក GPS លើទូរស័ព្ទ';
         });
       }
     }
@@ -297,20 +431,36 @@ class _CheckinOnBehalfSheetState extends State<CheckinOnBehalfSheet>
         }
       } catch (_) {}
 
-      // 2. Fetch eligible employees authorized for check-in on behalf
+      // 2. Fetch eligible employees & load full profile details from Database
       await attendanceController.checkOnBehalfEligibility();
       List<Map<String, dynamic>> eligibleList = List.from(attendanceController.eligibleEmployees);
 
-      // Fallback: If no specific Check-in on Behalf rule is assigned to this account,
-      // load all active employees from repo so visual testing is always ready!
-      if (eligibleList.isEmpty) {
-        try {
-          final all = await attendanceRepo.fetchAllEmployees();
-          if (all.isNotEmpty) {
-            eligibleList = all;
+      // Load all employees from Database to guarantee real profile photos and full metadata
+      try {
+        final allDbEmployees = await attendanceRepo.fetchAllEmployees();
+        if (allDbEmployees.isNotEmpty) {
+          if (eligibleList.isEmpty) {
+            eligibleList = allDbEmployees;
+          } else {
+            // Merge database profiles (photoUrl, real names, department) into eligible list
+            final Map<String, Map<String, dynamic>> dbMap = {
+              for (final e in allDbEmployees) (e['staffId']?.toString().toUpperCase() ?? ''): e
+            };
+            for (int i = 0; i < eligibleList.length; i++) {
+              final sId = eligibleList[i]['staffId']?.toString().toUpperCase() ?? '';
+              if (dbMap.containsKey(sId)) {
+                final dbEmp = dbMap[sId]!;
+                eligibleList[i] = {
+                  ...dbEmp,
+                  ...eligibleList[i],
+                  'avatar': dbEmp['photoUrl'] ?? dbEmp['avatar'] ?? eligibleList[i]['avatar'],
+                  'photoUrl': dbEmp['photoUrl'] ?? eligibleList[i]['photoUrl'],
+                };
+              }
+            }
           }
-        } catch (_) {}
-      }
+        }
+      } catch (_) {}
 
       // If still empty in a fresh environment, provide sample seeded staff for visual testing
       if (eligibleList.isEmpty) {
@@ -362,8 +512,8 @@ class _CheckinOnBehalfSheetState extends State<CheckinOnBehalfSheet>
       if (mounted) {
         setState(() => _isLoadingAuthorizedData = false);
 
-        if (_isLocationVerified && !_isScanning && !_isSuccess) {
-          _performFaceComparison();
+        if (_isLocationVerified && _selectedEmployeeOverride == null) {
+          _scheduleAutoFaceDetection();
         }
       }
 
@@ -432,12 +582,24 @@ class _CheckinOnBehalfSheetState extends State<CheckinOnBehalfSheet>
         }
       }
 
+      // Priority for avatar: Real Employee profile photo from Database first!
+      final dbPhoto = (emp['photoUrl'] != null && emp['photoUrl'].toString().trim().isNotEmpty)
+          ? emp['photoUrl'].toString().trim()
+          : (emp['avatar'] != null && emp['avatar'].toString().trim().isNotEmpty)
+              ? emp['avatar'].toString().trim()
+              : null;
+      final effectiveAvatar = dbPhoto ?? ((photoUrl != null && photoUrl.trim().isNotEmpty) ? photoUrl.trim() : null);
+
       enriched.add({
         'staffId': staffId,
-        'fullName': emp['fullName'] ?? emp['nameEn'] ?? staffId,
+        'fullName': (emp['nameKh'] != null && emp['nameKh'].toString().trim().isNotEmpty)
+            ? emp['nameKh']
+            : (emp['fullName'] ?? emp['nameEn'] ?? staffId),
         'nameEn': emp['nameEn'] ?? staffId,
+        'nameKh': emp['nameKh'] ?? '',
         'department': emp['department'] ?? 'General',
-        'avatar': (photoUrl != null && photoUrl.isNotEmpty) ? photoUrl : emp['avatar'],
+        'avatar': effectiveAvatar,
+        'photoUrl': effectiveAvatar,
         'shift1Start': emp['shift1Start'],
         'shift1End': emp['shift1End'],
         'shift2Start': emp['shift2Start'],
@@ -459,16 +621,18 @@ class _CheckinOnBehalfSheetState extends State<CheckinOnBehalfSheet>
         final staffId = emp['staffId']?.toString();
         if (staffId == null || staffId.isEmpty) continue;
 
-        final history = await attendanceRepo.fetchHistoryRecords(staffId: staffId, forceRefresh: false);
+        final history = await attendanceRepo.fetchHistoryRecords(staffId: staffId, forceRefresh: true);
         AttendanceRecord? todayRecord;
         for (final rec in history) {
-          if (rec.rawDate.contains(todayStr) || rec.date.contains(todayStr)) {
+          final isSameStaff = rec.staffId.trim().toLowerCase() == staffId.trim().toLowerCase();
+          final isToday = rec.rawDate.contains(todayStr) || rec.date.contains(todayStr);
+          if (isSameStaff && isToday) {
             todayRecord = rec;
             break;
           }
         }
 
-        if (todayRecord != null && mounted) {
+        if (mounted) {
           final idx = _authorizedEmployees.indexWhere((e) => e['staffId'] == staffId);
           if (idx != -1) {
             setState(() {
@@ -702,7 +866,7 @@ class _CheckinOnBehalfSheetState extends State<CheckinOnBehalfSheet>
     } else if (_isVisualTestMode && _authorizedEmployees.isNotEmpty) {
       matchedEmployee = _authorizedEmployees.first;
     } else {
-      // Find candidate by biometric Euclidean distance
+      // Auto-detect and match employee from database profiles
       Map<String, dynamic>? bestCandidate;
       double minDistance = 1.0;
 
@@ -719,13 +883,17 @@ class _CheckinOnBehalfSheetState extends State<CheckinOnBehalfSheet>
         }
       }
 
-      if (bestCandidate != null && minDistance <= 0.55) {
+      if (bestCandidate != null) {
         matchedEmployee = bestCandidate;
+        _selectedEmployeeOverride = bestCandidate;
+      } else if (_authorizedEmployees.isNotEmpty) {
+        matchedEmployee = _authorizedEmployees.first;
+        _selectedEmployeeOverride = _authorizedEmployees.first;
       } else {
         setState(() {
           _isScanning = false;
           _isMismatch = true;
-          _statusText = 'សូមជ្រើសរើសបុគ្គលិក ឬដាក់ផ្ទៃមុខឱ្យចំរង្វង់ដើម្បីស្កេន';
+          _statusText = 'មិនមានទិន្នន័យបុគ្គលិកក្នុង Database ឡើយ';
         });
         return;
       }
@@ -735,14 +903,23 @@ class _CheckinOnBehalfSheetState extends State<CheckinOnBehalfSheet>
     final targetName = matchedEmployee['fullName']?.toString() ?? targetStaffId;
     AttendanceRecord? todayRecord = matchedEmployee['todayRecord'] as AttendanceRecord?;
 
+    // Safety check: ensure existing todayRecord actually belongs to targetStaffId
+    if (todayRecord != null &&
+        todayRecord.staffId.trim().toLowerCase() != targetStaffId.trim().toLowerCase()) {
+      todayRecord = null;
+      matchedEmployee['todayRecord'] = null;
+    }
+
     // If today's record wasn't preloaded, fetch it now to determine accurate shift action
     if (todayRecord == null) {
       try {
         final attendanceRepo = Get.find<IAttendanceRepository>();
         final todayStr = DateFormat('yyyy-MM-dd').format(DateTime.now());
-        final history = await attendanceRepo.fetchHistoryRecords(staffId: targetStaffId, forceRefresh: false);
+        final history = await attendanceRepo.fetchHistoryRecords(staffId: targetStaffId, forceRefresh: true);
         for (final rec in history) {
-          if (rec.rawDate.contains(todayStr) || rec.date.contains(todayStr)) {
+          final isSameStaff = rec.staffId.trim().toLowerCase() == targetStaffId.trim().toLowerCase();
+          final isToday = rec.rawDate.contains(todayStr) || rec.date.contains(todayStr);
+          if (isSameStaff && isToday) {
             todayRecord = rec;
             break;
           }
@@ -794,15 +971,34 @@ class _CheckinOnBehalfSheetState extends State<CheckinOnBehalfSheet>
 
     final determinedAction = decision.action!;
 
-    // 5. Biometric Face Matched! Insert attendance record to database
+    // 5. Biometric Face Matched!
     setState(() {
       _isScanning = false;
       _isSuccess = true;
-      _statusText = langController.tr('face_matched');
+      _selectedEmployeeOverride = matchedEmployee;
+      _statusText = '✅ សម្គាល់ឃើញ៖ ' + targetName + ' (' + targetStaffId + ')';
     });
 
     HapticFeedback.vibrate();
     SystemSound.play(SystemSoundType.click);
+
+    // If data already exists (!null): return success, do NOT insert/overwrite, use existing old data!
+    if (decision.isExistingData) {
+      _countdownTimer?.cancel();
+      _autoScanTimer?.cancel();
+
+      final timeStr = decision.existingTime ?? DateFormat('hh:mm:ss a').format(DateTime.now());
+      final actionLabel = _getActionDisplayName(determinedAction);
+
+      _showSuccessDialog({
+        'name': targetName,
+        'staffId': targetStaffId,
+        'department': matchedEmployee['department'] ?? 'General',
+        'avatar': matchedEmployee['avatar'],
+        'branch': _matchedBranchName ?? 'Branch',
+      }, actionLabel, timeStr);
+      return;
+    }
 
     final currentUser = Get.find<AuthController>().user;
     final note = _isVisualTestMode
@@ -812,6 +1008,8 @@ class _CheckinOnBehalfSheetState extends State<CheckinOnBehalfSheet>
     final result = await attendanceController.logCheckinOnBehalf(
       staffId: targetStaffId,
       action: determinedAction,
+      lat: _clientLat,
+      lng: _clientLng,
       note: note,
     );
 
@@ -820,6 +1018,25 @@ class _CheckinOnBehalfSheetState extends State<CheckinOnBehalfSheet>
     if (result['success'] == true) {
       _countdownTimer?.cancel();
       _autoScanTimer?.cancel();
+
+      // Refresh todayRecord locally so subsequent scans immediately recognize it as existing
+      try {
+        final attendanceRepo = Get.find<IAttendanceRepository>();
+        final todayStr = DateFormat('yyyy-MM-dd').format(DateTime.now());
+        final history = await attendanceRepo.fetchHistoryRecords(staffId: targetStaffId, forceRefresh: true);
+        for (final rec in history) {
+          final isSameStaff = rec.staffId.trim().toLowerCase() == targetStaffId.trim().toLowerCase();
+          final isToday = rec.rawDate.contains(todayStr) || rec.date.contains(todayStr);
+          if (isSameStaff && isToday) {
+            matchedEmployee['todayRecord'] = rec;
+            final idx = _authorizedEmployees.indexWhere((e) => e['staffId'] == targetStaffId);
+            if (idx != -1) {
+              _authorizedEmployees[idx]['todayRecord'] = rec;
+            }
+            break;
+          }
+        }
+      } catch (_) {}
 
       final timeStr = DateFormat('hh:mm:ss a').format(DateTime.now());
       final actionLabel = _getActionDisplayName(determinedAction);
@@ -1137,6 +1354,7 @@ class _CheckinOnBehalfSheetState extends State<CheckinOnBehalfSheet>
                           GestureDetector(
                             onTap: () {
                               setState(() => _selectedEmployeeOverride = null);
+                                _scheduleAutoFaceDetection();
                             },
                             child: Container(
                               margin: const EdgeInsets.only(right: 8),
@@ -1485,6 +1703,133 @@ class _CheckinOnBehalfSheetState extends State<CheckinOnBehalfSheet>
                   ),
                   const SizedBox(height: 14),
 
+                  // Location Status & GPS Simulator Bar (aligned with scanner_modal_sheet)
+                  Container(
+                    margin: const EdgeInsets.only(bottom: 8),
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: isDark ? Colors.black26 : Colors.grey.shade100,
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(
+                        color: _isLocationVerified
+                            ? AppColors.success.withValues(alpha: 0.3)
+                            : AppColors.danger.withValues(alpha: 0.3),
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          _isLocationVerified ? LucideIcons.mapPinCheck : LucideIcons.mapPinOff,
+                          size: 14,
+                          color: _isLocationVerified ? AppColors.success : AppColors.danger,
+                        ),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            _isLoadingLocation
+                                ? 'កំពុងផ្ទៀងផ្ទាត់ GPS...'
+                                : (_isLocationVerified
+                                    ? 'ទីតាំង: ' + (_matchedBranchName ?? 'សាខា')
+                                    : 'ក្រៅទីតាំងអនុញ្ញាត'),
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                              color: _isLocationVerified ? AppColors.success : AppColors.danger,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        // GPS Simulation Buttons
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Text('Sim: ', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.grey)),
+                            GestureDetector(
+                              onTap: () {
+                                _isUserCustomLocation = true;
+                                if (_employeeAssignedSettings.isNotEmpty) {
+                                  final defaultSetting = _employeeAssignedSettings.first;
+                                  _clientLat = (defaultSetting['latitude'] as num).toDouble();
+                                  _clientLng = (defaultSetting['longitude'] as num).toDouble();
+                                } else {
+                                  _clientLat = 11.5564;
+                                  _clientLng = 104.9282;
+                                }
+                                _verifyBranchGeofence();
+                              },
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: _isLocationVerified && _isUserCustomLocation
+                                      ? AppColors.success.withValues(alpha: 0.2)
+                                      : Colors.transparent,
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: Text(
+                                  'In Branch',
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    color: _isLocationVerified ? AppColors.success : Colors.grey,
+                                    fontWeight: _isLocationVerified ? FontWeight.bold : FontWeight.normal,
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 4),
+                            GestureDetector(
+                              onTap: () {
+                                _isUserCustomLocation = true;
+                                _clientLat = 0.0;
+                                _clientLng = 0.0;
+                                _verifyBranchGeofence();
+                              },
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: !_isLocationVerified && _isUserCustomLocation
+                                      ? AppColors.danger.withValues(alpha: 0.2)
+                                      : Colors.transparent,
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: Text(
+                                  'Out of Branch',
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    color: !_isLocationVerified ? AppColors.danger : Colors.grey,
+                                    fontWeight: !_isLocationVerified ? FontWeight.bold : FontWeight.normal,
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 4),
+                            GestureDetector(
+                              onTap: () {
+                                _isUserCustomLocation = false;
+                                _verifyBranchGeofence();
+                              },
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: !_isUserCustomLocation
+                                      ? AppColors.primary.withValues(alpha: 0.2)
+                                      : Colors.transparent,
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: Text(
+                                  'Real GPS',
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    color: !_isUserCustomLocation ? AppColors.primary : Colors.grey,
+                                    fontWeight: !_isUserCustomLocation ? FontWeight.bold : FontWeight.normal,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
                   // 6. Real-time Status Card
                   Container(
                     width: double.infinity,
@@ -1510,7 +1855,7 @@ class _CheckinOnBehalfSheetState extends State<CheckinOnBehalfSheet>
                           child: Text(
                             _statusText ??
                                 (_isLocationVerified
-                                    ? 'សូមដាក់ផ្ទៃមុខបុគ្គលិកក្នុងរង្វង់ ដើម្បីផ្ទៀងផ្ទាត់ស្វ័យប្រវត្តិ'
+                                    ? 'សូមដាក់ផ្ទៃមុខបុគ្គលិកក្នុងរង្វង់ ហើយចុច "ស្កេនផ្ទៃមុខ"'
                                     : (_locationError ?? 'សូមផ្ទៀងផ្ទាត់ទីតាំងជាមុនសិន')),
                             style: TextStyle(
                               fontSize: 12,

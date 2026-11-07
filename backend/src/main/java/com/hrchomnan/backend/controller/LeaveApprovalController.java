@@ -23,7 +23,7 @@ import java.util.stream.Collectors;
 @RequestMapping("/leave-approvals")
 @Transactional
 @RequiredArgsConstructor
-@PreAuthorize("@perm.has('leave_approvals') or hasAnyRole('Admin', 'HR')")
+@PreAuthorize("@perm.has('leave_approvals') or @perm.has('overtime_approvers') or @perm.has('checkin_approvers') or hasAnyRole('Admin', 'HR')")
 @Slf4j
 public class LeaveApprovalController {
 

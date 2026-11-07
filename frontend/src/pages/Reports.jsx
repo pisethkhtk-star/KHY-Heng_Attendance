@@ -237,7 +237,7 @@ const Reports = () => {
       try {
         const cached = localStorage.getItem('attendance_incomplete_exempt_days');
         if (cached) exemptDays = JSON.parse(cached);
-      } catch (e) {}
+      } catch (e) { }
     }
 
     const logsMap = new Map();
@@ -1201,7 +1201,7 @@ const Reports = () => {
             <div className="bg-gradient-to-br from-rose-950/40 to-slate-900/90 border border-rose-500/30 rounded-2xl p-4 relative overflow-hidden shadow-lg">
               <div className="absolute top-0 right-0 transform translate-x-2 -translate-y-2 w-20 h-20 bg-rose-500/10 rounded-full blur-xl pointer-events-none"></div>
               <div className="flex items-center justify-between">
-                <span className="px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider bg-rose-500/20 text-rose-300 border border-rose-500/30 font-khmer flex items-center gap-1">
+                <span className="px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider bg-rose-500/20 text-black dark:text-rose-300 border border-rose-500/30 font-khmer flex items-center gap-1">
                   🚨 {language === 'kh' ? 'ច្រើនជាងគេ (Highest)' : 'Highest Ranked'}
                 </span>
                 <span className="text-xl">🥇</span>
@@ -1228,7 +1228,7 @@ const Reports = () => {
             <div className="bg-gradient-to-br from-amber-950/30 to-slate-900/90 border border-amber-500/30 rounded-2xl p-4 relative overflow-hidden shadow-lg">
               <div className="absolute top-0 right-0 transform translate-x-2 -translate-y-2 w-20 h-20 bg-amber-500/10 rounded-full blur-xl pointer-events-none"></div>
               <div className="flex items-center justify-between">
-                <span className="px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider bg-amber-500/20 text-amber-300 border border-amber-500/30 font-khmer flex items-center gap-1">
+                <span className="px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider bg-amber-500/20 text-black border border-amber-500/40 font-khmer flex items-center gap-1">
                   ⚖️ {language === 'kh' ? 'កម្រិតមធ្យម (Moderate)' : 'Moderate / Medium'}
                 </span>
                 <span className="text-xl">🥈</span>
@@ -1255,7 +1255,7 @@ const Reports = () => {
             <div className="bg-gradient-to-br from-emerald-950/40 to-slate-900/90 border border-emerald-500/30 rounded-2xl p-4 relative overflow-hidden shadow-lg">
               <div className="absolute top-0 right-0 transform translate-x-2 -translate-y-2 w-20 h-20 bg-emerald-500/10 rounded-full blur-xl pointer-events-none"></div>
               <div className="flex items-center justify-between">
-                <span className="px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-khmer flex items-center gap-1">
+                <span className="px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider bg-emerald-500/20 text-black dark:text-emerald-300 border border-emerald-500/30 font-khmer flex items-center gap-1">
                   🏆 {language === 'kh' ? 'តិចជាងគេ / ល្អបំផុត (Lowest)' : 'Lowest / Best Compliance'}
                 </span>
                 <span className="text-xl">🎖️</span>
@@ -1834,7 +1834,7 @@ const Reports = () => {
                         <td className="py-4 px-6 whitespace-nowrap font-mono">{log.checkout2 ? formatTime12Hour(log.checkout2) : '-'}</td>
                         <td className="py-4 px-6 space-y-1 whitespace-nowrap">
                           {log._isLate && (
-                            <span className="inline-flex items-center rounded-full bg-amber-500/10 px-2.5 py-0.5 text-xs font-medium text-amber-300 ring-1 ring-inset ring-amber-500/20 font-khmer">
+                            <span className="inline-flex items-center rounded-full bg-amber-500/10 px-2.5 py-0.5 text-xs font-medium text-black dark:text-amber-300 ring-1 ring-inset ring-amber-500/20 font-khmer">
                               {t('late')}
                             </span>
                           )}

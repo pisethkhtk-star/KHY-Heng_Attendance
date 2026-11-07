@@ -7,9 +7,10 @@ services:
       POSTGRES_DB: ${POSTGRES_DB:-khyheng_att}
       POSTGRES_USER: ${DB_USERNAME:-postgres}
       POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
+      POSTGRES_INITDB_ARGS: "--encoding=UTF-8"
       TZ: ${TZ:-Asia/Phnom_Penh}
     ports:
-      - "5432:5432"
+      - "${POSTGRES_PORT:-5432}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -31,21 +32,28 @@ services:
       DATABASE_URL: ${DATABASE_URL:-jdbc:postgresql://postgres:5432/khyheng_att}
       DB_USERNAME: ${DB_USERNAME:-postgres}
       DB_PASSWORD: ${DB_PASSWORD:-postgres}
-      JWT_SECRET: ${JWT_SECRET:-your-super-secret-jwt-key-change-this}
+      JWT_SECRET: ${JWT_SECRET:-hr-chomnan-dev-secret-key-please-change-32chars}
       TZ: ${TZ:-Asia/Phnom_Penh}
     ports:
       - "${SERVER_PORT:-8080}:8080"
     depends_on:
       postgres:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8080/api/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      start_period: 30s
+      retries: 3
     networks:
       - app-network
 
 networks:
   app-network:
+    name: hr_backend_network
     driver: bridge
 
 volumes:
   postgres_data:
+    name: hr_backend_postgres_data
     driver: local
-

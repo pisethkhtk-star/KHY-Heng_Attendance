@@ -132,12 +132,12 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
         {
           path: "/approval-manage/overtime",
           name: t("overtimeApprovers") || (isKhmer ? "កំណត់អ្នកអនុម័តថែមម៉ោង" : "Overtime Approvers"),
-          resource: "leave_approvals",
+          resource: "overtime_approvers",
         },
         {
           path: "/approval-manage/checkin",
           name: t("checkinApprovers") || (isKhmer ? "កំណត់សិទ្ធិចុះវត្តមានជំនួស" : "Check-in on Behalf"),
-          resource: "leave_approvals",
+          resource: "checkin_approvers",
         },
       ]
     },
@@ -164,34 +164,35 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
         },
       ]
     },
-    {
-      key: "Payroll",
-      name: t("payrollGroup") || (isKhmer ? "ប្រព័ន្ធបើកប្រាក់ខែ (Payroll)" : "Payroll"),
-      icon: BanknotesIcon,
-      resource: "payroll",
-      subItems: [
-        {
-          path: "/payroll/run",
-          name: isKhmer ? "គណនាប្រាក់ខែ (Payroll Run)" : "Payroll Run",
-          resource: "payroll",
-        },
-        {
-          path: "/payroll/salary-structure",
-          name: isKhmer ? "រចនាសម្ព័ន្ធប្រាក់ខែ (Salary Profiles)" : "Salary Profiles",
-          resource: "payroll",
-        },
-        {
-          path: "/payroll/payslips",
-          name: isKhmer ? "ប័ណ្ណបើកប្រាក់ខែ (Payslips)" : "Payslips",
-          resource: "payroll",
-        },
-        {
-          path: "/payroll/settings",
-          name: isKhmer ? "ការកំណត់ NSSF & កាំពន្ធ (Settings)" : "NSSF & Tax Settings",
-          resource: "payroll",
-        },
-      ]
-    },
+    //payroll
+    // {
+    //   key: "Payroll",
+    //   name: t("payrollGroup") || (isKhmer ? "ប្រព័ន្ធបើកប្រាក់ខែ (Payroll)" : "Payroll"),
+    //   icon: BanknotesIcon,
+    //   resource: "payroll",
+    //   subItems: [
+    //     {
+    //       path: "/payroll/run",
+    //       name: isKhmer ? "គណនាប្រាក់ខែ (Payroll Run)" : "Payroll Run",
+    //       resource: "payroll",
+    //     },
+    //     {
+    //       path: "/payroll/salary-structure",
+    //       name: isKhmer ? "រចនាសម្ព័ន្ធប្រាក់ខែ (Salary Profiles)" : "Salary Profiles",
+    //       resource: "payroll",
+    //     },
+    //     {
+    //       path: "/payroll/payslips",
+    //       name: isKhmer ? "ប័ណ្ណបើកប្រាក់ខែ (Payslips)" : "Payslips",
+    //       resource: "payroll",
+    //     },
+    //     {
+    //       path: "/payroll/settings",
+    //       name: isKhmer ? "ការកំណត់ NSSF & កាំពន្ធ (Settings)" : "NSSF & Tax Settings",
+    //       resource: "payroll",
+    //     },
+    //   ]
+    // },
     {
       path: "/kiosk",
       name: t("facescan"),
@@ -206,7 +207,7 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
     },
     {
       key: "WebManage",
-      name: t("webManage") || "Web Manage",
+      name: t("Notification") || "Web Manage",
       icon: GlobeAltIcon,
       subItems: [
         {
@@ -256,9 +257,8 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
 
   return (
     <aside
-      className={`fixed top-0 bottom-0 left-0 z-30 w-64 bg-[var(--bg-card)] border-r border-[var(--border-card)] text-[var(--text-secondary)] transition-transform duration-300 transform md:translate-x-0 ${
-        isOpen ? 'translate-x-0' : '-translate-x-full'
-      } no-print`}
+      className={`fixed top-0 bottom-0 left-0 z-30 w-64 bg-[var(--bg-card)] border-r border-[var(--border-card)] text-[var(--text-secondary)] transition-transform duration-300 transform md:translate-x-0 ${isOpen ? 'translate-x-0' : '-translate-x-full'
+        } no-print`}
     >
       {/* Brand Header */}
       <div className="flex h-20 items-center justify-between px-6 border-b border-[var(--border-card)] bg-[var(--bg-card)]">
@@ -283,20 +283,19 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
       <nav className="mt-6 space-y-1 overflow-y-auto max-h-[calc(100vh-6rem)]">
         {filteredItems.map((item) => {
           const Icon = item.icon;
-          
+
           if (item.subItems) {
             const isMenuOpen = openMenus[item.key];
             const isChildActive = item.subItems.some(sub => currentPath === sub.path);
-            
+
             return (
               <div key={item.key} className="space-y-1">
                 <button
                   onClick={() => setOpenMenus(prev => ({ ...prev, [item.key]: !prev[item.key] }))}
-                  className={`w-full flex items-center justify-between px-6 py-3.5 text-sm font-medium transition-all duration-200 text-left outline-none border-none bg-transparent cursor-pointer ${
-                    isChildActive 
-                      ? 'text-[var(--brand-blue)] font-bold' 
-                      : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
-                  }`}
+                  className={`w-full flex items-center justify-between px-6 py-3.5 text-sm font-medium transition-all duration-200 text-left outline-none border-none bg-transparent cursor-pointer ${isChildActive
+                    ? 'text-[var(--brand-blue)] font-bold'
+                    : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+                    }`}
                 >
                   <div className="flex items-center gap-3">
                     <Icon className={`h-6 w-6 flex-shrink-0 ${isChildActive ? 'text-[var(--brand-blue)]' : 'text-[var(--text-secondary)]'}`} />
@@ -311,7 +310,7 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                   </svg>
                 </button>
-                
+
                 {isMenuOpen && (
                   <div className="pl-6 space-y-1 border-l border-[var(--border-card)] ml-9 mr-4">
                     {item.subItems.map((sub) => (
@@ -321,10 +320,9 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
                         end
                         onClick={() => isOpen && toggleSidebar()}
                         className={({ isActive }) =>
-                          `flex items-center gap-3 px-4 py-2 text-xs font-medium rounded-lg transition-all duration-200 ${
-                            isActive
-                              ? 'text-[var(--brand-blue)] font-bold'
-                              : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-app)]'
+                          `flex items-center gap-3 px-4 py-2 text-xs font-medium rounded-lg transition-all duration-200 ${isActive
+                            ? 'text-[var(--brand-blue)] font-bold'
+                            : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-app)]'
                           }`
                         }
                       >
@@ -344,10 +342,9 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
               end={item.path === '/'}
               onClick={() => isOpen && toggleSidebar()}
               className={({ isActive }) =>
-                `flex items-center gap-3 px-6 py-3.5 text-sm font-medium transition-all duration-200 relative border-none bg-transparent ${
-                  isActive
-                    ? 'text-[var(--brand-blue)] font-bold'
-                    : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+                `flex items-center gap-3 px-6 py-3.5 text-sm font-medium transition-all duration-200 relative border-none bg-transparent ${isActive
+                  ? 'text-[var(--brand-blue)] font-bold'
+                  : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
                 }`
               }
             >

@@ -51,6 +51,10 @@ const PayrollRun = () => {
   const [adjCommission, setAdjCommission] = useState(0);
   const [adjAdvance, setAdjAdvance] = useState(0);
   const [adjOtherDeductions, setAdjOtherDeductions] = useState(0);
+  const [adjUnpaidDays, setAdjUnpaidDays] = useState(0);
+  const [adjLeaveType, setAdjLeaveType] = useState('UP');
+  const [adjCounting, setAdjCounting] = useState(false);
+  const [leaveTypes, setLeaveTypes] = useState([]);
   const [adjRemarks, setAdjRemarks] = useState('');
   const [savingAdj, setSavingAdj] = useState(false);
 
@@ -225,6 +229,7 @@ const PayrollRun = () => {
     setAdjCommission(0);
     setAdjAdvance(0);
     setAdjOtherDeductions(0);
+    setAdjUnpaidDays(0);
     setAdjRemarks('');
   };
 
@@ -234,7 +239,28 @@ const PayrollRun = () => {
     setAdjCommission(slip.commissionAmount || 0);
     setAdjAdvance(slip.advanceDeduction || 0);
     setAdjOtherDeductions(slip.otherDeductions || 0);
+    setAdjUnpaidDays(slip.unpaidLeaveDays || 0);
+    setAdjLeaveType('UP');
     setAdjRemarks(slip.remarks || '');
+    if (leaveTypes.length === 0) {
+      api.get('/leave-types').then(res => setLeaveTypes(res.data || [])).catch(() => { });
+    }
+  };
+
+  const handleAdjCountLeave = async (lType = adjLeaveType) => {
+    if (!adjustingPayslip) return;
+    try {
+      setAdjCounting(true);
+      const res = await api.get(`/payroll/payslips/${adjustingPayslip.id}/leave-summary?leaveType=${encodeURIComponent(lType)}`);
+      const total = Number(res.data.totalDays || 0);
+      setAdjUnpaidDays(total);
+      showBanner(isKhmer ? `រកឃើញច្បាប់ ${lType} ចំនួន ${total} ថ្ងៃ` : `Found ${total} days of ${lType}`);
+    } catch (err) {
+      console.error('Error counting leaves:', err);
+      showBanner(isKhmer ? 'បរាជ័យក្នុងការទាញយកច្បាប់' : 'Failed to fetch leave records', 'error');
+    } finally {
+      setAdjCounting(false);
+    }
   };
 
   const handleSaveAdjustment = async (e) => {
@@ -247,6 +273,7 @@ const PayrollRun = () => {
         commissionAmount: Number(adjCommission),
         advanceDeduction: Number(adjAdvance),
         otherDeductions: Number(adjOtherDeductions),
+        unpaidLeaveDays: Number(adjUnpaidDays),
         remarks: adjRemarks
       });
       showBanner(isKhmer ? 'បានកែសម្រួលប្រាក់ខែបុគ្គលិកដោយជោគជ័យ' : 'Payslip adjusted successfully');
@@ -285,11 +312,10 @@ const PayrollRun = () => {
     <div className="space-y-6 max-w-7xl mx-auto animate-fade-in pb-12 text-slate-100">
       {/* Alert Banner */}
       {bannerMsg.text && (
-        <div className={`p-4 rounded-2xl border flex items-center justify-between text-sm shadow-md ${
-          bannerMsg.type === 'error'
+        <div className={`p-4 rounded-2xl border flex items-center justify-between text-sm shadow-md ${bannerMsg.type === 'error'
             ? 'bg-rose-500/20 border-rose-500/40 text-rose-300'
             : 'bg-emerald-500/20 border-emerald-500/40 text-emerald-300'
-        }`}>
+          }`}>
           <span>{bannerMsg.text}</span>
           <button onClick={() => setBannerMsg({ type: '', text: '' })} className="cursor-pointer">
             <XMarkIcon className="w-4 h-4" />
@@ -297,17 +323,17 @@ const PayrollRun = () => {
         </div>
       )}
 
-      {/* Top Header - Matching Reports / AttendanceIncomplete exactly */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 no-print">
-        <div className="flex items-center gap-3">
-          <div className="p-3 bg-gradient-to-tr from-indigo-500/20 to-purple-500/20 border border-indigo-500/30 rounded-2xl shadow-inner">
+      {/* Top Header */}
+      <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4 no-print">
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="p-3 bg-gradient-to-tr from-indigo-500/20 to-purple-500/20 border border-indigo-500/30 rounded-2xl shadow-inner shrink-0">
             <BanknotesIcon className="h-7 w-7 text-indigo-400" />
           </div>
-          <div>
+          <div className="min-w-0">
             <h1 className="text-xl sm:text-2xl font-bold text-white font-khmer">
               {isKhmer ? 'ប្រព័ន្ធគណនា និងបើកប្រាក់ខែ (Payroll Management)' : 'Payroll Management'}
             </h1>
-            <p className="text-xs text-slate-400 font-khmer mt-0.5">
+            <p className="text-xs text-slate-400 font-khmer mt-0.5 truncate max-w-xl">
               {isKhmer
                 ? 'គណនាប្រាក់ខែបុគ្គលិកដោយស្វ័យប្រវត្តិតាមវត្តមាន ម៉ោងថែម ប.ស.ស (NSSF) និងពន្ធលើប្រាក់បៀវត្សរ៍ (TOS)'
                 : 'Automated salary calculation based on attendance, OT, NSSF and Cambodia Tax on Salary'}
@@ -315,18 +341,18 @@ const PayrollRun = () => {
           </div>
         </div>
 
-        {/* Action Buttons */}
-        <div className="flex items-center gap-2 flex-wrap">
+        {/* Action Buttons in single neat row */}
+        <div className="flex items-center gap-2.5 overflow-x-auto max-w-full pb-1 sm:pb-0 shrink-0">
           {/* Export Bank Button */}
           {currentRun && (
             <button
               type="button"
               onClick={handleExportBank}
-              className="flex items-center gap-2 px-4 py-2 bg-[#d1fae5] hover:bg-[#a7f3d0] border border-[#6ee7b7] text-[#059669] rounded-2xl font-bold text-sm transition-all shadow-sm hover:shadow cursor-pointer font-khmer"
+              className="flex items-center gap-2 px-3.5 py-2 bg-[#d1fae5] hover:bg-[#a7f3d0] border border-[#6ee7b7] text-[#059669] rounded-xl font-bold text-xs sm:text-sm transition-all shadow-sm hover:shadow cursor-pointer font-khmer whitespace-nowrap"
               title="Export Bank CSV"
             >
               <ArrowDownTrayIcon className="h-4 w-4 stroke-[2.5]" />
-              <span>{isKhmer ? 'Export Bank (ABA)' : 'Export Bank CSV'}</span>
+              <span>{isKhmer ? 'Export Bank' : 'Export Bank CSV'}</span>
             </button>
           )}
 
@@ -334,7 +360,7 @@ const PayrollRun = () => {
             <button
               type="button"
               onClick={handleApprove}
-              className="flex items-center gap-2 px-4 py-2 bg-blue-600/25 hover:bg-blue-600/40 border border-blue-500/40 text-blue-300 rounded-2xl font-bold text-sm transition-all shadow-sm cursor-pointer font-khmer"
+              className="flex items-center gap-2 px-3.5 py-2 bg-blue-600/25 hover:bg-blue-600/40 border border-blue-500/40 text-blue-300 rounded-xl font-bold text-xs sm:text-sm transition-all shadow-sm cursor-pointer font-khmer whitespace-nowrap"
             >
               <CheckCircleIcon className="h-4 w-4" />
               <span>{isKhmer ? 'អនុម័ត (Approve)' : 'Approve Run'}</span>
@@ -345,10 +371,10 @@ const PayrollRun = () => {
             <button
               type="button"
               onClick={handleMarkPaid}
-              className="flex items-center gap-2 px-4 py-2 bg-purple-600/25 hover:bg-purple-600/40 border border-purple-500/40 text-purple-300 rounded-2xl font-bold text-sm transition-all shadow-sm cursor-pointer font-khmer"
+              className="flex items-center gap-2 px-3.5 py-2 bg-purple-600/25 hover:bg-purple-600/40 border border-purple-500/40 text-purple-300 rounded-xl font-bold text-xs sm:text-sm transition-all shadow-sm cursor-pointer font-khmer whitespace-nowrap"
             >
               <CheckCircleIcon className="h-4 w-4" />
-              <span>{isKhmer ? 'សម្គាល់ថាបើករួច (Paid)' : 'Mark as Paid'}</span>
+              <span>{isKhmer ? 'សម្គាល់ថាបើករួច' : 'Mark as Paid'}</span>
             </button>
           )}
 
@@ -357,11 +383,11 @@ const PayrollRun = () => {
             <button
               type="button"
               onClick={handleClearRun}
-              className="flex items-center gap-2 px-4 py-2 bg-rose-500/15 hover:bg-rose-500/25 border border-rose-500/30 text-rose-300 rounded-2xl font-bold text-sm transition-all shadow-sm cursor-pointer font-khmer"
+              className="flex items-center gap-2 px-3 py-2 bg-rose-500/15 hover:bg-rose-500/25 border border-rose-500/30 text-rose-300 rounded-xl font-bold text-xs sm:text-sm transition-all shadow-sm cursor-pointer font-khmer whitespace-nowrap"
               title={isKhmer ? 'សម្អាត / លុបវដ្តប្រាក់ខែនេះ' : 'Clear / Delete this payroll run'}
             >
               <TrashIcon className="h-4 w-4 text-rose-400" />
-              <span>{isKhmer ? 'សម្អាតវដ្តនេះ (Clear)' : 'Clear Run'}</span>
+              <span>{isKhmer ? 'សម្អាត (Clear)' : 'Clear Run'}</span>
             </button>
           )}
 
@@ -369,10 +395,10 @@ const PayrollRun = () => {
           <button
             type="button"
             onClick={() => setShowGenerateModal(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white rounded-2xl font-bold text-sm transition-all shadow-md shadow-indigo-500/25 cursor-pointer font-khmer border-none"
+            className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white rounded-xl font-bold text-xs sm:text-sm transition-all shadow-md shadow-indigo-500/25 cursor-pointer font-khmer border-none whitespace-nowrap"
           >
             <PlusIcon className="h-4 w-4 stroke-[2.5]" />
-            <span>{isKhmer ? '+ គណនាប្រាក់ខែថ្មី' : '+ New Payroll Run'}</span>
+            <span>{isKhmer ? 'គណនាប្រាក់ខែថ្មី' : 'New Payroll Run'}</span>
           </button>
         </div>
       </div>
@@ -401,13 +427,12 @@ const PayrollRun = () => {
 
         {currentRun && (
           <div className="flex items-center gap-3">
-            <span className={`px-3 py-1 rounded-xl text-xs font-bold font-mono border ${
-              currentRun.status === 'Paid'
+            <span className={`px-3 py-1 rounded-xl text-xs font-bold font-mono border ${currentRun.status === 'Paid'
                 ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/40'
                 : currentRun.status === 'Approved'
-                ? 'bg-blue-500/20 text-blue-400 border-blue-500/40'
-                : 'bg-amber-500/20 text-amber-400 border-amber-500/40'
-            }`}>
+                  ? 'bg-blue-500/20 text-blue-400 border-blue-500/40'
+                  : 'bg-amber-500/20 text-amber-400 border-amber-500/40'
+              }`}>
               {currentRun.status}
             </span>
             <span className="text-xs text-slate-400 font-mono">
@@ -631,11 +656,10 @@ const PayrollRun = () => {
                         <div className="text-[10px] text-slate-500">{p.positionTitle || '-'}</div>
                       </td>
                       <td className="p-3.5 text-center">
-                        <span className={`px-2.5 py-1 rounded-xl text-[10px] font-bold border ${
-                          p.contractType === 'UDC'
+                        <span className={`px-2.5 py-1 rounded-xl text-[10px] font-bold border ${p.contractType === 'UDC'
                             ? 'bg-blue-500/20 text-blue-300 border-blue-500/30'
                             : 'bg-amber-500/20 text-amber-300 border-amber-500/30'
-                        }`}>
+                          }`}>
                           {p.contractType || 'UDC'}
                         </span>
                       </td>
@@ -762,7 +786,7 @@ const PayrollRun = () => {
                     onChange={(e) => setGenMonth(e.target.value)}
                     className="w-full py-2 px-3 border border-white/10 bg-slate-950/60 text-white rounded-xl text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/20 outline-none transition-all font-mono"
                   >
-                    {[1,2,3,4,5,6,7,8,9,10,11,12].map(m => (
+                    {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map(m => (
                       <option key={m} value={m}>Month {m}</option>
                     ))}
                   </select>
@@ -903,6 +927,78 @@ const PayrollRun = () => {
                     className="w-full py-2 px-3 border border-white/10 bg-slate-950/60 text-white rounded-xl text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/20 outline-none transition-all font-mono"
                   />
                 </div>
+              </div>
+
+              {/* Unpaid Leave Deduction by Leave Type */}
+              <div className="p-3.5 bg-rose-500/10 border border-rose-500/25 rounded-2xl space-y-3">
+                <div className="flex items-center justify-between">
+                  <label className="block font-bold text-rose-300 font-khmer text-xs">
+                    {isKhmer ? 'កាត់ប្រាក់ឈប់ឥតច្បាប់ / អត់មកធ្វើការ (Leave Deduction)' : 'Unpaid Leave Days Deduction'}
+                  </label>
+                  {adjustingPayslip && (
+                    <span className="text-[11px] font-mono text-slate-400">
+                      Rate: ${(Number(adjustingPayslip.baseSalary || 0) / (adjustingPayslip.standardWorkingDays || 26)).toFixed(2)}/d
+                    </span>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-400 mb-1 font-khmer">
+                      {isKhmer ? 'ជ្រើសរើសប្រភេទច្បាប់' : 'Select Leave Type'}
+                    </label>
+                    <div className="flex gap-1.5">
+                      <select
+                        value={adjLeaveType}
+                        onChange={(e) => {
+                          setAdjLeaveType(e.target.value);
+                          handleAdjCountLeave(e.target.value);
+                        }}
+                        className="flex-1 py-1.5 px-2 border border-white/10 bg-slate-950 text-white rounded-xl text-xs outline-none font-khmer"
+                      >
+                        <option value="UP">UP - {isKhmer ? 'ឈប់ឥតច្បាប់ (UP)' : 'Unpaid Leave (UP)'}</option>
+                        {leaveTypes.filter(lt => lt.code !== 'UP').map(lt => (
+                          <option key={lt.code} value={lt.code}>
+                            {lt.code} - {isKhmer ? lt.nameKh : lt.nameEn}
+                          </option>
+                        ))}
+                      </select>
+                      <button
+                        type="button"
+                        onClick={() => handleAdjCountLeave(adjLeaveType)}
+                        disabled={adjCounting}
+                        className="px-2.5 py-1.5 bg-rose-600/30 hover:bg-rose-600/50 text-rose-300 border border-rose-500/30 rounded-xl text-xs font-bold transition-all cursor-pointer disabled:opacity-50"
+                        title={isKhmer ? 'រាប់ចំនួនថ្ងៃពីប្រព័ន្ធច្បាប់' : 'Count days from leaves'}
+                      >
+                        {adjCounting ? '⏳' : '🔄'}
+                      </button>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-400 mb-1 font-khmer">
+                      {isKhmer ? 'ចំនួនថ្ងៃត្រូវកាត់ (Days)' : 'Days to Deduct'}
+                    </label>
+                    <input
+                      type="number"
+                      step="0.5"
+                      min="0"
+                      max="31"
+                      value={adjUnpaidDays}
+                      onChange={(e) => setAdjUnpaidDays(e.target.value)}
+                      className="w-full py-1.5 px-3 border border-white/10 bg-slate-950 text-white rounded-xl text-xs focus:border-rose-500 outline-none font-mono font-bold"
+                    />
+                  </div>
+                </div>
+
+                {adjustingPayslip && Number(adjUnpaidDays) > 0 && (
+                  <div className="text-[11px] font-mono text-rose-300 flex justify-between pt-1 border-t border-rose-500/20">
+                    <span>{isKhmer ? 'ទឹកប្រាក់កាត់ស្ទង់:' : 'Est. Deduction:'}</span>
+                    <span className="font-bold">
+                      -${(Number(adjUnpaidDays) * (Number(adjustingPayslip.baseSalary || 0) / (adjustingPayslip.standardWorkingDays || 26))).toFixed(2)}
+                    </span>
+                  </div>
+                )}
               </div>
 
               <div className="grid grid-cols-2 gap-3.5">

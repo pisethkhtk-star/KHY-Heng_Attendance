@@ -304,15 +304,13 @@ html.light select option {
     overflow: visible !important;
     height: auto !important;
   }
-  #root, #root > div, .h-screen, div[class*="h-screen"], div[class*="overflow-"], main, div[class*="md:pl-64"] {
+  #root, #root > div, .h-screen, div[class*="h-screen"], main, div[class*="md:pl-64"] {
     overflow: visible !important;
     height: auto !important;
     min-height: auto !important;
     max-height: none !important;
     position: static !important;
     display: block !important;
-    padding: 0 !important;
-    margin: 0 !important;
     transform: none !important;
     width: 100% !important;
   }

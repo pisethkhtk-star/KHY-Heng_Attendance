@@ -1,0 +1,25 @@
+# Version control & IDE
+.git
+.github
+.idea
+.vscode
+
+# Dependencies & Build artifacts
+node_modules
+dist
+build
+bin
+.gradle
+.dart_tool
+
+# Mobile App (not part of web docker build)
+mobile_app
+
+# Temporary & Junk files
+*.log
+*.tmp
+*.bak
+*.apk
+*.docx
+*.xlsx
+

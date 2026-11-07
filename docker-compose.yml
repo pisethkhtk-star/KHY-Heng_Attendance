@@ -7,6 +7,7 @@ services:
       POSTGRES_DB: ${POSTGRES_DB:-khyheng_att}
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_INITDB_ARGS: "--encoding=UTF-8"
       TZ: Asia/Phnom_Penh
     ports:
       - "${POSTGRES_PORT:-5432}:5432"
@@ -31,13 +32,19 @@ services:
       DATABASE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-khyheng_att}
       DB_USERNAME: ${POSTGRES_USER:-postgres}
       DB_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
-      JWT_SECRET: ${JWT_SECRET:-your-super-secret-jwt-key-change-this}
+      JWT_SECRET: ${JWT_SECRET:-hr-chomnan-dev-secret-key-please-change-32chars}
       TZ: Asia/Phnom_Penh
     ports:
       - "${BACKEND_PORT:-8080}:8080"
     depends_on:
       postgres:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8080/api/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      start_period: 30s
+      retries: 3
     networks:
       - hr-network
 
@@ -46,7 +53,7 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
       args:
-        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-}
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-/api}
     image: hr-chomnan-frontend:latest
     container_name: hr_attendance_frontend
     restart: unless-stopped
@@ -55,14 +62,17 @@ services:
     ports:
       - "${FRONTEND_PORT:-80}:80"
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
     networks:
       - hr-network
 
 networks:
   hr-network:
+    name: hr_attendance_network
     driver: bridge
 
 volumes:
   postgres_data:
+    name: hr_attendance_postgres_data
     driver: local

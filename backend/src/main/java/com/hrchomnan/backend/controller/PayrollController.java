@@ -127,10 +127,26 @@ public class PayrollController {
                     ? new BigDecimal(body.get("advanceDeduction").toString()) : null;
             BigDecimal otherDeductions = body.containsKey("otherDeductions") && body.get("otherDeductions") != null
                     ? new BigDecimal(body.get("otherDeductions").toString()) : null;
+            BigDecimal unpaidLeaveDays = body.containsKey("unpaidLeaveDays") && body.get("unpaidLeaveDays") != null
+                    ? new BigDecimal(body.get("unpaidLeaveDays").toString()) : null;
             String remarks = (String) body.get("remarks");
 
-            Payslip updated = payrollService.adjustPayslip(id, bonus, commission, advance, otherDeductions, remarks);
+            Payslip updated = payrollService.adjustPayslip(id, bonus, commission, advance, otherDeductions, unpaidLeaveDays, remarks);
             return ResponseEntity.ok(updated);
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("message", e.getMessage()));
+        }
+    }
+
+    @GetMapping("/payslips/{id}/leave-summary")
+    @PreAuthorize("@perm.has('payroll')")
+    public ResponseEntity<?> getPayslipLeaveSummary(
+            @PathVariable Long id,
+            @RequestParam(required = false, defaultValue = "UP") String leaveType
+    ) {
+        try {
+            Map<String, Object> summary = payrollService.getLeaveSummaryForPayslip(id, leaveType);
+            return ResponseEntity.ok(summary);
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("message", e.getMessage()));
         }

@@ -31,6 +31,36 @@ const ApprovalManage = () => {
     }
     return 'LEAVE';
   }, [location.pathname, searchParams]);
+  const canAddCurrent = useMemo(() => {
+    if (activeCategory === 'OVERTIME') {
+      return hasPermission('overtime_approvers') || hasPermission('leave_approvals');
+    }
+    if (activeCategory === 'CHECKIN') {
+      return hasPermission('checkin_approvers') || hasPermission('leave_approvals');
+    }
+    return hasPermission('leave_approvals');
+  }, [activeCategory, hasPermission]);
+
+  const canEditCurrent = useMemo(() => {
+    if (activeCategory === 'OVERTIME') {
+      return hasPermission('edit_overtime_approvers') || hasPermission('edit_leave_approvals') || hasPermission('overtime_approvers');
+    }
+    if (activeCategory === 'CHECKIN') {
+      return hasPermission('edit_checkin_approvers') || hasPermission('edit_leave_approvals') || hasPermission('checkin_approvers');
+    }
+    return hasPermission('edit_leave_approvals');
+  }, [activeCategory, hasPermission]);
+
+  const canDeleteCurrent = useMemo(() => {
+    if (activeCategory === 'OVERTIME') {
+      return hasPermission('delete_overtime_approvers') || hasPermission('delete_leave_approvals') || hasPermission('overtime_approvers');
+    }
+    if (activeCategory === 'CHECKIN') {
+      return hasPermission('delete_checkin_approvers') || hasPermission('delete_leave_approvals') || hasPermission('checkin_approvers');
+    }
+    return hasPermission('delete_leave_approvals');
+  }, [activeCategory, hasPermission]);
+
 
   const handleSwitchCategory = (cat) => {
     setCurrentPage(1);
@@ -231,10 +261,10 @@ const ApprovalManage = () => {
     try {
       setSaving(true);
       setErrorMsg('');
-      
+
       let res;
       let msg;
-      
+
       if (isEditMode) {
         res = await api.put(`/leave-approvals/${editRuleId}`, {
           approverId,
@@ -448,8 +478,8 @@ const ApprovalManage = () => {
           if (e.status === 'Inactive' || e.status === 'Resigned' || e.status === 'Terminated') return false;
           if (e.staffId === staffId) return false;
           return String(e.departmentId) === String(r.targetDeptId) ||
-                 String(e.department?.id) === String(r.targetDeptId) ||
-                 (e.department?.nameEn && dept?.nameEn && e.department.nameEn === dept.nameEn);
+            String(e.department?.id) === String(r.targetDeptId) ||
+            (e.department?.nameEn && dept?.nameEn && e.department.nameEn === dept.nameEn);
         });
 
         children.push({
@@ -486,11 +516,10 @@ const ApprovalManage = () => {
     return (
       <li key={path} className="flex flex-col items-center">
         {node.isDepartment ? (
-          <div className={`p-3 rounded-2xl border transition-all duration-300 shadow-xl flex items-center gap-3 min-w-[200px] z-10 ${
-            isMatch
-              ? 'bg-purple-900/90 border-purple-400 ring-2 ring-purple-400 scale-105 shadow-purple-500/30'
-              : 'bg-purple-950/80 hover:bg-purple-900/70 border-purple-500/40 text-purple-200'
-          }`}>
+          <div className={`p-3 rounded-2xl border transition-all duration-300 shadow-xl flex items-center gap-3 min-w-[200px] z-10 ${isMatch
+            ? 'bg-purple-900/90 border-purple-400 ring-2 ring-purple-400 scale-105 shadow-purple-500/30'
+            : 'bg-purple-950/80 hover:bg-purple-900/70 border-purple-500/40 text-purple-200'
+            }`}>
             <div className="w-10 h-10 rounded-xl bg-purple-500/20 flex items-center justify-center text-xl shadow flex-shrink-0">
               🏢
             </div>
@@ -501,11 +530,10 @@ const ApprovalManage = () => {
             </div>
           </div>
         ) : (
-          <div className={`relative w-44 sm:w-48 p-3 rounded-2xl transition-all duration-300 shadow-xl flex flex-col items-center text-center cursor-pointer border z-10 ${
-            isMatch
-              ? 'bg-indigo-900/90 border-indigo-400 ring-2 ring-indigo-400 scale-105 shadow-indigo-500/30'
-              : 'bg-slate-900/95 hover:bg-slate-800 border-slate-700/70 hover:border-indigo-500/60'
-          }`}>
+          <div className={`relative w-44 sm:w-48 p-3 rounded-2xl transition-all duration-300 shadow-xl flex flex-col items-center text-center cursor-pointer border z-10 ${isMatch
+            ? 'bg-indigo-900/90 border-indigo-400 ring-2 ring-indigo-400 scale-105 shadow-indigo-500/30'
+            : 'bg-slate-900/95 hover:bg-slate-800 border-slate-700/70 hover:border-indigo-500/60'
+            }`}>
             {/* Top Role Badge */}
             <div className="absolute top-2 right-2 px-1.5 py-0.5 rounded text-[9px] font-mono font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
               {node.role || 'Staff'}
@@ -648,17 +676,15 @@ const ApprovalManage = () => {
           <button
             type="button"
             onClick={() => handleSwitchCategory('LEAVE')}
-            className={`px-5 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer font-khmer flex items-center gap-2.5 ${
-              activeCategory === 'LEAVE'
-                ? 'bg-gradient-to-r from-indigo-600 to-indigo-500 text-white shadow-lg shadow-indigo-500/30 ring-1 ring-white/20'
-                : 'text-slate-400 hover:text-white hover:bg-white/5'
-            }`}
+            className={`px-5 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer font-khmer flex items-center gap-2.5 ${activeCategory === 'LEAVE'
+              ? 'bg-gradient-to-r from-indigo-600 to-indigo-500 text-white shadow-lg shadow-indigo-500/30 ring-1 ring-white/20'
+              : 'text-slate-400 hover:text-white hover:bg-white/5'
+              }`}
           >
             <CalendarDaysIcon className="w-4 h-4" />
             <span>{isKhmer ? 'កំណត់អ្នកអនុម័តច្បាប់ (Leave)' : 'Leave Approvers'}</span>
-            <span className={`px-2 py-0.5 rounded-full text-[10px] font-mono font-bold ${
-              activeCategory === 'LEAVE' ? 'bg-white/25 text-white' : 'bg-slate-800 text-slate-400'
-            }`}>
+            <span className={`px-2 py-0.5 rounded-full text-[10px] font-mono font-bold ${activeCategory === 'LEAVE' ? 'bg-white/25 text-white' : 'bg-slate-800 text-slate-400'
+              }`}>
               {leaveRulesCount}
             </span>
           </button>
@@ -666,17 +692,15 @@ const ApprovalManage = () => {
           <button
             type="button"
             onClick={() => handleSwitchCategory('OVERTIME')}
-            className={`px-5 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer font-khmer flex items-center gap-2.5 ${
-              activeCategory === 'OVERTIME'
-                ? 'bg-gradient-to-r from-amber-500 to-orange-500 text-slate-950 font-extrabold shadow-lg shadow-amber-500/30 ring-1 ring-white/20'
-                : 'text-slate-400 hover:text-white hover:bg-white/5'
-            }`}
+            className={`px-5 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer font-khmer flex items-center gap-2.5 ${activeCategory === 'OVERTIME'
+              ? 'bg-gradient-to-r from-amber-500 to-orange-500 text-slate-950 font-extrabold shadow-lg shadow-amber-500/30 ring-1 ring-white/20'
+              : 'text-slate-400 hover:text-white hover:bg-white/5'
+              }`}
           >
             <BoltIcon className="w-4 h-4" />
             <span>{isKhmer ? 'កំណត់អ្នកអនុម័តថែមម៉ោង (Overtime)' : 'Overtime Approvers'}</span>
-            <span className={`px-2 py-0.5 rounded-full text-[10px] font-mono font-bold ${
-              activeCategory === 'OVERTIME' ? 'bg-slate-950/30 text-slate-950 font-extrabold' : 'bg-slate-800 text-slate-400'
-            }`}>
+            <span className={`px-2 py-0.5 rounded-full text-[10px] font-mono font-bold ${activeCategory === 'OVERTIME' ? 'bg-slate-950/30 text-slate-950 font-extrabold' : 'bg-slate-800 text-slate-400'
+              }`}>
               {overtimeRulesCount}
             </span>
           </button>
@@ -684,17 +708,15 @@ const ApprovalManage = () => {
           <button
             type="button"
             onClick={() => handleSwitchCategory('CHECKIN')}
-            className={`px-5 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer font-khmer flex items-center gap-2.5 ${
-              activeCategory === 'CHECKIN'
-                ? 'bg-gradient-to-r from-emerald-600 to-teal-500 text-white font-extrabold shadow-lg shadow-emerald-500/30 ring-1 ring-white/20'
-                : 'text-slate-400 hover:text-white hover:bg-white/5'
-            }`}
+            className={`px-5 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer font-khmer flex items-center gap-2.5 ${activeCategory === 'CHECKIN'
+              ? 'bg-gradient-to-r from-emerald-600 to-teal-500 text-white font-extrabold shadow-lg shadow-emerald-500/30 ring-1 ring-white/20'
+              : 'text-slate-400 hover:text-white hover:bg-white/5'
+              }`}
           >
             <ShieldCheckIcon className="w-4 h-4" />
             <span>{isKhmer ? 'កំណត់សិទ្ធិចុះវត្តមានជំនួស (Check-in)' : 'Check-in on Behalf'}</span>
-            <span className={`px-2 py-0.5 rounded-full text-[10px] font-mono font-bold ${
-              activeCategory === 'CHECKIN' ? 'bg-white/25 text-white' : 'bg-slate-800 text-slate-400'
-            }`}>
+            <span className={`px-2 py-0.5 rounded-full text-[10px] font-mono font-bold ${activeCategory === 'CHECKIN' ? 'bg-white/25 text-white' : 'bg-slate-800 text-slate-400'
+              }`}>
               {checkinRulesCount}
             </span>
           </button>
@@ -702,27 +724,25 @@ const ApprovalManage = () => {
       </div>
 
       {/* Header Block */}
-      <div className={`glass-card p-6 rounded-2xl flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 transition-all duration-300 ${
-        activeCategory === 'LEAVE'
-          ? 'glow-indigo'
-          : activeCategory === 'OVERTIME'
-            ? 'border-amber-500/30 shadow-amber-500/10'
-            : 'border-emerald-500/30 shadow-emerald-500/10'
-      }`}>
+      <div className={`glass-card p-6 rounded-2xl flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 transition-all duration-300 ${activeCategory === 'LEAVE'
+        ? 'glow-indigo'
+        : activeCategory === 'OVERTIME'
+          ? 'border-amber-500/30 shadow-amber-500/10'
+          : 'border-emerald-500/30 shadow-emerald-500/10'
+        }`}>
         <div>
           <div className="flex items-center gap-2 mb-1">
-            <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold font-mono uppercase tracking-wider ${
-              activeCategory === 'LEAVE'
-                ? 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/30'
-                : activeCategory === 'OVERTIME'
-                  ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
-                  : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
-            }`}>
+            <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold font-mono uppercase tracking-wider ${activeCategory === 'LEAVE'
+              ? 'bg-indigo-500/20 text-black dark:text-indigo-300 border border-indigo-500/30'
+              : activeCategory === 'OVERTIME'
+                ? 'bg-amber-500/20 text-black border border-amber-500/40'
+                : 'bg-emerald-500/20 text-black dark:text-emerald-300 border border-emerald-500/30'
+              }`}>
               {activeCategory === 'LEAVE'
-                ? '🌴 Leave Approval Rules'
+                ? 'Leave Approval Rules'
                 : activeCategory === 'OVERTIME'
-                  ? '⚡ Overtime Approval Rules'
-                  : '📋 Check-in on Behalf Permissions'}
+                  ? 'Overtime Approval Rules'
+                  : 'Check-in on Behalf Permissions'}
             </span>
           </div>
           <h2 className="text-xl font-bold text-white font-khmer">
@@ -744,15 +764,14 @@ const ApprovalManage = () => {
           {/* Tree View Toggle Button */}
           <button
             onClick={() => setViewMode(prev => prev === 'tree' ? 'table' : 'tree')}
-            className={`py-2.5 px-4 text-xs font-bold rounded-xl transition-all shadow-sm flex items-center gap-2 border cursor-pointer font-khmer ${
-              viewMode === 'tree'
-                ? (activeCategory === 'LEAVE'
-                    ? 'bg-gradient-to-r from-indigo-600 to-purple-600 border-indigo-400 text-white shadow-indigo-500/30 ring-2 ring-indigo-400/50'
-                    : activeCategory === 'OVERTIME'
-                      ? 'bg-gradient-to-r from-amber-600 to-orange-600 border-amber-400 text-white shadow-amber-500/30 ring-2 ring-amber-400/50'
-                      : 'bg-gradient-to-r from-emerald-600 to-teal-600 border-emerald-400 text-white shadow-emerald-500/30 ring-2 ring-emerald-400/50')
-                : 'bg-indigo-50 dark:bg-slate-900 border-indigo-300 dark:border-indigo-500/40 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-100 dark:hover:bg-slate-800 hover:text-indigo-900 dark:hover:text-white shadow-sm'
-            }`}
+            className={`py-2.5 px-4 text-xs font-bold rounded-xl transition-all shadow-sm flex items-center gap-2 border cursor-pointer font-khmer ${viewMode === 'tree'
+              ? (activeCategory === 'LEAVE'
+                ? 'bg-gradient-to-r from-indigo-600 to-purple-600 border-indigo-400 text-white shadow-indigo-500/30 ring-2 ring-indigo-400/50'
+                : activeCategory === 'OVERTIME'
+                  ? 'bg-gradient-to-r from-amber-600 to-orange-600 border-amber-400 text-white shadow-amber-500/30 ring-2 ring-amber-400/50'
+                  : 'bg-gradient-to-r from-emerald-600 to-teal-600 border-emerald-400 text-white shadow-emerald-500/30 ring-2 ring-emerald-400/50')
+              : 'bg-indigo-50 dark:bg-slate-900 border-indigo-300 dark:border-indigo-500/40 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-100 dark:hover:bg-slate-800 hover:text-indigo-900 dark:hover:text-white shadow-sm'
+              }`}
             title={viewMode === 'tree' ? 'Switch to Table View' : 'Switch to Tree View'}
           >
             {viewMode === 'tree' ? (
@@ -770,16 +789,15 @@ const ApprovalManage = () => {
             )}
           </button>
 
-          {hasPermission('leave_approvals') && (
+          {canAddCurrent && (
             <button
               onClick={handleOpenAddModal}
-              className={`py-2.5 px-5 text-xs font-semibold rounded-xl transition-all shadow-md font-khmer border-none outline-none cursor-pointer flex items-center gap-2 ${
-                activeCategory === 'LEAVE'
-                  ? 'bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white shadow-indigo-500/25'
-                  : activeCategory === 'OVERTIME'
-                    ? 'bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-slate-950 font-bold shadow-amber-500/25'
-                    : 'bg-gradient-to-r from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 text-white shadow-emerald-500/25'
-              }`}
+              className={`py-2.5 px-5 text-xs font-semibold rounded-xl transition-all shadow-md font-khmer border-none outline-none cursor-pointer flex items-center gap-2 ${activeCategory === 'LEAVE'
+                ? 'bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white shadow-indigo-500/25'
+                : activeCategory === 'OVERTIME'
+                  ? 'bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-slate-950 font-bold shadow-amber-500/25'
+                  : 'bg-gradient-to-r from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 text-white shadow-emerald-500/25'
+                }`}
             >
               <PlusIcon className="h-4 w-4" />
               <span>
@@ -888,7 +906,7 @@ const ApprovalManage = () => {
                     <th className="py-4 px-6 font-khmer">Target</th>
                     <th className="py-4 px-6 font-khmer">Scope Type</th>
                     <th className="py-4 px-6 font-khmer">Approver</th>
-                    {(hasPermission('edit_leave_approvals') || hasPermission('delete_leave_approvals')) && (
+                    {(canEditCurrent || canDeleteCurrent) && (
                       <th className="py-4 px-6 text-right font-khmer">Actions</th>
                     )}
                   </tr>
@@ -896,7 +914,7 @@ const ApprovalManage = () => {
                 <tbody className="divide-y divide-white/5">
                   {filteredRules.length === 0 ? (
                     <tr>
-                      <td colSpan={(hasPermission('edit_leave_approvals') || hasPermission('delete_leave_approvals')) ? 5 : 4} className="py-6 text-center text-slate-500 font-khmer">
+                      <td colSpan={(canEditCurrent || canDeleteCurrent) ? 5 : 4} className="py-6 text-center text-slate-500 font-khmer">
                         {activeCategory === 'LEAVE'
                           ? 'មិនទាន់មានច្បាប់កំណត់អ្នកអនុម័តច្បាប់នៅឡើយទេ'
                           : activeCategory === 'OVERTIME'
@@ -1015,9 +1033,9 @@ const ApprovalManage = () => {
                             </div>
                           </td>
 
-                          {(hasPermission('edit_leave_approvals') || hasPermission('delete_leave_approvals')) && (
+                          {(canEditCurrent || canDeleteCurrent) && (
                             <td className="py-4 px-6 text-right space-x-2">
-                              {hasPermission('edit_leave_approvals') && (
+                              {canEditCurrent && (
                                 <button
                                   onClick={() => handleOpenEditModal(rule)}
                                   className="inline-flex p-2 bg-indigo-500/10 hover:bg-indigo-500/25 border border-indigo-500/20 rounded-xl text-indigo-400 transition-colors cursor-pointer mr-2"
@@ -1026,7 +1044,7 @@ const ApprovalManage = () => {
                                   <PencilIcon className="h-4.5 w-4.5" />
                                 </button>
                               )}
-                              {hasPermission('delete_leave_approvals') && (
+                              {canDeleteCurrent && (
                                 <button
                                   onClick={() => handleDelete(rule.id)}
                                   className="inline-flex p-2 bg-rose-500/10 hover:bg-rose-500/25 border border-rose-500/20 rounded-xl text-rose-400 transition-colors cursor-pointer"
@@ -1079,11 +1097,10 @@ const ApprovalManage = () => {
                       key={`page-${pageItem}`}
                       type="button"
                       onClick={() => setCurrentPage(pageItem)}
-                      className={`h-8 min-w-[32px] px-2 rounded-lg text-xs font-mono font-bold transition-all cursor-pointer ${
-                        isCurrent
-                          ? 'bg-indigo-600 text-white shadow-md shadow-indigo-500/20'
-                          : 'bg-white dark:bg-slate-900/60 border border-slate-300 dark:border-white/10 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-indigo-600 dark:hover:text-white shadow-sm'
-                      }`}
+                      className={`h-8 min-w-[32px] px-2 rounded-lg text-xs font-mono font-bold transition-all cursor-pointer ${isCurrent
+                        ? 'bg-indigo-600 text-white shadow-md shadow-indigo-500/20'
+                        : 'bg-white dark:bg-slate-900/60 border border-slate-300 dark:border-white/10 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-indigo-600 dark:hover:text-white shadow-sm'
+                        }`}
                     >
                       {pageItem}
                     </button>
@@ -1113,13 +1130,13 @@ const ApprovalManage = () => {
               <h3 className="text-base sm:text-lg font-bold text-white font-khmer">
                 {isEditMode
                   ? (modalRuleType === 'CHECKIN'
-                      ? (isKhmer ? 'កែប្រែសិទ្ធិចុះវត្តមានជំនួស' : 'Edit Check-in Permission')
-                      : (isKhmer ? 'កែប្រែអ្នកអនុម័ត' : 'Edit Approval Rule'))
+                    ? (isKhmer ? 'កែប្រែសិទ្ធិចុះវត្តមានជំនួស' : 'Edit Check-in Permission')
+                    : (isKhmer ? 'កែប្រែអ្នកអនុម័ត' : 'Edit Approval Rule'))
                   : (modalRuleType === 'LEAVE'
-                      ? (isKhmer ? 'កំណត់អ្នកអនុម័តច្បាប់ (Leave)' : 'Add Leave Approver Rule')
-                      : modalRuleType === 'OVERTIME'
-                        ? (isKhmer ? 'កំណត់អ្នកអនុម័តថែមម៉ោង (Overtime)' : 'Add Overtime Approver Rule')
-                        : (isKhmer ? 'កំណត់សិទ្ធិចុះវត្តមានជំនួស (Check-in)' : 'Add Check-in on Behalf Rule'))}
+                    ? (isKhmer ? 'កំណត់អ្នកអនុម័តច្បាប់ (Leave)' : 'Add Leave Approver Rule')
+                    : modalRuleType === 'OVERTIME'
+                      ? (isKhmer ? 'កំណត់អ្នកអនុម័តថែមម៉ោង (Overtime)' : 'Add Overtime Approver Rule')
+                      : (isKhmer ? 'កំណត់សិទ្ធិចុះវត្តមានជំនួស (Check-in)' : 'Add Check-in on Behalf Rule'))}
               </h3>
               <button
                 type="button"
@@ -1143,11 +1160,10 @@ const ApprovalManage = () => {
                       type="button"
                       disabled={isEditMode}
                       onClick={() => setModalRuleType('LEAVE')}
-                      className={`py-2 px-2 rounded-xl text-xs font-bold font-khmer flex items-center justify-center gap-1.5 border transition-all cursor-pointer ${
-                        modalRuleType === 'LEAVE'
-                          ? 'bg-indigo-600 border-indigo-400 text-white shadow-md shadow-indigo-600/30'
-                          : 'bg-slate-900/60 border-white/10 text-slate-400 hover:text-white'
-                      } ${isEditMode ? 'opacity-60 cursor-not-allowed' : ''}`}
+                      className={`py-2 px-2 rounded-xl text-xs font-bold font-khmer flex items-center justify-center gap-1.5 border transition-all cursor-pointer ${modalRuleType === 'LEAVE'
+                        ? 'bg-indigo-600 border-indigo-400 text-white shadow-md shadow-indigo-600/30'
+                        : 'bg-slate-900/60 border-white/10 text-slate-400 hover:text-white'
+                        } ${isEditMode ? 'opacity-60 cursor-not-allowed' : ''}`}
                     >
                       <CalendarDaysIcon className="w-3.5 h-3.5" />
                       <span>{isKhmer ? 'ច្បាប់' : 'Leave'}</span>
@@ -1156,11 +1172,10 @@ const ApprovalManage = () => {
                       type="button"
                       disabled={isEditMode}
                       onClick={() => setModalRuleType('OVERTIME')}
-                      className={`py-2 px-2 rounded-xl text-xs font-bold font-khmer flex items-center justify-center gap-1.5 border transition-all cursor-pointer ${
-                        modalRuleType === 'OVERTIME'
-                          ? 'bg-gradient-to-r from-amber-500 to-orange-500 border-amber-400 text-slate-950 font-extrabold shadow-md shadow-amber-500/30'
-                          : 'bg-slate-900/60 border-white/10 text-slate-400 hover:text-white'
-                      } ${isEditMode ? 'opacity-60 cursor-not-allowed' : ''}`}
+                      className={`py-2 px-2 rounded-xl text-xs font-bold font-khmer flex items-center justify-center gap-1.5 border transition-all cursor-pointer ${modalRuleType === 'OVERTIME'
+                        ? 'bg-gradient-to-r from-amber-500 to-orange-500 border-amber-400 text-slate-950 font-extrabold shadow-md shadow-amber-500/30'
+                        : 'bg-slate-900/60 border-white/10 text-slate-400 hover:text-white'
+                        } ${isEditMode ? 'opacity-60 cursor-not-allowed' : ''}`}
                     >
                       <BoltIcon className="w-3.5 h-3.5" />
                       <span>{isKhmer ? 'ថែមម៉ោង' : 'Overtime'}</span>
@@ -1169,11 +1184,10 @@ const ApprovalManage = () => {
                       type="button"
                       disabled={isEditMode}
                       onClick={() => setModalRuleType('CHECKIN')}
-                      className={`py-2 px-2 rounded-xl text-xs font-bold font-khmer flex items-center justify-center gap-1.5 border transition-all cursor-pointer ${
-                        modalRuleType === 'CHECKIN'
-                          ? 'bg-gradient-to-r from-emerald-600 to-teal-500 border-emerald-400 text-white font-extrabold shadow-md shadow-emerald-500/30'
-                          : 'bg-slate-900/60 border-white/10 text-slate-400 hover:text-white'
-                      } ${isEditMode ? 'opacity-60 cursor-not-allowed' : ''}`}
+                      className={`py-2 px-2 rounded-xl text-xs font-bold font-khmer flex items-center justify-center gap-1.5 border transition-all cursor-pointer ${modalRuleType === 'CHECKIN'
+                        ? 'bg-gradient-to-r from-emerald-600 to-teal-500 border-emerald-400 text-white font-extrabold shadow-md shadow-emerald-500/30'
+                        : 'bg-slate-900/60 border-white/10 text-slate-400 hover:text-white'
+                        } ${isEditMode ? 'opacity-60 cursor-not-allowed' : ''}`}
                     >
                       <ShieldCheckIcon className="w-3.5 h-3.5" />
                       <span>{isKhmer ? 'វត្តមាន' : 'Check-in'}</span>
@@ -1278,12 +1292,11 @@ const ApprovalManage = () => {
                         onClick={toggleSelectAll}
                         className="flex items-center gap-2 px-3 py-2 rounded-lg cursor-pointer bg-indigo-500/10 border border-indigo-500/20 hover:bg-indigo-500/20 transition-colors"
                       >
-                        <div className={`w-4 h-4 rounded flex items-center justify-center border-2 transition-all ${
-                          filteredEmpList.filter(e => !assignedApproversMap.has(e.staffId) && e.staffId !== approverId).length > 0 &&
+                        <div className={`w-4 h-4 rounded flex items-center justify-center border-2 transition-all ${filteredEmpList.filter(e => !assignedApproversMap.has(e.staffId) && e.staffId !== approverId).length > 0 &&
                           filteredEmpList.filter(e => !assignedApproversMap.has(e.staffId) && e.staffId !== approverId).every(e => targetStaffIds.includes(e.staffId))
-                            ? 'border-indigo-500 bg-indigo-500'
-                            : 'border-slate-500'
-                        }`}>
+                          ? 'border-indigo-500 bg-indigo-500'
+                          : 'border-slate-500'
+                          }`}>
                           {filteredEmpList.filter(e => !assignedApproversMap.has(e.staffId) && e.staffId !== approverId).length > 0 &&
                             filteredEmpList.filter(e => !assignedApproversMap.has(e.staffId) && e.staffId !== approverId).every(e => targetStaffIds.includes(e.staffId)) && (
                               <span className="text-white text-[10px] font-bold">✓</span>
@@ -1309,22 +1322,20 @@ const ApprovalManage = () => {
                             <div
                               key={emp.staffId}
                               onClick={() => !isDisabled && toggleEmployeeSelection(emp.staffId)}
-                              className={`flex items-center justify-between px-3 py-2.5 transition-colors ${
-                                isDisabled
-                                  ? 'opacity-50 cursor-not-allowed bg-slate-950/40'
-                                  : selected
+                              className={`flex items-center justify-between px-3 py-2.5 transition-colors ${isDisabled
+                                ? 'opacity-50 cursor-not-allowed bg-slate-950/40'
+                                : selected
                                   ? 'bg-indigo-500/15 cursor-pointer'
                                   : 'hover:bg-white/5 cursor-pointer'
-                              }`}
+                                }`}
                             >
                               <div className="flex items-center gap-3 min-w-0 flex-1">
-                                <div className={`w-4 h-4 rounded flex items-center justify-center border-2 flex-shrink-0 transition-all ${
-                                  selected
-                                    ? 'border-indigo-500 bg-indigo-500'
-                                    : isDisabled
+                                <div className={`w-4 h-4 rounded flex items-center justify-center border-2 flex-shrink-0 transition-all ${selected
+                                  ? 'border-indigo-500 bg-indigo-500'
+                                  : isDisabled
                                     ? 'border-slate-700 bg-slate-800'
                                     : 'border-slate-500'
-                                }`}>
+                                  }`}>
                                   {selected && <span className="text-white text-[10px] font-bold">✓</span>}
                                 </div>
                                 {/* Profile Avatar */}
@@ -1340,9 +1351,8 @@ const ApprovalManage = () => {
                                   </div>
                                 )}
                                 <div className="min-w-0 flex-1">
-                                  <p className={`text-xs font-semibold truncate ${
-                                    isDisabled ? 'text-slate-400' : selected ? 'text-indigo-300' : 'text-white'
-                                  }`}>
+                                  <p className={`text-xs font-semibold truncate ${isDisabled ? 'text-slate-400' : selected ? 'text-indigo-300' : 'text-white'
+                                    }`}>
                                     {getLocalizedName(emp.nameEn, emp.nameKh)}
                                   </p>
                                   <p className="text-[10px] text-slate-400 truncate">

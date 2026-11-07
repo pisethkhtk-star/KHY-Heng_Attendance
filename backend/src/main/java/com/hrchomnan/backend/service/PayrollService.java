@@ -158,7 +158,7 @@ public class PayrollService {
             BigDecimal unpaidLeaveDays = BigDecimal.ZERO;
             for (Leave lv : staffLeaves) {
                 String type = lv.getLeaveType() != null ? lv.getLeaveType().toLowerCase() : "";
-                boolean isUnpaid = type.contains("unpaid") || type.contains("up") || type.contains("ឥតប្រាក់ឈ្នួល") || type.contains("មិនគិតប្រាក់");
+                boolean isUnpaid = type.contains("unpaid") || type.contains("up") || type.contains("ឥតប្រាក់ឈ្នួល") || type.contains("មិនគិតប្រាក់") || type.contains("អត់ច្បាប់");
                 if (isUnpaid && lv.getAmountDays() != null) {
                     unpaidLeaveDays = unpaidLeaveDays.add(lv.getAmountDays());
                 }
@@ -229,7 +229,7 @@ public class PayrollService {
     /**
      * Adjust an individual payslip in Draft mode
      */
-    public Payslip adjustPayslip(Long payslipId, BigDecimal bonus, BigDecimal commission, BigDecimal advance, BigDecimal otherDeductions, String remarks) {
+    public Payslip adjustPayslip(Long payslipId, BigDecimal bonus, BigDecimal commission, BigDecimal advance, BigDecimal otherDeductions, BigDecimal unpaidLeaveDays, String remarks) {
         Payslip payslip = payslipRepository.findById(payslipId)
                 .orElseThrow(() -> new IllegalArgumentException("Payslip not found: " + payslipId));
 
@@ -266,7 +266,7 @@ public class PayrollService {
                 .workedDays(payslip.getWorkedDays())
                 .absentDays(payslip.getAbsentDays())
                 .lateMinutes(payslip.getLateMinutes())
-                .unpaidLeaveDays(payslip.getUnpaidLeaveDays())
+                .unpaidLeaveDays(unpaidLeaveDays != null ? unpaidLeaveDays : payslip.getUnpaidLeaveDays())
                 .normalOtHours(payslip.getNormalOtHours())
                 .holidayOtHours(payslip.getHolidayOtHours())
                 .bonusAmount(bonus != null ? bonus : payslip.getBonusAmount())
@@ -293,6 +293,74 @@ public class PayrollService {
         payslipRepository.save(updated);
         recalculateRunTotals(run);
         return updated;
+    }
+
+        public Payslip adjustPayslip(Long payslipId, BigDecimal bonus, BigDecimal commission,
+                                  BigDecimal advance, BigDecimal otherDeductions, String remarks) {
+        return adjustPayslip(payslipId, bonus, commission, advance, otherDeductions, null, remarks);
+    }
+
+    public Map<String, Object> getLeaveSummaryForPayslip(Long payslipId, String leaveTypeCode) {
+        Payslip payslip = getPayslipById(payslipId);
+        PayrollRun run = getPayrollRunById(payslip.getPayrollRunId());
+
+        LocalDate startDate = LocalDate.of(run.getYear(), run.getMonth(), 1);
+        LocalDate endDate = startDate.withDayOfMonth(startDate.lengthOfMonth());
+
+        String codeToMatch = (leaveTypeCode != null && !leaveTypeCode.isBlank()) ? leaveTypeCode.trim().toLowerCase() : "up";
+
+        List<Leave> matchingLeaves = leaveRepository.findAll().stream()
+                .filter(l -> payslip.getStaffId().equals(l.getStaffId())
+                        && l.getStatus() == LeaveStatus.Approved
+                        && l.getLeaveDate() != null
+                        && !l.getLeaveDate().isBefore(startDate)
+                        && !l.getLeaveDate().isAfter(endDate))
+                .filter(l -> {
+                    String lt = l.getLeaveType() != null ? l.getLeaveType().trim().toLowerCase() : "";
+                    if ("up".equals(codeToMatch) || codeToMatch.contains("unpaid")) {
+                        return lt.equals("up") || lt.contains("unpaid") || lt.contains("ឥតប្រាក់ឈ្នួល") || lt.contains("មិនគិតប្រាក់") || lt.contains("អត់ច្បាប់");
+                    }
+                    return lt.equals(codeToMatch) || lt.startsWith(codeToMatch + " ") || lt.contains(codeToMatch);
+                })
+                .toList();
+
+        BigDecimal totalDays = matchingLeaves.stream()
+                .map(l -> l.getAmountDays() != null ? l.getAmountDays() : BigDecimal.ONE)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        BigDecimal dailyRate = payslip.getDailyRate() != null && payslip.getDailyRate().compareTo(BigDecimal.ZERO) > 0
+                ? payslip.getDailyRate()
+                : (payslip.getStandardWorkingDays() != null && payslip.getStandardWorkingDays() > 0
+                    ? payslip.getBaseSalary().divide(BigDecimal.valueOf(payslip.getStandardWorkingDays()), 4, RoundingMode.HALF_UP)
+                    : BigDecimal.ZERO);
+
+        BigDecimal estimatedDeduction = totalDays.multiply(dailyRate).setScale(2, RoundingMode.HALF_UP);
+
+        Map<String, Object> res = new HashMap<>();
+        res.put("payslipId", payslip.getId());
+        res.put("staffId", payslip.getStaffId());
+        res.put("employeeNameEn", payslip.getEmployeeNameEn());
+        res.put("employeeNameKh", payslip.getEmployeeNameKh());
+        res.put("leaveType", leaveTypeCode != null ? leaveTypeCode : "UP");
+        res.put("month", run.getMonth());
+        res.put("year", run.getYear());
+        res.put("totalDays", totalDays);
+        res.put("dailyRate", dailyRate);
+        res.put("estimatedDeduction", estimatedDeduction);
+        res.put("currentUnpaidDays", payslip.getUnpaidLeaveDays());
+        res.put("currentUnpaidDeduction", payslip.getUnpaidLeaveDeductionAmount());
+        res.put("leavesCount", matchingLeaves.size());
+        res.put("leaves", matchingLeaves.stream().map(l -> {
+            Map<String, Object> item = new HashMap<>();
+            item.put("id", l.getId());
+            item.put("leaveDate", l.getLeaveDate().toString());
+            item.put("leaveType", l.getLeaveType());
+            item.put("amountDays", l.getAmountDays() != null ? l.getAmountDays() : BigDecimal.ONE);
+            item.put("reason", l.getReason() != null ? l.getReason() : "");
+            return item;
+        }).toList());
+
+        return res;
     }
 
     private void recalculateRunTotals(PayrollRun run) {

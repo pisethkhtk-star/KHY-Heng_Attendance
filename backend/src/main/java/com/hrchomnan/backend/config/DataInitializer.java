@@ -15,6 +15,7 @@ import java.math.BigDecimal;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.*;
 import java.util.List;
 import java.util.Optional;
 import java.util.Random;
@@ -36,6 +37,8 @@ public class DataInitializer implements CommandLineRunner {
     private final OvertimeRepository overtimeRepository;
     private final PasswordEncoder passwordEncoder;
     private final org.springframework.jdbc.core.JdbcTemplate jdbcTemplate;
+    private final EmployeeFaceDataRepository employeeFaceDataRepository;
+    private final LeaveApprovalRuleRepository leaveApprovalRuleRepository;
 
     @Override
     public void run(String... args) {
@@ -56,6 +59,7 @@ public class DataInitializer implements CommandLineRunner {
         initializeLeaveTypes();
         initializeWorkHours();
             ensureAdminUser();
+            initializeFaceDemoData();
 
 
         } catch (Exception e) {
@@ -103,6 +107,12 @@ public class DataInitializer implements CommandLineRunner {
                 new Perm(Role.Admin, "leave_approvals", true),
                 new Perm(Role.Admin, "edit_leave_approvals", true),
                 new Perm(Role.Admin, "delete_leave_approvals", true),
+                new Perm(Role.Admin, "overtime_approvers", true),
+                new Perm(Role.Admin, "edit_overtime_approvers", true),
+                new Perm(Role.Admin, "delete_overtime_approvers", true),
+                new Perm(Role.Admin, "checkin_approvers", true),
+                new Perm(Role.Admin, "edit_checkin_approvers", true),
+                new Perm(Role.Admin, "delete_checkin_approvers", true),
                 new Perm(Role.Admin, "facescan", true),
                 new Perm(Role.Admin, "qrscan", true),
                 new Perm(Role.Admin, "kiosk_settings", true),
@@ -152,6 +162,12 @@ public class DataInitializer implements CommandLineRunner {
                 new Perm(Role.HR, "leave_approvals", true),
                 new Perm(Role.HR, "edit_leave_approvals", true),
                 new Perm(Role.HR, "delete_leave_approvals", true),
+                new Perm(Role.HR, "overtime_approvers", true),
+                new Perm(Role.HR, "edit_overtime_approvers", true),
+                new Perm(Role.HR, "delete_overtime_approvers", true),
+                new Perm(Role.HR, "checkin_approvers", true),
+                new Perm(Role.HR, "edit_checkin_approvers", true),
+                new Perm(Role.HR, "delete_checkin_approvers", true),
                 new Perm(Role.HR, "facescan", true),
                 new Perm(Role.HR, "qrscan", true),
                 new Perm(Role.HR, "kiosk_settings", false),
@@ -201,6 +217,12 @@ public class DataInitializer implements CommandLineRunner {
                 new Perm(Role.Manager, "leave_approvals", false),
                 new Perm(Role.Manager, "edit_leave_approvals", false),
                 new Perm(Role.Manager, "delete_leave_approvals", false),
+                new Perm(Role.Manager, "overtime_approvers", false),
+                new Perm(Role.Manager, "edit_overtime_approvers", false),
+                new Perm(Role.Manager, "delete_overtime_approvers", false),
+                new Perm(Role.Manager, "checkin_approvers", false),
+                new Perm(Role.Manager, "edit_checkin_approvers", false),
+                new Perm(Role.Manager, "delete_checkin_approvers", false),
                 new Perm(Role.Manager, "facescan", true),
                 new Perm(Role.Manager, "qrscan", true),
                 new Perm(Role.Manager, "kiosk_settings", false),
@@ -249,6 +271,12 @@ public class DataInitializer implements CommandLineRunner {
                 new Perm(Role.Employee, "leave_approvals", false),
                 new Perm(Role.Employee, "edit_leave_approvals", false),
                 new Perm(Role.Employee, "delete_leave_approvals", false),
+                new Perm(Role.Employee, "overtime_approvers", false),
+                new Perm(Role.Employee, "edit_overtime_approvers", false),
+                new Perm(Role.Employee, "delete_overtime_approvers", false),
+                new Perm(Role.Employee, "checkin_approvers", false),
+                new Perm(Role.Employee, "edit_checkin_approvers", false),
+                new Perm(Role.Employee, "delete_checkin_approvers", false),
                 new Perm(Role.Employee, "facescan", false),
                 new Perm(Role.Employee, "qrscan", false),
                 new Perm(Role.Employee, "kiosk_settings", false),
@@ -319,6 +347,23 @@ public class DataInitializer implements CommandLineRunner {
                     .nameKh("ច្បាប់ផ្ទាល់ខ្លួន")
                     .maxDays(7.0)
                     .description("Leave for private/personal business")
+                    .build());
+
+            leaveTypeRepository.save(LeaveType.builder()
+                    .code("UP")
+                    .nameEn("Unpaid Leave")
+                    .nameKh("ឈប់ឥតច្បាប់ (UP)")
+                    .maxDays(30.0)
+                    .description("Unpaid leave / absent without pay")
+                    .build());
+        }
+        if (leaveTypeRepository.findByCode("UP").isEmpty()) {
+            leaveTypeRepository.save(LeaveType.builder()
+                    .code("UP")
+                    .nameEn("Unpaid Leave")
+                    .nameKh("ឈប់ឥតច្បាប់ (UP)")
+                    .maxDays(30.0)
+                    .description("Unpaid leave / absent without pay")
                     .build());
         }
     }
@@ -897,5 +942,132 @@ public class DataInitializer implements CommandLineRunner {
         }
 
         log.info("2 months attendance, leaves, and overtime seeding completed.");
+    }
+    private void initializeFaceDemoData() {
+        // 1. Ensure test employees exist (EMP-001 to EMP-004)
+        if (!employeeRepository.existsByStaffId("EMP-002")) {
+            employeeRepository.save(Employee.builder()
+                    .staffId("EMP-002")
+                    .nameEn("Keo Sophea")
+                    .nameKh("កែវ សុភា")
+                    .gender("Female")
+                    .branch("Phnom Penh HQ")
+                    .joinDate(LocalDate.now())
+                    .status(Status.Active)
+                    .shift1Start("08:00")
+                    .shift1End("12:00")
+                    .shift2Start("13:00")
+                    .shift2End("17:00")
+                    .email("hr@attendance.com")
+                    .password(passwordEncoder.encode("hr123"))
+                    .role(Role.HR)
+                    .photoUrl("https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=200")
+                    .build());
+        }
+
+        if (!employeeRepository.existsByStaffId("EMP-003")) {
+            employeeRepository.save(Employee.builder()
+                    .staffId("EMP-003")
+                    .nameEn("Chan Dara")
+                    .nameKh("ចាន់ ដារ៉ា")
+                    .gender("Male")
+                    .branch("Phnom Penh HQ")
+                    .joinDate(LocalDate.now())
+                    .status(Status.Active)
+                    .shift1Start("08:00")
+                    .shift1End("12:00")
+                    .shift2Start("13:00")
+                    .shift2End("17:00")
+                    .email("manager@attendance.com")
+                    .password(passwordEncoder.encode("manager123"))
+                    .role(Role.Manager)
+                    .photoUrl("https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200")
+                    .build());
+        }
+
+        if (!employeeRepository.existsByStaffId("EMP-004")) {
+            employeeRepository.save(Employee.builder()
+                    .staffId("EMP-004")
+                    .nameEn("Nguon Rath")
+                    .nameKh("ងួន រ័ត្ន")
+                    .gender("Male")
+                    .branch("Phnom Penh HQ")
+                    .joinDate(LocalDate.now())
+                    .status(Status.Active)
+                    .shift1Start("08:00")
+                    .shift1End("12:00")
+                    .shift2Start("13:00")
+                    .shift2End("17:00")
+                    .email("rath@attendance.com")
+                    .password(passwordEncoder.encode("emp123"))
+                    .role(Role.Employee)
+                    .photoUrl("https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=200")
+                    .build());
+        }
+
+        // 2. Seed face biometric descriptors (128-float unit-normalized vectors)
+        record FaceSeed(String staffId, String photoUrl, double seedOffset) {}
+        List<FaceSeed> faceSeeds = List.of(
+                new FaceSeed("EMP-001", "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200", 0.1),
+                new FaceSeed("EMP-002", "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=200", 0.3),
+                new FaceSeed("EMP-003", "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200", 0.5),
+                new FaceSeed("EMP-004", "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=200", 0.7)
+        );
+
+        for (FaceSeed seed : faceSeeds) {
+            if (employeeFaceDataRepository.findAllByStaffId(seed.staffId()).isEmpty()) {
+                List<Double> descriptor = new ArrayList<>(128);
+                double sumSq = 0.0;
+                for (int i = 0; i < 128; i++) {
+                    double val = Math.sin(i * 0.35 + seed.seedOffset()) * 0.15;
+                    descriptor.add(val);
+                    sumSq += val * val;
+                }
+                double norm = Math.sqrt(sumSq);
+                for (int i = 0; i < 128; i++) {
+                    descriptor.set(i, Math.round((descriptor.get(i) / norm) * 10000.0) / 10000.0);
+                }
+
+                String descriptorJson = descriptor.toString();
+
+                employeeFaceDataRepository.save(EmployeeFaceData.builder()
+                        .staffId(seed.staffId())
+                        .faceDescriptor(descriptorJson)
+                        .photoUrl(seed.photoUrl())
+                        .build());
+
+                employeeRepository.findByStaffId(seed.staffId()).ifPresent(emp -> {
+                    if (emp.getPhotoUrl() == null || emp.getPhotoUrl().isBlank()) {
+                        emp.setPhotoUrl(seed.photoUrl());
+                        employeeRepository.save(emp);
+                    }
+                });
+
+                log.info("Seeded face biometric data for employee: {}", seed.staffId());
+            }
+        }
+
+        // 3. Seed Check-in on Behalf approval rules (ruleType = 'CHECKIN')
+        // Enables Admin (EMP-001), Manager (EMP-003), and HR (EMP-002) to check-in on behalf of employees
+        List<LeaveApprovalRule> checkinRules = leaveApprovalRuleRepository.findByRuleType("CHECKIN");
+        List<String> approvers = List.of("EMP-001", "EMP-002", "EMP-003");
+        List<String> targets = List.of("EMP-001", "EMP-002", "EMP-003", "EMP-004");
+
+        for (String appr : approvers) {
+            for (String tgt : targets) {
+                if (appr.equalsIgnoreCase(tgt)) continue; // Don't self-checkin on behalf
+                boolean exists = checkinRules.stream()
+                        .anyMatch(r -> appr.equalsIgnoreCase(r.getApproverId()) && tgt.equalsIgnoreCase(r.getTargetStaffId()));
+                if (!exists) {
+                    leaveApprovalRuleRepository.save(LeaveApprovalRule.builder()
+                            .approverId(appr)
+                            .scope("Employee")
+                            .targetStaffId(tgt)
+                            .ruleType("CHECKIN")
+                            .build());
+                    log.info("Seeded Check-in on Behalf rule: {} -> {}", appr, tgt);
+                }
+            }
+        }
     }
 }

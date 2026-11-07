@@ -1,10 +1,15 @@
+import 'dart:async';
 import 'dart:math' as math;
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:permission_handler/permission_handler.dart';
 import '../models/attendance_model.dart';
 import '../repositories/attendance_repository.dart';
+import '../repositories/auth_repository.dart';
 import '../core/services/analytics_service.dart';
 import '../core/services/local_notification_service.dart';
+import '../core/services/mock_location_service.dart';
 import 'auth_controller.dart';
 import 'notification_controller.dart';
 
@@ -12,21 +17,34 @@ class AutoActionDecision {
   final String? action; // 'checkin_1', 'checkout_1', 'checkin_2', 'checkout_2'
   final String? alertMessage; // Khmer alert message if action cannot be performed
   final bool isSuccess;
+  final bool isExistingData;
+  final String? existingTime;
 
   const AutoActionDecision({
     this.action,
     this.alertMessage,
     required this.isSuccess,
+    this.isExistingData = false,
+    this.existingTime,
   });
 
   factory AutoActionDecision.performAction(String action) => AutoActionDecision(
         action: action,
         isSuccess: true,
+        isExistingData: false,
+      );
+
+  factory AutoActionDecision.existingRecord(String action, String? time) => AutoActionDecision(
+        action: action,
+        isSuccess: true,
+        isExistingData: true,
+        existingTime: time,
       );
 
   factory AutoActionDecision.alert(String message) => AutoActionDecision(
         alertMessage: message,
         isSuccess: false,
+        isExistingData: false,
       );
 }
 
@@ -119,12 +137,194 @@ class AttendanceController extends GetxController {
     return companyShift2End.value.isNotEmpty && companyShift2End.value != '--:--' && companyShift2End.value != '-';
   }
 
+  // Background Location & Branch Geofence Tracking
+  final RxBool isLocationVerified = false.obs;
+  final RxnString matchedBranchName = RxnString();
+  final RxnString locationError = RxnString();
+  final RxDouble currentLat = 0.0.obs;
+  final RxDouble currentLng = 0.0.obs;
+  final RxDouble distanceToBranch = 0.0.obs;
+  final RxList<Map<String, dynamic>> branchSettings = <Map<String, dynamic>>[].obs;
+  StreamSubscription<Position>? _backgroundPositionSub;
+
   @override
   void onInit() {
     super.onInit();
     fetchWorkHours();
     fetchRemoteHistory();
     checkOnBehalfEligibility();
+    startBackgroundLocationTracking();
+  }
+
+  @override
+  void onClose() {
+    _backgroundPositionSub?.cancel();
+    super.onClose();
+  }
+
+  // --- Geofence Math & Branch Matching Helpers ---
+  static double calculateDistance(double lat1, double lon1, double lat2, double lon2) {
+    const double p = 0.017453292519943295; // PI / 180
+    final double a = 0.5 -
+        math.cos((lat2 - lat1) * p) / 2 +
+        math.cos(lat1 * p) * math.cos(lat2 * p) * (1 - math.cos((lon2 - lon1) * p)) / 2;
+    return 12742000 * math.asin(math.sqrt(a)); // meters
+  }
+
+  static bool isBranchMatch(String userBranch, String settingName) {
+    final ub = userBranch.trim().toLowerCase();
+    final sn = settingName.trim().toLowerCase();
+    if (ub.isEmpty || sn.isEmpty) return false;
+    if (ub == sn || sn.contains(ub) || ub.contains(sn)) return true;
+
+    final ubPP = ub.contains('pp') || ub.contains('phnom penh') || ub.contains('hq');
+    final snPP = sn.contains('pp') || sn.contains('phnom penh') || sn.contains('hq');
+    if (ubPP && snPP) return true;
+
+    final ubTakeo = ub.contains('takeo') || ub.contains('តាកែវ');
+    final snTakeo = sn.contains('takeo') || sn.contains('តាកែវ');
+    if (ubTakeo && snTakeo) return true;
+
+    return false;
+  }
+
+  Future<void> fetchBranchKioskSettings() async {
+    try {
+      if (Get.isRegistered<IAuthRepository>()) {
+        final settingsRaw = await Get.find<IAuthRepository>().fetchKioskSettings();
+        if (settingsRaw.isNotEmpty) {
+          branchSettings.value = settingsRaw.map((s) => Map<String, dynamic>.from(s)).toList();
+          return;
+        }
+      }
+    } catch (_) {}
+
+    // Fallback default branches if offline
+    if (branchSettings.isEmpty) {
+      branchSettings.value = [
+        {'id': 'pp_hq_id', 'name': 'Phnom Penh HQ', 'latitude': 11.5564, 'longitude': 104.9282, 'radius': 100.0},
+        {'id': 'takeo_branch_id', 'name': 'Takeo Branch', 'latitude': 10.9833, 'longitude': 104.7833, 'radius': 100.0},
+      ];
+    }
+  }
+
+  Future<void> startBackgroundLocationTracking() async {
+    try {
+      final status = await Permission.locationWhenInUse.status;
+      if (!status.isGranted) {
+        await Permission.locationWhenInUse.request();
+      }
+
+      await fetchBranchKioskSettings();
+
+      // Immediate GPS reading on startup
+      try {
+        final pos = await Geolocator.getCurrentPosition(
+          locationSettings: const LocationSettings(
+            accuracy: LocationAccuracy.high,
+            timeLimit: Duration(seconds: 5),
+          ),
+        );
+        _updateBackgroundPosition(pos);
+      } catch (e) {
+        verifyBranchGeofenceNow();
+      }
+
+      // Continuous background location stream
+      _backgroundPositionSub?.cancel();
+      _backgroundPositionSub = Geolocator.getPositionStream(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+          distanceFilter: 3,
+        ),
+      ).listen(
+        (Position position) {
+          _updateBackgroundPosition(position);
+        },
+        onError: (_) {},
+      );
+    } catch (_) {}
+  }
+
+  void _updateBackgroundPosition(Position position) {
+    if (position.isMocked) {
+      isLocationVerified.value = false;
+      locationError.value = '❌ រកឃើញ Fake GPS! សូមបិទ Fake GPS ជាមុនសិន';
+      try {
+        Get.find<MockLocationService>().triggerMockDetected();
+      } catch (_) {}
+      return;
+    }
+
+    currentLat.value = position.latitude;
+    currentLng.value = position.longitude;
+
+    verifyBranchGeofenceNow(lat: position.latitude, lng: position.longitude);
+  }
+
+  void verifyBranchGeofenceNow({double? lat, double? lng}) {
+    final checkLat = lat ?? (currentLat.value != 0.0 ? currentLat.value : 11.5564);
+    final checkLng = lng ?? (currentLng.value != 0.0 ? currentLng.value : 104.9282);
+
+    final authController = Get.isRegistered<AuthController>() ? Get.find<AuthController>() : null;
+    final assignedBranchRaw = authController?.user?.branch ?? '';
+    final userBranchNames = assignedBranchRaw
+        .split(',')
+        .map((b) => b.trim())
+        .where((b) => b.isNotEmpty)
+        .toList();
+
+    List<Map<String, dynamic>> targetBranches = branchSettings.where((setting) {
+      final settingName = (setting['name'] ?? '').toString();
+      return userBranchNames.any((ub) => isBranchMatch(ub, settingName));
+    }).toList();
+
+    if (targetBranches.isEmpty) {
+      targetBranches = branchSettings.isNotEmpty
+          ? branchSettings
+          : [
+              {'name': 'Phnom Penh HQ', 'latitude': 11.5564, 'longitude': 104.9282, 'radius': 100.0},
+              {'name': 'Takeo Branch', 'latitude': 10.9833, 'longitude': 104.7833, 'radius': 100.0},
+            ];
+    }
+
+    Map<String, dynamic>? insideBranch;
+    double? minDistance;
+    Map<String, dynamic>? closestBranch;
+
+    for (final branch in targetBranches) {
+      final bLat = (branch['latitude'] as num?)?.toDouble() ?? 11.5564;
+      final bLng = (branch['longitude'] as num?)?.toDouble() ?? 104.9282;
+      final radius = (branch['radius'] as num?)?.toDouble() ?? 100.0;
+      final dist = calculateDistance(checkLat, checkLng, bLat, bLng);
+
+      if (dist <= radius) {
+        insideBranch = branch;
+        minDistance = dist;
+        break;
+      } else {
+        if (minDistance == null || dist < minDistance) {
+          minDistance = dist;
+          closestBranch = branch;
+        }
+      }
+    }
+
+    if (insideBranch != null) {
+      final name = (insideBranch['name'] ?? 'Branch').toString();
+      isLocationVerified.value = true;
+      matchedBranchName.value = name;
+      locationError.value = null;
+      distanceToBranch.value = minDistance ?? 0.0;
+    } else {
+      final closestName = (closestBranch?['name'] ?? 'Branch').toString();
+      final closestRadius = (closestBranch?['radius'] as num?)?.toDouble() ?? 100.0;
+      isLocationVerified.value = false;
+      matchedBranchName.value = closestName;
+      distanceToBranch.value = minDistance ?? 0.0;
+      locationError.value =
+          '🔒 មិនគ្រប់លក្ខខណ្ឌទីតាំង! លោកអ្នកស្ថិតនៅក្រៅទីតាំងសាខា៖ $closestName (${(minDistance ?? 0).toStringAsFixed(1)}m > ${closestRadius.toStringAsFixed(0)}m)';
+    }
   }
 
   Future<void> fetchWorkHours() async {
@@ -255,6 +455,7 @@ class AttendanceController extends GetxController {
     String? shift2Start,
     String? shift2End,
     DateTime? currentTime,
+    String? selectedAction,
   }) {
     final now = currentTime ?? DateTime.now();
     final currentMinutes = now.hour * 60 + now.minute;
@@ -278,6 +479,37 @@ class AttendanceController extends GetxController {
     final bool hasCheckIn2 = isTimeRecorded(todayRecord?.checkIn2);
     final bool hasCheckOut2 = isTimeRecorded(todayRecord?.checkOut2);
 
+    // If an action was explicitly requested (e.g. from manual selection)
+    if (selectedAction != null && selectedAction.trim().isNotEmpty) {
+      String norm = selectedAction.trim().toLowerCase();
+      if (norm == 'check_in_1') norm = 'checkin_1';
+      if (norm == 'check_out_1') norm = 'checkout_1';
+      if (norm == 'check_in_2') norm = 'checkin_2';
+      if (norm == 'check_out_2') norm = 'checkout_2';
+
+      if (norm == 'checkin_1') {
+        if (hasCheckIn1) {
+          return AutoActionDecision.existingRecord('checkin_1', todayRecord?.checkIn1);
+        }
+        return AutoActionDecision.performAction('checkin_1');
+      } else if (norm == 'checkout_1') {
+        if (hasCheckOut1) {
+          return AutoActionDecision.existingRecord('checkout_1', todayRecord?.checkOut1);
+        }
+        return AutoActionDecision.performAction('checkout_1');
+      } else if (norm == 'checkin_2') {
+        if (hasCheckIn2) {
+          return AutoActionDecision.existingRecord('checkin_2', todayRecord?.checkIn2);
+        }
+        return AutoActionDecision.performAction('checkin_2');
+      } else if (norm == 'checkout_2') {
+        if (hasCheckOut2) {
+          return AutoActionDecision.existingRecord('checkout_2', todayRecord?.checkOut2);
+        }
+        return AutoActionDecision.performAction('checkout_2');
+      }
+    }
+
     // ==========================================
     // CASE A: Single Shift (Shift 1 only)
     // ==========================================
@@ -285,16 +517,16 @@ class AttendanceController extends GetxController {
       if (currentMinutes < s1EndMin) {
         if (!hasCheckIn1) {
           return AutoActionDecision.performAction('checkin_1');
-        } else if (!hasCheckOut1) {
-          return AutoActionDecision.alert('មិនទាន់ដល់ម៉ោង Check-out វេនទី ១ នៅឡើយទេ (ម៉ោង ${shift1End ?? "12:00"})');
         } else {
-          return AutoActionDecision.alert('បាន Check ពេញលេញសម្រាប់ថ្ងៃនេះហើយ');
+          return AutoActionDecision.existingRecord('checkin_1', todayRecord?.checkIn1);
         }
       } else {
-        if (hasCheckIn1 && !hasCheckOut1) {
+        if (hasCheckOut1) {
+          return AutoActionDecision.existingRecord('checkout_1', todayRecord?.checkOut1);
+        } else if (hasCheckIn1) {
           return AutoActionDecision.performAction('checkout_1');
         } else {
-          return AutoActionDecision.alert('ផុតកំណត់ម៉ោងធ្វើការ / បាន Check-out រួចរាល់ហើយ');
+          return AutoActionDecision.performAction('checkout_1');
         }
       }
     }
@@ -306,41 +538,48 @@ class AttendanceController extends GetxController {
     if (currentMinutes < s1EndMin) {
       if (!hasCheckIn1) {
         return AutoActionDecision.performAction('checkin_1');
-      } else if (!hasCheckOut1) {
-        return AutoActionDecision.alert('មិនទាន់ដល់ម៉ោង Check-out វេនទី ១ នៅឡើយទេ (ម៉ោង ${shift1End ?? "12:00"})');
+      } else if (hasCheckOut1) {
+        return AutoActionDecision.existingRecord('checkout_1', todayRecord?.checkOut1);
       } else {
-        return AutoActionDecision.alert('Session 1 បាន Check-in/out រួចរាល់ហើយ');
+        return AutoActionDecision.existingRecord('checkin_1', todayRecord?.checkIn1);
       }
     }
 
     // 2. ELSE IF (currentTime >= s1_end AND currentTime < s2_end):
     else if (currentMinutes >= s1EndMin && currentMinutes < s2EndMin) {
-      // If employee forgot morning checkout, allow checkout 1 if Shift 2 has not started yet
-      if (hasCheckIn1 && !hasCheckOut1 && (s2StartMin <= s1EndMin || currentMinutes < s2StartMin)) {
-        return AutoActionDecision.performAction('checkout_1');
+      // If in Shift 1 checkout window before Shift 2 starts:
+      if (s2StartMin > s1EndMin && currentMinutes < s2StartMin) {
+        if (hasCheckOut1) {
+          return AutoActionDecision.existingRecord('checkout_1', todayRecord?.checkOut1);
+        } else {
+          return AutoActionDecision.performAction('checkout_1');
+        }
       }
-      // If employee is in Shift 2 window and hasn't checked in for Shift 2:
-      else if (!hasCheckIn2) {
-        return AutoActionDecision.performAction('checkin_2');
-      }
-      // Already checked in Shift 2, but not yet s2_end (Cannot checkout 2 early):
-      else if (!hasCheckOut2) {
-        return AutoActionDecision.alert('មិនទាន់ដល់ម៉ោង Check-out វេនទី ២ នៅឡើយទេ (ម៉ោង $shift2End)');
-      }
-      // Completed all shifts
+      // If in Shift 2 window:
       else {
-        return AutoActionDecision.alert('បាន Check ពេញលេញសម្រាប់ថ្ងៃនេះហើយ');
+        if (!hasCheckIn2) {
+          if (hasCheckIn1 && !hasCheckOut1 && currentMinutes < s2StartMin) {
+            return AutoActionDecision.performAction('checkout_1');
+          }
+          return AutoActionDecision.performAction('checkin_2');
+        } else if (hasCheckOut2) {
+          return AutoActionDecision.existingRecord('checkout_2', todayRecord?.checkOut2);
+        } else {
+          return AutoActionDecision.existingRecord('checkin_2', todayRecord?.checkIn2);
+        }
       }
     }
 
     // 3. ELSE IF (currentTime >= s2_end):
     else {
-      if (hasCheckIn2 && !hasCheckOut2) {
+      if (hasCheckOut2) {
+        return AutoActionDecision.existingRecord('checkout_2', todayRecord?.checkOut2);
+      } else if (hasCheckIn2) {
         return AutoActionDecision.performAction('checkout_2');
       } else if (hasCheckIn1 && !hasCheckOut1 && !hasCheckIn2) {
         return AutoActionDecision.performAction('checkout_1');
       } else {
-        return AutoActionDecision.alert('ផុតកំណត់ម៉ោងធ្វើការ / បាន Check-out រួចរាល់ហើយ');
+        return AutoActionDecision.performAction('checkout_2');
       }
     }
   }
@@ -349,6 +588,8 @@ class AttendanceController extends GetxController {
     required String staffId,
     required String action,
     String? note,
+    double? lat,
+    double? lng,
   }) async {
     _isProcessing.value = true;
     try {
@@ -358,9 +599,14 @@ class AttendanceController extends GetxController {
       if (normalized == 'check_in_2') normalized = 'checkin_2';
       if (normalized == 'check_out_2') normalized = 'checkout_2';
 
+      final effectiveLat = lat ?? (currentLat.value != 0.0 ? currentLat.value : 11.5564);
+      final effectiveLng = lng ?? (currentLng.value != 0.0 ? currentLng.value : 104.9282);
+
       final result = await _attendanceRepository.logCheckInOut(
         normalized,
         staffId: staffId,
+        lat: effectiveLat,
+        lng: effectiveLng,
         note: note ?? 'Check-in on behalf',
       );
       if (result['success'] == true) {

@@ -198,13 +198,13 @@ const Login = () => {
           <h1 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold text-white tracking-tight leading-[1.15] font-khmer">
             {isKhmer ? (
               <>
-                KHY-HENG<br />
+                HR chomnan<br />
                 Attendance<br />
                 Management
               </>
             ) : (
               <>
-                KHY-HENG<br />
+                HR chomnan<br />
                 Attendance<br />
                 Management
               </>

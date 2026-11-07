@@ -85,10 +85,14 @@ class AttendanceRepository implements IAttendanceRepository {
   @override
   Future<List<AttendanceRecord>> fetchHistoryRecords({String? staffId, bool forceRefresh = false}) async {
     final prefs = await SharedPreferences.getInstance();
+    final cleanStaffId = staffId?.trim();
+    final cacheKey = (cleanStaffId != null && cleanStaffId.isNotEmpty)
+        ? 'cached_attendance_history_${cleanStaffId.toUpperCase()}'
+        : 'cached_attendance_history';
 
     // 1. Try reading from persistent local database cache first
     if (!forceRefresh) {
-      final cachedStr = prefs.getString('cached_attendance_history');
+      final cachedStr = prefs.getString(cacheKey);
       if (cachedStr != null && cachedStr.isNotEmpty) {
         try {
           final decoded = jsonDecode(cachedStr);
@@ -96,7 +100,7 @@ class AttendanceRepository implements IAttendanceRepository {
             final list = decoded.map((json) => AttendanceRecord.fromJson(json)).toList();
             
             // Trigger asynchronous background sync
-            _syncHistoryBackground(staffId);
+            _syncHistoryBackground(cleanStaffId);
             
             return list;
           }
@@ -105,11 +109,16 @@ class AttendanceRepository implements IAttendanceRepository {
     }
 
     // 2. Cache empty or forceRefresh, request from Backend directly
-    return await _syncHistoryBackground(staffId);
+    return await _syncHistoryBackground(cleanStaffId);
   }
 
   Future<List<AttendanceRecord>> _syncHistoryBackground(String? staffId) async {
-    final query = (staffId != null && staffId.isNotEmpty) ? '?staffId=$staffId' : '';
+    final cleanStaffId = staffId?.trim();
+    final query = (cleanStaffId != null && cleanStaffId.isNotEmpty) ? '?staffId=$cleanStaffId' : '';
+    final cacheKey = (cleanStaffId != null && cleanStaffId.isNotEmpty)
+        ? 'cached_attendance_history_${cleanStaffId.toUpperCase()}'
+        : 'cached_attendance_history';
+
     try {
       final response = await _apiClient.get('/attendances/history$query');
       if (response != null && response.statusCode == 200) {
@@ -121,9 +130,9 @@ class AttendanceRepository implements IAttendanceRepository {
           list = data['data'];
         }
 
-        // Save fresh JSON to local persistent storage
+        // Save fresh JSON to local persistent storage for this specific staff
         final prefs = await SharedPreferences.getInstance();
-        await prefs.setString('cached_attendance_history', jsonEncode(list));
+        await prefs.setString(cacheKey, jsonEncode(list));
 
         return list.map((json) => AttendanceRecord.fromJson(json)).toList();
       }
@@ -131,7 +140,7 @@ class AttendanceRepository implements IAttendanceRepository {
 
     // Return current cache if fetch failed
     final prefs = await SharedPreferences.getInstance();
-    final cachedStr = prefs.getString('cached_attendance_history');
+    final cachedStr = prefs.getString(cacheKey);
     if (cachedStr != null && cachedStr.isNotEmpty) {
       try {
         final decoded = jsonDecode(cachedStr) as List;

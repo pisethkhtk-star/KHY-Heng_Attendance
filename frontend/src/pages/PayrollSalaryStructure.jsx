@@ -9,9 +9,7 @@ import {
   CurrencyDollarIcon,
   BriefcaseIcon,
   BuildingLibraryIcon,
-  MagnifyingGlassIcon,
-  ChevronLeftIcon,
-  ChevronRightIcon
+  MagnifyingGlassIcon
 } from '@heroicons/react/24/outline';
 
 const PayrollSalaryStructure = () => {
@@ -25,7 +23,7 @@ const PayrollSalaryStructure = () => {
 
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize, setPageSize] = useState(10);
+  const pageSize = 10;
 
   // Edit Modal State
   const [editingProfile, setEditingProfile] = useState(null);
@@ -145,6 +143,41 @@ const PayrollSalaryStructure = () => {
   const paginatedProfiles = useMemo(() => {
     return filtered.slice((currentPage - 1) * pageSize, currentPage * pageSize);
   }, [filtered, currentPage, pageSize]);
+
+  const getPaginationItems = () => {
+    const delta = 2;
+    const range = [];
+    const rangeWithDots = [];
+    let l;
+
+    for (let i = 1; i <= totalPages; i++) {
+      if (
+        i === 1 ||
+        i === totalPages ||
+        (i >= currentPage - delta && i <= currentPage + delta) ||
+        (currentPage <= 4 && i <= 5) ||
+        (currentPage >= totalPages - 3 && i >= totalPages - 4)
+      ) {
+        range.push(i);
+      }
+    }
+
+    const uniqueRange = [...new Set(range)].sort((a, b) => a - b);
+
+    for (let i of uniqueRange) {
+      if (l) {
+        if (i - l === 2) {
+          rangeWithDots.push(l + 1);
+        } else if (i - l !== 1) {
+          rangeWithDots.push('...');
+        }
+      }
+      rangeWithDots.push(i);
+      l = i;
+    }
+
+    return rangeWithDots;
+  };
 
   const uniqueDepartments = Array.from(new Set(profiles.map(p => p.departmentName).filter(Boolean)));
   const totalMonthlyBudget = profiles.reduce((acc, p) => acc + Number(p.baseSalary || 0), 0);
@@ -427,43 +460,60 @@ const PayrollSalaryStructure = () => {
         </div>
 
         {/* Pagination Bar */}
-        <div className="p-4 border-t border-white/5 bg-slate-900/40 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-400">
-          <div className="flex items-center gap-2">
-            <span>{isKhmer ? 'ជួរក្នុងមួយទំព័រ:' : 'Rows per page:'}</span>
-            <select
-              value={pageSize}
-              onChange={(e) => { setPageSize(Number(e.target.value)); setCurrentPage(1); }}
-              className="bg-slate-950 border border-white/10 rounded-lg px-2 py-1 text-white outline-none cursor-pointer"
-            >
-              <option value={10}>10</option>
-              <option value={25}>25</option>
-              <option value={50}>50</option>
-            </select>
-            <span className="ml-2 font-mono">
-              {(currentPage - 1) * pageSize + (totalRecords > 0 ? 1 : 0)} - {Math.min(currentPage * pageSize, totalRecords)} {isKhmer ? 'នៃ' : 'of'} {totalRecords}
-            </span>
-          </div>
+        {!loading && totalRecords > 0 && (
+          <div className="p-4 bg-slate-950/60 border-t border-white/5 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs">
+            <div className="text-slate-400 font-khmer">
+              Total : <span className="font-bold text-white font-mono">{totalRecords}</span> records
+            </div>
 
-          <div className="flex items-center gap-1">
-            <button
-              onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-              disabled={currentPage === 1}
-              className="p-1.5 rounded-lg border border-white/10 hover:bg-white/5 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer transition-all"
-            >
-              <ChevronLeftIcon className="w-4 h-4" />
-            </button>
-            <span className="px-3 py-1 font-mono text-white">
-              {currentPage} / {totalPages}
-            </span>
-            <button
-              onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-              disabled={currentPage === totalPages || totalPages === 0}
-              className="p-1.5 rounded-lg border border-white/10 hover:bg-white/5 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer transition-all"
-            >
-              <ChevronRightIcon className="w-4 h-4" />
-            </button>
+            <div className="flex items-center gap-1 overflow-x-auto max-w-full pb-1 sm:pb-0">
+              {/* Prev Button */}
+              <button
+                type="button"
+                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+                className="h-8 min-w-[32px] px-2 rounded-lg border border-white/10 bg-slate-900/60 hover:bg-slate-800 text-slate-300 disabled:opacity-30 disabled:cursor-not-allowed transition-all font-mono font-bold flex items-center justify-center cursor-pointer"
+              >
+                &lsaquo;
+              </button>
+
+              {/* Page Number Buttons */}
+              {getPaginationItems().map((item, idx) => {
+                if (item === '...') {
+                  return (
+                    <span key={`dots-${idx}`} className="h-8 min-w-[32px] flex items-center justify-center text-slate-500 font-mono">
+                      ...
+                    </span>
+                  );
+                }
+                const isCurrent = item === currentPage;
+                return (
+                  <button
+                    key={item}
+                    type="button"
+                    onClick={() => setCurrentPage(item)}
+                    className={`h-8 min-w-[32px] px-2 rounded-lg text-xs font-mono font-bold transition-all cursor-pointer ${isCurrent
+                      ? 'bg-blue-600 text-white shadow-md shadow-blue-500/25 border border-blue-500'
+                      : 'border border-white/10 bg-slate-900/60 hover:bg-slate-800 text-slate-300'
+                      }`}
+                  >
+                    {item}
+                  </button>
+                );
+              })}
+
+              {/* Next Button */}
+              <button
+                type="button"
+                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                disabled={currentPage === totalPages}
+                className="h-8 min-w-[32px] px-2 rounded-lg border border-white/10 bg-slate-900/60 hover:bg-slate-800 text-slate-300 disabled:opacity-30 disabled:cursor-not-allowed transition-all font-mono font-bold flex items-center justify-center cursor-pointer"
+              >
+                &rsaquo;
+              </button>
+            </div>
           </div>
-        </div>
+        )}
       </div>
 
       {/* EDIT PROFILE MODAL */}

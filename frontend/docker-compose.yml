@@ -4,7 +4,7 @@ services:
       context: .
       dockerfile: Dockerfile
       args:
-        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-}
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-/api}
     image: hr-chomnan-frontend:latest
     container_name: hr_attendance_frontend
     restart: unless-stopped
@@ -20,6 +20,5 @@ services:
 
 networks:
   app-network:
-    name: hr_app_network
+    name: hr_frontend_network
     driver: bridge
-

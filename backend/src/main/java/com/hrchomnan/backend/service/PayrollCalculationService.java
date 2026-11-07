@@ -117,7 +117,7 @@ public class PayrollCalculationService {
         }
 
         // Gross Salary
-        BigDecimal grossSalary = baseSalaryPayable
+        BigDecimal grossSalary = baseSalary
                 .add(totalFixedAllowances)
                 .add(normalOtAmount)
                 .add(holidayOtAmount)

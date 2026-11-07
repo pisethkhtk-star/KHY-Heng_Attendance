@@ -125,7 +125,7 @@ public class FaceDataController {
             item.put("staffId", f.getStaffId());
             item.put("nameEn", emp.getNameEn());
             item.put("nameKh", emp.getNameKh());
-            item.put("photoUrl", f.getPhotoUrl());
+            item.put("photoUrl", (emp.getPhotoUrl() != null && !emp.getPhotoUrl().isBlank()) ? emp.getPhotoUrl() : f.getPhotoUrl());
             item.put("updatedAt", f.getUpdatedAt() != null ? f.getUpdatedAt().toString() : (f.getCreatedAt() != null ? f.getCreatedAt().toString() : ""));
             try {
                 List<Double> desc = objectMapper.readValue(f.getFaceDescriptor(), new TypeReference<List<Double>>() {});
@@ -178,7 +178,7 @@ public class FaceDataController {
             item.put("staffId", f.getStaffId());
             item.put("nameEn", emp.getNameEn());
             item.put("nameKh", emp.getNameKh());
-            item.put("photoUrl", f.getPhotoUrl());
+            item.put("photoUrl", (emp.getPhotoUrl() != null && !emp.getPhotoUrl().isBlank()) ? emp.getPhotoUrl() : f.getPhotoUrl());
             item.put("updatedAt", f.getUpdatedAt() != null ? f.getUpdatedAt().toString() : (f.getCreatedAt() != null ? f.getCreatedAt().toString() : ""));
             try {
                 List<Double> desc = objectMapper.readValue(f.getFaceDescriptor(), new TypeReference<List<Double>>() {});

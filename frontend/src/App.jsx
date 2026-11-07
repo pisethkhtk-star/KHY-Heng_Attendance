@@ -235,7 +235,7 @@ function App() {
               <Route
                 path="approval-manage/overtime"
                 element={
-                  <ProtectedRoute resource="leave_approvals">
+                  <ProtectedRoute resource="overtime_approvers">
                     <ApprovalManage />
                   </ProtectedRoute>
                 }
@@ -243,7 +243,7 @@ function App() {
               <Route
                 path="approval-manage/checkin"
                 element={
-                  <ProtectedRoute resource="leave_approvals">
+                  <ProtectedRoute resource="checkin_approvers">
                     <ApprovalManage />
                   </ProtectedRoute>
                 }

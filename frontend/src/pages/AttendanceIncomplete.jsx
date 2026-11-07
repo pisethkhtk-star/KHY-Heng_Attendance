@@ -126,7 +126,7 @@ const AttendanceIncomplete = () => {
             setExemptDays(parsed.exemptDays);
             localStorage.setItem('attendance_incomplete_exempt_days', JSON.stringify(parsed.exemptDays));
           }
-        } catch (e) {}
+        } catch (e) { }
       }
     } catch (err) {
       console.error('Error fetching initial data:', err);
@@ -273,7 +273,7 @@ const AttendanceIncomplete = () => {
         if (Array.isArray(parsed?.workingDays)) {
           defaultWorkingDays = parsed.workingDays;
         }
-      } catch (e) {}
+      } catch (e) { }
     }
 
     // Build lookup maps
@@ -345,7 +345,7 @@ const AttendanceIncomplete = () => {
           if (Array.isArray(empFlexibleObj?.workingDays)) {
             empWorkingDays = empFlexibleObj.workingDays;
           }
-        } catch (e) {}
+        } catch (e) { }
       }
 
       dateList.forEach(dateStr => {
@@ -782,23 +782,7 @@ const AttendanceIncomplete = () => {
         </div>
 
         {/* Action Buttons */}
-        <div className="flex items-center gap-2 flex-wrap">
-          {/* Create / Manage Exempt Days Button */}
-          <button
-            type="button"
-            onClick={() => setShowExemptModal(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white rounded-2xl font-bold text-sm transition-all shadow-md shadow-amber-500/25 cursor-pointer font-khmer border-none"
-            title={language === 'kh' ? 'បង្កើតថ្ងៃលើកលែងមិនរាប់ចូល Incomplete Shifts' : 'Create or manage exempt days'}
-          >
-            <CalendarDaysIcon className="h-4 w-4 stroke-[2.5]" />
-            <span>{language === 'kh' ? 'ថ្ងៃលើកលែង (Exempt Days)' : 'Exempt Days'}</span>
-            {exemptDays.length > 0 && (
-              <span className="bg-black/30 text-white text-[10px] px-2 py-0.5 rounded-full font-mono font-bold border border-white/20">
-                {exemptDays.length}
-              </span>
-            )}
-          </button>
-
+        <div className="flex items-center gap-2 flex-wrap no-print">
           <button
             type="button"
             onClick={handleExportCSV}
@@ -816,11 +800,12 @@ const AttendanceIncomplete = () => {
             <span>{t('printPdf') || 'Print Report'}</span>
           </button>
         </div>
+
       </div>
 
       {/* Active Exemptions Notification Banner */}
       {activeExemptionsInRange.length > 0 && (
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 px-5 bg-amber-500/10 border border-amber-500/25 rounded-2xl text-xs text-amber-200">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 px-5 bg-amber-500/10 border border-amber-500/25 rounded-2xl text-xs text-amber-200 no-print">
           <div className="flex items-center gap-2.5">
             <span className="p-1.5 rounded-xl bg-amber-500/20 text-amber-400 border border-amber-500/30">
               <CalendarDaysIcon className="w-4 h-4" />
@@ -842,99 +827,99 @@ const AttendanceIncomplete = () => {
       )}
 
       {/* Summary KPI Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-        <div className="glass-card p-5 rounded-2xl border border-white/5 relative overflow-hidden">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-xs font-semibold text-slate-400 uppercase font-khmer">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 print:grid-cols-5 print:gap-2">
+        <div className="glass-card p-5 print:p-2.5 rounded-2xl print:rounded-lg border border-white/5 print:border-slate-300 print:bg-slate-50/60 print:shadow-none relative overflow-hidden">
+          <div className="flex items-center justify-between gap-1">
+            <div className="min-w-0 flex-1">
+              <p className="text-xs print:text-[9px] font-bold text-slate-400 print:text-slate-700 uppercase font-khmer truncate leading-tight">
                 {language === 'kh' ? 'កំណត់ត្រាខ្វះសរុប' : 'Total Incomplete'}
               </p>
-              <p className="text-2xl font-black text-rose-400 mt-1 font-mono">
+              <p className="text-2xl print:text-lg font-black text-rose-400 print:text-rose-600 mt-1 print:mt-0.5 font-mono leading-none">
                 {stats.totalIncomplete}
               </p>
             </div>
-            <div className="p-3 bg-rose-500/10 rounded-xl text-rose-400 border border-rose-500/20">
+            <div className="p-3 bg-rose-500/10 rounded-xl text-rose-400 border border-rose-500/20 flex-shrink-0 print:hidden">
               <ExclamationTriangleIcon className="h-6 w-6" />
             </div>
           </div>
-          <p className="text-[11px] text-slate-500 mt-2 font-khmer">
+          <p className="text-[11px] print:text-[8px] text-slate-500 print:text-slate-500 mt-2 print:mt-1 font-khmer truncate leading-tight">
             {language === 'kh' ? 'ថ្ងៃខ្វះការ Scan ក្នុងចន្លោះពេលនេះ' : 'Missing log instances'}
           </p>
         </div>
 
-        <div className="glass-card p-5 rounded-2xl border border-white/5 relative overflow-hidden">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-xs font-semibold text-slate-400 uppercase font-khmer">
+        <div className="glass-card p-5 print:p-2.5 rounded-2xl print:rounded-lg border border-white/5 print:border-slate-300 print:bg-slate-50/60 print:shadow-none relative overflow-hidden">
+          <div className="flex items-center justify-between gap-1">
+            <div className="min-w-0 flex-1">
+              <p className="text-xs print:text-[9px] font-bold text-slate-400 print:text-slate-700 uppercase font-khmer truncate leading-tight">
                 {language === 'kh' ? 'ចំនួនបុគ្គលិក' : 'Employees Affected'}
               </p>
-              <p className="text-2xl font-black text-indigo-400 mt-1 font-mono">
+              <p className="text-2xl print:text-lg font-black text-indigo-400 print:text-indigo-600 mt-1 print:mt-0.5 font-mono leading-none">
                 {stats.uniqueEmployees}
               </p>
             </div>
-            <div className="p-3 bg-indigo-500/10 rounded-xl text-indigo-400 border border-indigo-500/20">
+            <div className="p-3 bg-indigo-500/10 rounded-xl text-indigo-400 border border-indigo-500/20 flex-shrink-0 print:hidden">
               <UserIcon className="h-6 w-6" />
             </div>
           </div>
-          <p className="text-[11px] text-slate-500 mt-2 font-khmer">
+          <p className="text-[11px] print:text-[8px] text-slate-500 print:text-slate-500 mt-2 print:mt-1 font-khmer truncate leading-tight">
             {language === 'kh' ? 'បុគ្គលិកដែលមានការស្កេនមិនគ្រប់' : 'Distinct staff members'}
           </p>
         </div>
 
-        <div className="glass-card p-5 rounded-2xl border border-white/5 relative overflow-hidden">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-xs font-semibold text-slate-400 uppercase font-khmer">
+        <div className="glass-card p-5 print:p-2.5 rounded-2xl print:rounded-lg border border-white/5 print:border-slate-300 print:bg-slate-50/60 print:shadow-none relative overflow-hidden">
+          <div className="flex items-center justify-between gap-1">
+            <div className="min-w-0 flex-1">
+              <p className="text-xs print:text-[9px] font-bold text-slate-400 print:text-slate-700 uppercase font-khmer truncate leading-tight">
                 {language === 'kh' ? 'ខ្វះវេនទី ១' : 'Shift 1 Incomplete'}
               </p>
-              <p className="text-2xl font-black text-amber-400 mt-1 font-mono">
+              <p className="text-2xl print:text-lg font-black text-amber-400 print:text-amber-600 mt-1 print:mt-0.5 font-mono leading-none">
                 {stats.shift1MissingCount}
               </p>
             </div>
-            <div className="p-3 bg-amber-500/10 rounded-xl text-amber-400 border border-amber-500/20">
+            <div className="p-3 bg-amber-500/10 rounded-xl text-amber-400 border border-amber-500/20 flex-shrink-0 print:hidden">
               <ClockIcon className="h-6 w-6" />
             </div>
           </div>
-          <p className="text-[11px] text-slate-500 mt-2 font-khmer">
+          <p className="text-[11px] print:text-[8px] text-slate-500 print:text-slate-500 mt-2 print:mt-1 font-khmer truncate leading-tight">
             {language === 'kh' ? 'ខ្វះ Scan ចូល ឬចេញ វេនព្រឹក' : 'Morning shift missing'}
           </p>
         </div>
 
-        <div className="glass-card p-5 rounded-2xl border border-white/5 relative overflow-hidden">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-xs font-semibold text-slate-400 uppercase font-khmer">
+        <div className="glass-card p-5 print:p-2.5 rounded-2xl print:rounded-lg border border-white/5 print:border-slate-300 print:bg-slate-50/60 print:shadow-none relative overflow-hidden">
+          <div className="flex items-center justify-between gap-1">
+            <div className="min-w-0 flex-1">
+              <p className="text-xs print:text-[9px] font-bold text-slate-400 print:text-slate-700 uppercase font-khmer truncate leading-tight">
                 {language === 'kh' ? 'ខ្វះវេនទី ២' : 'Shift 2 Incomplete'}
               </p>
-              <p className="text-2xl font-black text-purple-400 mt-1 font-mono">
+              <p className="text-2xl print:text-lg font-black text-purple-400 print:text-purple-600 mt-1 print:mt-0.5 font-mono leading-none">
                 {stats.shift2MissingCount}
               </p>
             </div>
-            <div className="p-3 bg-purple-500/10 rounded-xl text-purple-400 border border-purple-500/20">
+            <div className="p-3 bg-purple-500/10 rounded-xl text-purple-400 border border-purple-500/20 flex-shrink-0 print:hidden">
               <SparklesIcon className="h-6 w-6" />
             </div>
           </div>
-          <p className="text-[11px] text-slate-500 mt-2 font-khmer">
+          <p className="text-[11px] print:text-[8px] text-slate-500 print:text-slate-500 mt-2 print:mt-1 font-khmer truncate leading-tight">
             {language === 'kh' ? 'ខ្វះ Scan ចូល ឬចេញ វេនរសៀល' : 'Afternoon shift missing'}
           </p>
         </div>
 
-        {/* 5th Box: Total Missing Scans (Individual check-in & out missed count) */}
-        <div className="glass-card p-5 rounded-2xl border border-white/5 relative overflow-hidden">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-xs font-semibold text-slate-400 uppercase font-khmer">
+        {/* 5th Box: Total Missing Scans */}
+        <div className="glass-card p-5 print:p-2.5 rounded-2xl print:rounded-lg border border-white/5 print:border-slate-300 print:bg-slate-50/60 print:shadow-none relative overflow-hidden">
+          <div className="flex items-center justify-between gap-1">
+            <div className="min-w-0 flex-1">
+              <p className="text-xs print:text-[9px] font-bold text-slate-400 print:text-slate-800 uppercase font-khmer truncate leading-tight">
                 {language === 'kh' ? 'ចំនួនដងខ្វះ Scan សរុប' : 'Total Missing Scans'}
               </p>
-              <p className="text-2xl font-black text-red-400 mt-1 font-mono">
+              <p className="text-2xl print:text-lg font-black text-red-400 print:text-red-600 mt-1 print:mt-0.5 font-mono leading-none">
                 {stats.totalMissingScans}
               </p>
             </div>
-            <div className="p-3 bg-red-500/10 rounded-xl text-red-400 border border-red-500/20">
+            <div className="p-3 bg-red-500/10 rounded-xl text-red-400 border border-red-500/20 flex-shrink-0 print:hidden">
               <XCircleIcon className="h-6 w-6" />
             </div>
           </div>
-          <p className="text-[11px] text-slate-500 mt-2 font-khmer font-mono">
+          <p className="text-[11px] print:text-[8px] text-slate-500 print:text-slate-500 mt-2 print:mt-1 font-khmer truncate font-mono leading-tight">
             {language === 'kh'
               ? `In: ${stats.missingIn1 + stats.missingIn2} | Out: ${stats.missingOut1 + stats.missingOut2}`
               : `In: ${stats.missingIn1 + stats.missingIn2} | Out: ${stats.missingOut1 + stats.missingOut2}`}
@@ -977,9 +962,8 @@ const AttendanceIncomplete = () => {
               <div
                 onClick={() => setIsEmpDropdownOpen(!isEmpDropdownOpen)}
                 style={{ backgroundColor: '#FFFFFF', borderColor: isEmpDropdownOpen ? '#2D60FF' : '#CBD5E1' }}
-                className={`w-full py-2 px-3 border rounded-xl text-sm flex items-center justify-between cursor-pointer transition-all shadow-sm ${
-                  isEmpDropdownOpen ? 'ring-2 ring-blue-500/20' : 'hover:border-slate-400'
-                }`}
+                className={`w-full py-2 px-3 border rounded-xl text-sm flex items-center justify-between cursor-pointer transition-all shadow-sm ${isEmpDropdownOpen ? 'ring-2 ring-blue-500/20' : 'hover:border-slate-400'
+                  }`}
               >
                 <span
                   style={{ color: selectedStaffId ? '#000000' : '#475569' }}
@@ -1063,9 +1047,8 @@ const AttendanceIncomplete = () => {
                             color: isSelected ? '#FFFFFF' : '#000000',
                             backgroundColor: isSelected ? '#2D60FF' : 'transparent',
                           }}
-                          className={`py-2.5 px-3 text-xs cursor-pointer transition-colors flex items-center justify-between font-semibold ${
-                            isSelected ? 'font-bold' : 'hover:!bg-blue-50 hover:!text-[#2D60FF]'
-                          }`}
+                          className={`py-2.5 px-3 text-xs cursor-pointer transition-colors flex items-center justify-between font-semibold ${isSelected ? 'font-bold' : 'hover:!bg-blue-50 hover:!text-[#2D60FF]'
+                            }`}
                         >
                           <span className="truncate">{label}</span>
                           {isSelected && <span className="text-white font-bold text-xs">✓</span>}
@@ -1110,7 +1093,7 @@ const AttendanceIncomplete = () => {
               {language === 'kh' ? 'តារាងកំណត់ត្រាខ្វះ Scan តាមថ្ងៃធ្វើការ' : 'Incomplete Shift Log Records'}
             </h2>
           </div>
-          <div className="relative w-64">
+          <div className="relative w-64 no-print">
             <MagnifyingGlassIcon className="h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
             <input
               type="text"
@@ -1324,11 +1307,10 @@ const AttendanceIncomplete = () => {
                     key={item}
                     type="button"
                     onClick={() => setCurrentPage(item)}
-                    className={`h-8 min-w-[32px] px-2 rounded-lg text-xs font-mono font-bold transition-all cursor-pointer ${
-                      isCurrent
+                    className={`h-8 min-w-[32px] px-2 rounded-lg text-xs font-mono font-bold transition-all cursor-pointer ${isCurrent
                         ? 'bg-blue-600 text-white shadow-md shadow-blue-500/25 border border-blue-500'
                         : 'border border-white/10 bg-slate-900/60 hover:bg-slate-800 text-slate-300'
-                    }`}
+                      }`}
                   >
                     {item}
                   </button>

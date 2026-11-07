@@ -8,7 +8,10 @@ import {
   MagnifyingGlassIcon,
   CalendarDaysIcon,
   UserCircleIcon,
-  BanknotesIcon
+  BanknotesIcon,
+  ClockIcon,
+  XMarkIcon,
+  CheckCircleIcon
 } from '@heroicons/react/24/outline';
 import khyhengLogoDefault from '../assets/khyheng_logo.png';
 
@@ -27,6 +30,25 @@ const PayrollPayslips = () => {
   const [searchTerm, setSearchTerm] = useState(searchParams.get('staffId') || '');
   const [selectedStaffId, setSelectedStaffId] = useState(searchParams.get('staffId') || 'ALL');
   const [deptFilter, setDeptFilter] = useState('');
+
+  // Leave Deduction Modal State
+  const [showLeaveDeductModal, setShowLeaveDeductModal] = useState(false);
+  const [leaveDeductSlip, setLeaveDeductSlip] = useState(null);
+  const [leaveTypes, setLeaveTypes] = useState([]);
+  const [selectedLeaveType, setSelectedLeaveType] = useState('UP');
+  const [countingDays, setCountingDays] = useState(false);
+  const [countedDays, setCountedDays] = useState(0);
+  const [leaveDaysToDeduct, setLeaveDaysToDeduct] = useState(0);
+  const [leaveRecords, setLeaveRecords] = useState([]);
+  const [leaveDeductRemarks, setLeaveDeductRemarks] = useState('');
+  const [savingDeduct, setSavingDeduct] = useState(false);
+
+  // Banner State
+  const [bannerMsg, setBannerMsg] = useState({ type: '', text: '' });
+  const showBanner = (text, type = 'success') => {
+    setBannerMsg({ type, text });
+    setTimeout(() => setBannerMsg({ type: '', text: '' }), 4000);
+  };
 
   const printAreaRef = useRef(null);
 
@@ -78,6 +100,74 @@ const PayrollPayslips = () => {
 
   const handlePrint = () => {
     window.print();
+  };
+
+  const fetchLeaveTypes = async () => {
+    try {
+      const res = await api.get('/leave-types');
+      setLeaveTypes(res.data || []);
+    } catch (err) {
+      console.error('Error fetching leave types:', err);
+    }
+  };
+
+  const fetchLeaveSummary = async (slipId, lType = 'UP') => {
+    try {
+      setCountingDays(true);
+      const res = await api.get(`/payroll/payslips/${slipId}/leave-summary?leaveType=${encodeURIComponent(lType)}`);
+      const total = Number(res.data.totalDays || 0);
+      setCountedDays(total);
+      setLeaveRecords(res.data.leaves || []);
+      setLeaveDaysToDeduct(total);
+      setLeaveDeductRemarks(isKhmer ? `កាត់ប្រាក់ឈប់សម្រាក (${lType}) ចំនួន ${total} ថ្ងៃ` : `Deducted ${total} days of ${lType} leave`);
+    } catch (err) {
+      console.error('Error fetching leave summary:', err);
+      showBanner(isKhmer ? 'មិនអាចទាញយកទិន្នន័យច្បាប់' : 'Failed to fetch leave summary', 'error');
+    } finally {
+      setCountingDays(false);
+    }
+  };
+
+  const openLeaveDeductModal = async (slip) => {
+    if (!slip) return;
+    setLeaveDeductSlip(slip);
+    setSelectedLeaveType('UP');
+    setLeaveDaysToDeduct(slip.unpaidLeaveDays || 0);
+    setLeaveDeductRemarks(slip.remarks || '');
+    setShowLeaveDeductModal(true);
+    if (leaveTypes.length === 0) {
+      fetchLeaveTypes();
+    }
+    await fetchLeaveSummary(slip.id, 'UP');
+  };
+
+  const handleLeaveTypeChange = async (newType) => {
+    setSelectedLeaveType(newType);
+    if (leaveDeductSlip) {
+      await fetchLeaveSummary(leaveDeductSlip.id, newType);
+    }
+  };
+
+  const handleSaveLeaveDeduction = async (e) => {
+    e.preventDefault();
+    if (!leaveDeductSlip) return;
+    try {
+      setSavingDeduct(true);
+      await api.put(`/payroll/payslips/${leaveDeductSlip.id}/adjust`, {
+        unpaidLeaveDays: Number(leaveDaysToDeduct || 0),
+        remarks: leaveDeductRemarks
+      });
+      showBanner(isKhmer ? 'បានកាត់ប្រាក់ឈប់សម្រាកដោយជោគជ័យ!' : 'Leave deduction applied successfully!');
+      setShowLeaveDeductModal(false);
+      if (selectedRunId) {
+        await fetchRunData(selectedRunId);
+      }
+    } catch (err) {
+      console.error('Error applying leave deduction:', err);
+      showBanner(err.response?.data?.message || 'Error applying leave deduction', 'error');
+    } finally {
+      setSavingDeduct(false);
+    }
   };
 
   const filteredSlips = payslips.filter(p => {
@@ -156,6 +246,18 @@ const PayrollPayslips = () => {
 
         {/* Action Buttons */}
         <div className="flex items-center gap-2">
+          {filteredSlips.length > 0 && (
+            <button
+              type="button"
+              onClick={() => openLeaveDeductModal(filteredSlips[0])}
+              className="px-4 py-2.5 bg-gradient-to-r from-rose-600 to-amber-600 hover:from-rose-700 hover:to-amber-700 text-white rounded-2xl font-bold text-xs sm:text-sm transition-all shadow-md shadow-rose-500/20 cursor-pointer flex items-center gap-2 border-none font-khmer"
+              title={isKhmer ? 'ជ្រើសរើសប្រភេទច្បាប់ (UP) ដើម្បីគណនាកាត់ប្រាក់' : 'Calculate & Deduct Leave'}
+            >
+              <ClockIcon className="h-4 w-4" />
+              <span>{isKhmer ? 'បញ្ចូល & គណនាច្បាប់ UP' : 'Calculate UP Leave'}</span>
+            </button>
+          )}
+
           <button
             type="button"
             onClick={handlePrint}
@@ -379,9 +481,20 @@ const PayrollPayslips = () => {
 
                   {/* Column 2: Deductions */}
                   <div>
-                    <h4 className="font-khmer font-bold text-xs bg-rose-700 text-white px-2.5 py-1 uppercase tracking-wide">
-                      ២. ការកាត់ប្រាក់ (DEDUCTIONS)
-                    </h4>
+                    <div className="flex items-center justify-between bg-rose-700 text-white px-2.5 py-1">
+                      <h4 className="font-khmer font-bold text-xs uppercase tracking-wide">
+                        ២. ការកាត់ប្រាក់ (DEDUCTIONS)
+                      </h4>
+                      <button
+                        type="button"
+                        onClick={() => openLeaveDeductModal(p)}
+                        className="no-print text-[10px] bg-white/20 hover:bg-white/30 text-white px-2 py-0.5 rounded font-bold transition-all cursor-pointer flex items-center gap-1 border border-white/20 font-khmer"
+                        title={isKhmer ? 'បញ្ចូល ឬ គណនាថ្ងៃឈប់សម្រាកដើម្បីកាត់ប្រាក់' : 'Calculate & Deduct Leave'}
+                      >
+                        <ClockIcon className="w-3 h-3" />
+                        <span>{isKhmer ? 'គណនាច្បាប់ UP' : 'Deduct UP'}</span>
+                      </button>
+                    </div>
                     <table className="payslip-table w-full border-collapse border border-black text-xs">
                       <tbody>
                         <tr>
@@ -470,6 +583,197 @@ const PayrollPayslips = () => {
           })
         )}
       </div>
+          {/* Leave Deduction Modal */}
+      {showLeaveDeductModal && leaveDeductSlip && (() => {
+        const stdDays = leaveDeductSlip.standardWorkingDays || 26;
+        const dailyRate = stdDays > 0 ? (Number(leaveDeductSlip.baseSalary || 0) / stdDays) : 0;
+        const deductDays = Number(leaveDaysToDeduct || 0);
+        const deductionAmt = deductDays * dailyRate;
+        const estNet = Math.max(0, Number(leaveDeductSlip.grossSalary || 0) - (Number(leaveDeductSlip.totalDeductions || 0) - Number(leaveDeductSlip.unpaidLeaveDeductionAmount || 0) + deductionAmt));
+
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-md p-4 overflow-y-auto no-print animate-fade-in">
+            <div className="glass-card bg-slate-900/95 border border-white/15 rounded-3xl w-full max-w-lg p-6 shadow-2xl space-y-4 my-8 text-slate-100">
+              {/* Modal Header */}
+              <div className="flex items-center justify-between border-b border-white/10 pb-3">
+                <div className="flex items-center gap-3">
+                  <div className="p-2.5 rounded-2xl bg-rose-500/20 text-rose-400 border border-rose-500/30">
+                    <ClockIcon className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-bold text-white font-khmer">
+                      {isKhmer ? 'បញ្ចូល & គណនាថ្ងៃឈប់សម្រាកកាត់ប្រាក់' : 'Calculate & Deduct Leave Days'}
+                    </h3>
+                    <p className="text-xs text-slate-400 font-khmer">
+                      {leaveDeductSlip.employeeNameKh || leaveDeductSlip.employeeNameEn} ({leaveDeductSlip.staffId})
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowLeaveDeductModal(false)}
+                  className="p-1.5 rounded-xl text-slate-400 hover:text-white hover:bg-white/10 transition-all cursor-pointer"
+                >
+                  <XMarkIcon className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* Employee Quick Info */}
+              <div className="bg-slate-950/60 p-3.5 rounded-2xl border border-white/5 grid grid-cols-3 gap-2 text-center text-xs font-mono">
+                <div>
+                  <span className="text-[10px] text-slate-400 font-khmer block">{isKhmer ? 'ប្រាក់ខែគោល' : 'Base Salary'}</span>
+                  <span className="font-bold text-amber-400">${Number(leaveDeductSlip.baseSalary || 0).toFixed(2)}</span>
+                </div>
+                <div>
+                  <span className="text-[10px] text-slate-400 font-khmer block">{isKhmer ? 'ថ្ងៃធ្វើការស្តង់ដារ' : 'Std Days'}</span>
+                  <span className="font-bold text-white">{stdDays} ថ្ងៃ</span>
+                </div>
+                <div>
+                  <span className="text-[10px] text-slate-400 font-khmer block">{isKhmer ? 'អត្រាក្នុង ១ ថ្ងៃ' : 'Daily Rate'}</span>
+                  <span className="font-bold text-emerald-400">${dailyRate.toFixed(2)}</span>
+                </div>
+              </div>
+
+              {/* Form */}
+              <form onSubmit={handleSaveLeaveDeduction} className="space-y-4 text-xs font-khmer">
+                {/* Select Leave Type */}
+                <div>
+                  <label className="block font-semibold text-slate-300 mb-1.5">
+                    {isKhmer ? 'ជ្រើសរើសប្រភេទច្បាប់ (Leave Type)' : 'Select Leave Type'} *
+                  </label>
+                  <div className="flex gap-2">
+                    <select
+                      value={selectedLeaveType}
+                      onChange={(e) => handleLeaveTypeChange(e.target.value)}
+                      className="flex-1 py-2 px-3 border border-white/10 bg-slate-950/60 text-white rounded-xl text-xs focus:border-rose-500 focus:ring-1 focus:ring-rose-500/20 outline-none transition-all cursor-pointer font-khmer"
+                    >
+                      <option value="UP">UP - {isKhmer ? 'ឈប់ឥតច្បាប់ / អត់ប្រាក់ឈ្នួល (Unpaid Leave)' : 'Unpaid Leave (UP)'}</option>
+                      {leaveTypes.filter(lt => lt.code !== 'UP').map(lt => (
+                        <option key={lt.code} value={lt.code} className="bg-slate-900">
+                          {lt.code} - {isKhmer ? lt.nameKh : lt.nameEn}
+                        </option>
+                      ))}
+                    </select>
+                    <button
+                      type="button"
+                      onClick={() => fetchLeaveSummary(leaveDeductSlip.id, selectedLeaveType)}
+                      disabled={countingDays}
+                      className="px-3.5 py-2 bg-indigo-600/30 hover:bg-indigo-600/50 text-indigo-300 border border-indigo-500/40 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                      title={isKhmer ? 'រាប់ចំនួនថ្ងៃពីប្រព័ន្ធច្បាប់' : 'Count days from leave records'}
+                    >
+                      {countingDays ? (
+                        <span className="animate-spin">⏳</span>
+                      ) : (
+                        <span>🔄 {isKhmer ? 'រាប់ចំនួនថ្ងៃ' : 'Count'}</span>
+                      )}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Status Notice of Counted Leaves */}
+                {leaveRecords.length > 0 ? (
+                  <div className="p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-xl text-emerald-300 text-xs space-y-1">
+                    <div className="font-bold flex items-center justify-between">
+                      <span>✓ {isKhmer ? `រកឃើញច្បាប់ ${selectedLeaveType} ចំនួន ${countedDays} ថ្ងៃ` : `Found ${countedDays} days of ${selectedLeaveType}`}</span>
+                      <span className="text-[10px] font-mono text-emerald-400">({leaveRecords.length} records)</span>
+                    </div>
+                    <div className="max-h-24 overflow-y-auto space-y-1 pt-1 border-t border-emerald-500/15 text-[11px] font-mono">
+                      {leaveRecords.map((r, i) => (
+                        <div key={i} className="flex justify-between text-slate-300">
+                          <span>• {r.leaveDate} ({r.amountDays}d)</span>
+                          <span className="truncate max-w-[200px] text-slate-400">{r.reason || selectedLeaveType}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl text-amber-300 text-xs">
+                    ℹ {isKhmer
+                      ? `មិនទាន់មានកំណត់ត្រាច្បាប់ ${selectedLeaveType} ក្នុងខែនេះទេ (អ្នកអាចបញ្ចូលចំនួនថ្ងៃដោយផ្ទាល់ខាងក្រោម)`
+                      : `No ${selectedLeaveType} records found for this month (you can type days manually below)`}
+                  </div>
+                )}
+
+                {/* Input: Days to Deduct */}
+                <div>
+                  <label className="block font-semibold text-slate-300 mb-1.5">
+                    {isKhmer ? 'ចំនួនថ្ងៃដែលត្រូវកាត់ប្រាក់ (Days to Deduct)' : 'Days to Deduct'} *
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="number"
+                      step="0.5"
+                      min="0"
+                      max="31"
+                      value={leaveDaysToDeduct}
+                      onChange={(e) => setLeaveDaysToDeduct(e.target.value)}
+                      className="w-full py-2.5 px-3 border border-white/10 bg-slate-950/60 text-white rounded-xl text-base focus:border-rose-500 focus:ring-1 focus:ring-rose-500/20 outline-none transition-all font-mono font-bold"
+                    />
+                    <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 font-khmer text-xs">
+                      {isKhmer ? 'ថ្ងៃ' : 'days'}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Live Calculation Preview */}
+                <div className="p-3.5 bg-gradient-to-r from-rose-950/40 to-slate-950/60 border border-rose-500/30 rounded-2xl space-y-2 text-xs font-mono">
+                  <div className="flex justify-between text-slate-300">
+                    <span className="font-khmer text-slate-400">{isKhmer ? 'រូបមន្តគណនា:' : 'Formula:'}</span>
+                    <span>{deductDays} ថ្ងៃ × ${dailyRate.toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between items-center text-sm font-bold text-rose-400 border-t border-white/5 pt-1.5">
+                    <span className="font-khmer">{isKhmer ? 'ចំនួនទឹកប្រាក់កាត់ (Deduction):' : 'Total Deduction:'}</span>
+                    <span className="text-base text-rose-300">-${deductionAmt.toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between items-center text-emerald-400 font-bold border-t border-white/5 pt-1.5">
+                    <span className="font-khmer">{isKhmer ? 'ប្រាក់ខែសុទ្ធប៉ាន់ស្មាន (Est. Net Pay):' : 'Estimated Net Pay:'}</span>
+                    <span className="text-sm font-mono text-emerald-300">${estNet.toFixed(2)}</span>
+                  </div>
+                </div>
+
+                {/* Remarks */}
+                <div>
+                  <label className="block font-semibold text-slate-400 mb-1">
+                    {isKhmer ? 'កំណត់សម្គាល់ (Remarks)' : 'Remarks'}
+                  </label>
+                  <input
+                    type="text"
+                    value={leaveDeductRemarks}
+                    onChange={(e) => setLeaveDeductRemarks(e.target.value)}
+                    placeholder={isKhmer ? 'ឧ. កាត់ប្រាក់ឈប់ឥតច្បាប់ ២ ថ្ងៃ' : 'Optional remark...'}
+                    className="w-full py-2 px-3 border border-white/10 bg-slate-950/60 text-white rounded-xl text-xs focus:border-rose-500 focus:ring-1 focus:ring-rose-500/20 outline-none transition-all font-khmer"
+                  />
+                </div>
+
+                {/* Actions */}
+                <div className="pt-2 border-t border-white/10 flex items-center justify-end gap-2.5">
+                  <button
+                    type="button"
+                    onClick={() => setShowLeaveDeductModal(false)}
+                    className="px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/10 text-slate-300 rounded-xl text-xs font-semibold transition-all cursor-pointer"
+                  >
+                    {isKhmer ? 'បោះបង់' : 'Cancel'}
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={savingDeduct}
+                    className="px-5 py-2.5 bg-gradient-to-r from-rose-600 to-amber-600 hover:from-rose-700 hover:to-amber-700 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-rose-500/20 cursor-pointer disabled:opacity-50 border-none flex items-center gap-1.5 font-khmer"
+                  >
+                    {savingDeduct ? (
+                      <>
+                        <span className="animate-spin">⏳</span>
+                        <span>{isKhmer ? 'កំពុងកាត់ប្រាក់...' : 'Saving...'}</span>
+                      </>
+                    ) : (
+                      <span>{isKhmer ? 'រក្សាទុក & កាត់ប្រាក់' : 'Save & Deduct'}</span>
+                    )}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 };

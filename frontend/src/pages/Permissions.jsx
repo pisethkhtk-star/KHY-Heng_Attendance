@@ -29,7 +29,8 @@ import {
   ArrowDownTrayIcon,
   MapPinIcon,
   CameraIcon,
-  BanknotesIcon
+  BanknotesIcon,
+  CheckBadgeIcon
 } from '@heroicons/react/24/outline';
 import faceDataService from '../services/FaceDataService';
 
@@ -94,6 +95,8 @@ const Permissions = () => {
       };
     });
   }, [dbRoles]);
+
+  const SHOW_PAYROLL = false;
 
   // Hierarchical Structured Categorization: Groups -> Pages/Modules -> Actions (Add, Edit, Delete)
   const resourceCategories = [
@@ -365,34 +368,92 @@ const Permissions = () => {
             }
           ]
         },
+      ]
+    },
+    {
+      key: 'approvals_group',
+      labelEn: 'Approval Management',
+      labelKh: 'ការគ្រប់គ្រងអ្នកអនុម័ត (Approvals)',
+      icon: CheckBadgeIcon,
+      modules: [
         {
           key: 'leave_approvals',
-          labelEn: 'Approval Hierarchy Matrix',
-          labelKh: 'រចនាសម្ព័ន្ធអ្នកអនុម័ត (Approval Matrix)',
-          descEn: 'Assign and view line-manager approval chain',
-          descKh: 'ចាត់តាំង និងមើលរចនាសម្ព័ន្ធអ្នកអនុម័តច្បាប់',
+          labelEn: 'Leave Approvers',
+          labelKh: 'កំណត់អ្នកអនុម័តច្បាប់ (Leave Approvers)',
+          descEn: 'Assign and view line-manager leave approval hierarchy chain',
+          descKh: 'ចាត់តាំង និងគ្រប់គ្រងរចនាសម្ព័ន្ធអ្នកអនុម័តច្បាប់',
           actions: [
             {
               key: 'edit_leave_approvals',
               actionType: 'edit',
-              labelEn: 'Edit Approval Matrix',
-              labelKh: 'កែប្រែអ្នកអនុម័ត',
-              descEn: 'Modify approval hierarchy rules',
-              descKh: 'កែប្រែថ្នាក់អ្នកអនុម័តក្នុងរចនាសម្ព័ន្ធ'
+              labelEn: 'Edit Leave Approvers',
+              labelKh: 'កែប្រែអ្នកអនុម័តច្បាប់',
+              descEn: 'Modify leave approval hierarchy rules',
+              descKh: 'កែប្រែថ្នាក់អ្នកអនុម័តច្បាប់ក្នុងរចនាសម្ព័ន្ធ'
             },
             {
               key: 'delete_leave_approvals',
               actionType: 'delete',
-              labelEn: 'Delete Approval Matrix',
-              labelKh: 'លុបអ្នកអនុម័ត',
-              descEn: 'Remove configured approval workflows',
-              descKh: 'លុបការចាត់តាំងអ្នកអនុម័តដែលលែងប្រើ'
+              labelEn: 'Delete Leave Approvers',
+              labelKh: 'លុបអ្នកអនុម័តច្បាប់',
+              descEn: 'Remove configured leave approval workflows',
+              descKh: 'លុបការចាត់តាំងអ្នកអនុម័តច្បាប់ដែលលែងប្រើ'
+            }
+          ]
+        },
+        {
+          key: 'overtime_approvers',
+          labelEn: 'Overtime Approvers',
+          labelKh: 'កំណត់អ្នកអនុម័តថែមម៉ោង (Overtime Approvers)',
+          descEn: 'Assign and view line-manager overtime approval hierarchy chain',
+          descKh: 'ចាត់តាំង និងគ្រប់គ្រងរចនាសម្ព័ន្ធអ្នកអនុម័តថែមម៉ោង',
+          actions: [
+            {
+              key: 'edit_overtime_approvers',
+              actionType: 'edit',
+              labelEn: 'Edit Overtime Approvers',
+              labelKh: 'កែប្រែអ្នកអនុម័តថែមម៉ោង',
+              descEn: 'Modify overtime approval hierarchy rules',
+              descKh: 'កែប្រែថ្នាក់អ្នកអនុម័តថែមម៉ោងក្នុងរចនាសម្ព័ន្ធ'
+            },
+            {
+              key: 'delete_overtime_approvers',
+              actionType: 'delete',
+              labelEn: 'Delete Overtime Approvers',
+              labelKh: 'លុបអ្នកអនុម័តថែមម៉ោង',
+              descEn: 'Remove configured overtime approval workflows',
+              descKh: 'លុបការចាត់តាំងអ្នកអនុម័តថែមម៉ោងដែលលែងប្រើ'
+            }
+          ]
+        },
+        {
+          key: 'checkin_approvers',
+          labelEn: 'Check-in on Behalf',
+          labelKh: 'កំណត់សិទ្ធិចុះវត្តមានជំនួស (Check-in on Behalf)',
+          descEn: 'Assign and manage supervisors who can check-in on behalf of staff',
+          descKh: 'ចាត់តាំង និងគ្រប់គ្រងសិទ្ធិចុះវត្តមានជំនួសបុគ្គលិក',
+          actions: [
+            {
+              key: 'edit_checkin_approvers',
+              actionType: 'edit',
+              labelEn: 'Edit Check-in Approvers',
+              labelKh: 'កែប្រែអ្នកចុះវត្តមានជំនួស',
+              descEn: 'Modify check-in on behalf assignment rules',
+              descKh: 'កែប្រែសិទ្ធិចុះវត្តមានជំនួសក្នុងប្រព័ន្ធ'
+            },
+            {
+              key: 'delete_checkin_approvers',
+              actionType: 'delete',
+              labelEn: 'Delete Check-in Approvers',
+              labelKh: 'លុបអ្នកចុះវត្តមានជំនួស',
+              descEn: 'Remove check-in on behalf assignments',
+              descKh: 'លុបការចាត់តាំងអ្នកចុះវត្តមានជំនួសដែលលែងប្រើ'
             }
           ]
         }
       ]
     },
-    {
+        {
       key: 'kiosk_group',
       labelEn: 'Branch Offices & Kiosk Terminals',
       labelKh: 'សាខាក្រុមហ៊ុន & ម៉ាស៊ីនស្កេនវត្តមាន (Kiosk)',
@@ -499,6 +560,7 @@ const Permissions = () => {
         }
       ]
     },
+    ...(SHOW_PAYROLL ? [
     {
       key: 'payroll_group',
       labelEn: 'Payroll & Compensation',
@@ -514,7 +576,8 @@ const Permissions = () => {
           actions: []
         }
       ]
-    },
+    }
+    ] : []),
     {
       key: 'system_group',
       labelEn: 'System Security & Web Configuration',
@@ -1511,7 +1574,7 @@ const Permissions = () => {
                                                 {modLabel}
                                               </span>
                                               <span className="px-1.5 py-0.2 rounded-full bg-indigo-500/20 text-indigo-300 text-[10px] font-mono font-normal">
-                                                {mod.actions.length} actions ▼
+                                                {mod.actions.length} actions
                                               </span>
                                             </button>
                                           ) : (
@@ -1568,7 +1631,6 @@ const Permissions = () => {
                                           >
                                             <td className="py-2.5 px-6 pl-16 font-medium text-slate-200 text-xs">
                                               <div className="flex items-center gap-2">
-                                                <span className="text-slate-500 font-mono select-none">↳</span>
                                                 {getActionBadge(act.actionType)}
                                                 <span className="font-semibold text-white font-khmer text-xs">
                                                   {actLabel}
@@ -1691,7 +1753,7 @@ const Permissions = () => {
                         </span>
                       </div>
                       <div className="text-xs text-slate-400 font-khmer">
-                        {selectedEmployee.role} • {selectedEmployee.department?.nameEn || selectedEmployee.department?.nameKh || 'Company'}
+                        {selectedEmployee.role} <span className="inline-block w-1 h-1 rounded-full bg-slate-500 align-middle mx-1.5"></span> {selectedEmployee.department?.nameEn || selectedEmployee.department?.nameKh || 'Company'}
                       </div>
                     </div>
                   </>
@@ -1777,7 +1839,7 @@ const Permissions = () => {
                                 {emp.nameEn || emp.nameKh}
                               </div>
                               <div className="text-[11px] text-slate-400 font-mono">
-                                ID: <span className="text-indigo-400">{emp.staffId}</span> • {emp.role}
+                                ID: <span className="text-indigo-400">{emp.staffId}</span> <span className="inline-block w-1 h-1 rounded-full bg-slate-500 align-middle mx-1.5"></span> {emp.role}
                               </div>
                             </div>
                           </div>
@@ -1860,7 +1922,7 @@ const Permissions = () => {
                           {language === 'kh' ? 'តួនាទីដើម៖ ' : 'Role: '}
                           <strong className="text-white font-bold">{selectedEmployee.role}</strong>
                         </span>
-                        <span>•</span>
+                        <span className="inline-block w-1 h-1 rounded-full bg-slate-500 mx-1"></span>
                         {empHasCustom ? (
                           <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-amber-500/20 border border-amber-500/30 text-amber-300 font-khmer flex items-center gap-1.5">
                             <SparklesIcon className="h-3.5 w-3.5" />
@@ -1872,7 +1934,7 @@ const Permissions = () => {
                             <span>{language === 'kh' ? 'អនុវត្តតាមតួនាទីដើម (Inherited)' : 'Inherited from Role'}</span>
                           </span>
                         )}
-                        <span>•</span>
+                        <span className="inline-block w-1 h-1 rounded-full bg-slate-500 mx-1"></span>
                         <span className="text-xs text-indigo-300 font-mono font-bold">
                           {empEffectivePerms.length}/{allResources.length} {language === 'kh' ? 'សិទ្ធិបានអនុញ្ញាត' : 'granted'}
                         </span>
@@ -2155,7 +2217,7 @@ const Permissions = () => {
                                         {modLabel}
                                       </div>
                                       <div className="text-xs text-slate-400 font-khmer mt-0.5 leading-relaxed">
-                                        {modDesc} • <code className="text-[10px] text-indigo-400 font-mono">{mod.key}</code>
+                                        {modDesc} <span className="inline-block w-1 h-1 rounded-full bg-slate-500 align-middle mx-1.5"></span> <code className="text-[10px] text-indigo-400 font-mono">{mod.key}</code>
                                       </div>
                                     </div>
                                   </div>
