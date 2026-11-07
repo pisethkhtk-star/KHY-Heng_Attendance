@@ -110,8 +110,8 @@ const Leaves = () => {
     if (!creatorVal) return '-';
     const emp = employees.find(
       e => e.staffId?.toLowerCase() === String(creatorVal).toLowerCase() ||
-           e.email?.toLowerCase() === String(creatorVal).toLowerCase() ||
-           e.nameEn?.toLowerCase() === String(creatorVal).toLowerCase()
+        e.email?.toLowerCase() === String(creatorVal).toLowerCase() ||
+        e.nameEn?.toLowerCase() === String(creatorVal).toLowerCase()
     );
     if (emp) {
       return getLocalizedName(emp.nameEn, emp.nameKh);
@@ -597,8 +597,8 @@ const Leaves = () => {
         const lowerLT = rawLeaveType.toLowerCase();
         const foundLT = leaveTypes.find(
           lt => (lt.code && lt.code.toLowerCase() === lowerLT) ||
-                (lt.nameEn && lt.nameEn.toLowerCase() === lowerLT) ||
-                (lt.nameKh && lt.nameKh.toLowerCase() === lowerLT)
+            (lt.nameEn && lt.nameEn.toLowerCase() === lowerLT) ||
+            (lt.nameKh && lt.nameKh.toLowerCase() === lowerLT)
         );
         if (foundLT) {
           resolvedTypeCode = foundLT.code;
@@ -849,7 +849,7 @@ const Leaves = () => {
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 glass-card p-6 rounded-2xl glow-indigo">
         <div>
           <h2 className="text-xl font-bold text-white font-khmer">{t("requestItem")}</h2>
-          <p className="text-slate-400 text-xs mt-1">Submit requests and manage approvals</p>
+          {/* <p className="text-slate-400 text-xs mt-1">Submit requests and manage approvals</p> */}
         </div>
         <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
           <button
@@ -1599,13 +1599,12 @@ const Leaves = () => {
                             <td className="py-2 px-3 font-semibold text-emerald-400">{r.amountDays}</td>
                             <td className="py-2 px-3 text-slate-400 truncate max-w-[150px]">{r.reason || '-'}</td>
                             <td className="py-2 px-3">
-                              <span className={`px-2 py-0.5 rounded-md text-[10px] font-semibold ${
-                                r.status === 'Approved'
+                              <span className={`px-2 py-0.5 rounded-md text-[10px] font-semibold ${r.status === 'Approved'
                                   ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
                                   : r.status === 'Pending'
-                                  ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
-                                  : 'bg-rose-500/10 text-rose-400 border border-rose-500/20'
-                              }`}>
+                                    ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+                                    : 'bg-rose-500/10 text-rose-400 border border-rose-500/20'
+                                }`}>
                                 {r.status}
                               </span>
                             </td>

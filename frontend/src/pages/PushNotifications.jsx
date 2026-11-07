@@ -238,24 +238,24 @@ const PushNotifications = () => {
               <h2 className="text-xl font-bold text-[var(--text-primary)]">
                 {isKhmer ? 'ផ្ញើការជូនដំណឹងទៅកាន់ Mobile App' : 'Mobile Push Notifications'}
               </h2>
-              <p className="text-xs text-[var(--text-secondary)] mt-0.5">
+              {/* <p className="text-xs text-[var(--text-secondary)] mt-0.5">
                 {isKhmer
                   ? 'បង្កើតការជូនដំណឹងភ្លាមៗ ឬកំណត់កាលវិភាគផ្ញើជាមុនទៅកាន់បុគ្គលិកទាំងអស់ តាមផ្នែក ឬបុគ្គលជាក់លាក់'
                   : 'Broadcast instant or scheduled notifications directly to employees mobile app & notifications drawer'}
-              </p>
+              </p> */}
             </div>
           </div>
         </div>
 
         <div className="flex items-center gap-3">
-          <button
+          {/* <button
             onClick={fetchData}
             disabled={loading}
             className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-[var(--border-card)] bg-[var(--bg-app)] hover:bg-[var(--border-card)] text-xs font-semibold cursor-pointer transition-all"
           >
             <ArrowPathIcon className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
             <span>{isKhmer ? 'ទាញទិន្នន័យឡើងវិញ' : 'Refresh'}</span>
-          </button>
+          </button> */}
 
           <button
             onClick={() => setShowModal(true)}
@@ -572,8 +572,8 @@ const PushNotifications = () => {
                       type="button"
                       onClick={() => setType(cat.id)}
                       className={`py-2 px-2 rounded-xl text-center text-xs font-bold border transition-all cursor-pointer ${type === cat.id
-                          ? 'border-indigo-500 bg-indigo-500/15 text-indigo-600 dark:text-indigo-400'
-                          : 'border-[var(--border-card)] bg-[var(--bg-app)] text-[var(--text-secondary)] hover:border-gray-400'
+                        ? 'border-indigo-500 bg-indigo-500/15 text-indigo-600 dark:text-indigo-400'
+                        : 'border-[var(--border-card)] bg-[var(--bg-app)] text-[var(--text-secondary)] hover:border-gray-400'
                         }`}
                     >
                       {cat.label}
@@ -608,8 +608,8 @@ const PushNotifications = () => {
                     type="button"
                     onClick={() => setTargetAudience('ALL')}
                     className={`flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl border text-xs font-bold cursor-pointer transition-all ${targetAudience === 'ALL'
-                        ? 'border-indigo-500 bg-indigo-500/15 text-indigo-600 dark:text-indigo-400'
-                        : 'border-[var(--border-card)] bg-[var(--bg-app)] text-[var(--text-secondary)]'
+                      ? 'border-indigo-500 bg-indigo-500/15 text-indigo-600 dark:text-indigo-400'
+                      : 'border-[var(--border-card)] bg-[var(--bg-app)] text-[var(--text-secondary)]'
                       }`}
                   >
                     <UserGroupIcon className="h-4 w-4" />
@@ -620,8 +620,8 @@ const PushNotifications = () => {
                     type="button"
                     onClick={() => setTargetAudience('DEPARTMENT')}
                     className={`flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl border text-xs font-bold cursor-pointer transition-all ${targetAudience === 'DEPARTMENT'
-                        ? 'border-indigo-500 bg-indigo-500/15 text-indigo-600 dark:text-indigo-400'
-                        : 'border-[var(--border-card)] bg-[var(--bg-app)] text-[var(--text-secondary)]'
+                      ? 'border-indigo-500 bg-indigo-500/15 text-indigo-600 dark:text-indigo-400'
+                      : 'border-[var(--border-card)] bg-[var(--bg-app)] text-[var(--text-secondary)]'
                       }`}
                   >
                     <BuildingOffice2Icon className="h-4 w-4" />
@@ -632,8 +632,8 @@ const PushNotifications = () => {
                     type="button"
                     onClick={() => setTargetAudience('INDIVIDUAL')}
                     className={`flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl border text-xs font-bold cursor-pointer transition-all ${targetAudience === 'INDIVIDUAL'
-                        ? 'border-indigo-500 bg-indigo-500/15 text-indigo-600 dark:text-indigo-400'
-                        : 'border-[var(--border-card)] bg-[var(--bg-app)] text-[var(--text-secondary)]'
+                      ? 'border-indigo-500 bg-indigo-500/15 text-indigo-600 dark:text-indigo-400'
+                      : 'border-[var(--border-card)] bg-[var(--bg-app)] text-[var(--text-secondary)]'
                       }`}
                   >
                     <UserIcon className="h-4 w-4" />

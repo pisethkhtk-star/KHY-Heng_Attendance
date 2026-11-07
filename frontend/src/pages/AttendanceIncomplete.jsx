@@ -773,11 +773,11 @@ const AttendanceIncomplete = () => {
             <h1 className="text-xl sm:text-2xl font-bold text-white font-khmer">
               {language === 'kh' ? 'វត្តមានស្កេនមិនគ្រប់វេន (Incomplete Shifts)' : 'Incomplete Shift Logs'}
             </h1>
-            <p className="text-xs text-slate-400 font-khmer mt-0.5">
+            {/* <p className="text-xs text-slate-400 font-khmer mt-0.5">
               {language === 'kh'
                 ? 'បង្ហាញទិន្នន័យបុគ្គលិកដែលស្កេនមិនគ្រប់វេនតាមថ្ងៃធ្វើការ (មិនរាប់បញ្ចូលថ្ងៃដែលបានសុំច្បាប់)'
                 : 'Track missing and incomplete shift check-ins/outs based on scheduled work days and approved leaves'}
-            </p>
+            </p> */}
           </div>
         </div>
 
@@ -842,9 +842,9 @@ const AttendanceIncomplete = () => {
               <ExclamationTriangleIcon className="h-6 w-6" />
             </div>
           </div>
-          <p className="text-[11px] print:text-[8px] text-slate-500 print:text-slate-500 mt-2 print:mt-1 font-khmer truncate leading-tight">
+          {/* <p className="text-[11px] print:text-[8px] text-slate-500 print:text-slate-500 mt-2 print:mt-1 font-khmer truncate leading-tight">
             {language === 'kh' ? 'ថ្ងៃខ្វះការ Scan ក្នុងចន្លោះពេលនេះ' : 'Missing log instances'}
-          </p>
+          </p> */}
         </div>
 
         <div className="glass-card p-5 print:p-2.5 rounded-2xl print:rounded-lg border border-white/5 print:border-slate-300 print:bg-slate-50/60 print:shadow-none relative overflow-hidden">
@@ -861,9 +861,9 @@ const AttendanceIncomplete = () => {
               <UserIcon className="h-6 w-6" />
             </div>
           </div>
-          <p className="text-[11px] print:text-[8px] text-slate-500 print:text-slate-500 mt-2 print:mt-1 font-khmer truncate leading-tight">
+          {/* <p className="text-[11px] print:text-[8px] text-slate-500 print:text-slate-500 mt-2 print:mt-1 font-khmer truncate leading-tight">
             {language === 'kh' ? 'បុគ្គលិកដែលមានការស្កេនមិនគ្រប់' : 'Distinct staff members'}
-          </p>
+          </p> */}
         </div>
 
         <div className="glass-card p-5 print:p-2.5 rounded-2xl print:rounded-lg border border-white/5 print:border-slate-300 print:bg-slate-50/60 print:shadow-none relative overflow-hidden">
@@ -880,9 +880,9 @@ const AttendanceIncomplete = () => {
               <ClockIcon className="h-6 w-6" />
             </div>
           </div>
-          <p className="text-[11px] print:text-[8px] text-slate-500 print:text-slate-500 mt-2 print:mt-1 font-khmer truncate leading-tight">
+          {/* <p className="text-[11px] print:text-[8px] text-slate-500 print:text-slate-500 mt-2 print:mt-1 font-khmer truncate leading-tight">
             {language === 'kh' ? 'ខ្វះ Scan ចូល ឬចេញ វេនព្រឹក' : 'Morning shift missing'}
-          </p>
+          </p> */}
         </div>
 
         <div className="glass-card p-5 print:p-2.5 rounded-2xl print:rounded-lg border border-white/5 print:border-slate-300 print:bg-slate-50/60 print:shadow-none relative overflow-hidden">
@@ -896,12 +896,12 @@ const AttendanceIncomplete = () => {
               </p>
             </div>
             <div className="p-3 bg-purple-500/10 rounded-xl text-purple-400 border border-purple-500/20 flex-shrink-0 print:hidden">
-              <SparklesIcon className="h-6 w-6" />
+              <ClockIcon className="h-6 w-6" />
             </div>
           </div>
-          <p className="text-[11px] print:text-[8px] text-slate-500 print:text-slate-500 mt-2 print:mt-1 font-khmer truncate leading-tight">
+          {/* <p className="text-[11px] print:text-[8px] text-slate-500 print:text-slate-500 mt-2 print:mt-1 font-khmer truncate leading-tight">
             {language === 'kh' ? 'ខ្វះ Scan ចូល ឬចេញ វេនរសៀល' : 'Afternoon shift missing'}
-          </p>
+          </p> */}
         </div>
 
         {/* 5th Box: Total Missing Scans */}
@@ -1308,8 +1308,8 @@ const AttendanceIncomplete = () => {
                     type="button"
                     onClick={() => setCurrentPage(item)}
                     className={`h-8 min-w-[32px] px-2 rounded-lg text-xs font-mono font-bold transition-all cursor-pointer ${isCurrent
-                        ? 'bg-blue-600 text-white shadow-md shadow-blue-500/25 border border-blue-500'
-                        : 'border border-white/10 bg-slate-900/60 hover:bg-slate-800 text-slate-300'
+                      ? 'bg-blue-600 text-white shadow-md shadow-blue-500/25 border border-blue-500'
+                      : 'border border-white/10 bg-slate-900/60 hover:bg-slate-800 text-slate-300'
                       }`}
                   >
                     {item}

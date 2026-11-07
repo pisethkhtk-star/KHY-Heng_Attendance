@@ -932,11 +932,11 @@ const Reports = () => {
             <h1 className="text-xl sm:text-2xl font-bold text-white font-khmer">
               {language === 'kh' ? 'របាយការណ៍ & ក្រាហ្វិកប្រៀបធៀបដេប៉ាតឺម៉ង់' : 'Reports & Department Analytics'}
             </h1>
-            <p className="text-xs text-slate-400 font-khmer mt-0.5">
+            {/* <p className="text-xs text-slate-400 font-khmer mt-0.5">
               {language === 'kh'
                 ? 'ប្រៀបធៀបដេប៉ាតឺម៉ង់ណាមាន មកយឺត (Late), ចេញមុន (Early Out), មកមុន (Early In), និង ស្កេនមិនគ្រប់ (Incomplete) ច្រើនជាងគេ មធ្យម ឬតិចជាងគេ'
                 : 'Compare which departments have the Highest, Medium, or Lowest Late, Early Out, Early In, and Incomplete scans'}
-            </p>
+            </p> */}
           </div>
         </div>
         <div className="flex gap-2">
@@ -1071,7 +1071,7 @@ const Reports = () => {
           className={`glass-card p-4 rounded-2xl border text-center cursor-pointer transition-all ${filterLogType === 'late' || selectedMetric === 'late' ? 'border-amber-500/80 bg-amber-500/10 shadow-lg shadow-amber-500/10 ring-1 ring-amber-500/50' : 'border-white/5 hover:border-amber-500/30'
             }`}
         >
-          <span className="block text-[11px] text-amber-400 font-semibold uppercase font-khmer">Late (មកយឺត)</span>
+          <span className="block text-[11px] text-amber-400 font-semibold uppercase font-khmer">Late</span>
           <span className="block text-xl font-bold mt-1 text-amber-400 font-mono">{totals.totalLate}</span>
         </div>
         <div
@@ -1083,7 +1083,7 @@ const Reports = () => {
           className={`glass-card p-4 rounded-2xl border text-center cursor-pointer transition-all ${filterLogType === 'earlyOut' || selectedMetric === 'earlyOut' ? 'border-rose-500/80 bg-rose-500/10 shadow-lg shadow-rose-500/10 ring-1 ring-rose-500/50' : 'border-white/5 hover:border-rose-500/30'
             }`}
         >
-          <span className="block text-[11px] text-rose-400 font-semibold uppercase font-khmer">Early Out (ចេញមុន)</span>
+          <span className="block text-[11px] text-rose-400 font-semibold uppercase font-khmer">Early Out</span>
           <span className="block text-xl font-bold mt-1 text-rose-400 font-mono">{totals.totalEarlyOut}</span>
         </div>
         <div
@@ -1095,7 +1095,7 @@ const Reports = () => {
           className={`glass-card p-4 rounded-2xl border text-center cursor-pointer transition-all ${filterLogType === 'earlyIn' || selectedMetric === 'earlyIn' ? 'border-emerald-500/80 bg-emerald-500/10 shadow-lg shadow-emerald-500/10 ring-1 ring-emerald-500/50' : 'border-white/5 hover:border-emerald-500/30'
             }`}
         >
-          <span className="block text-[11px] text-emerald-400 font-semibold uppercase font-khmer">Early In (មកមុន)</span>
+          <span className="block text-[11px] text-emerald-400 font-semibold uppercase font-khmer">Early In</span>
           <span className="block text-xl font-bold mt-1 text-emerald-400 font-mono">{totals.totalEarlyIn}</span>
         </div>
         <div
@@ -1107,7 +1107,7 @@ const Reports = () => {
           className={`glass-card p-4 rounded-2xl border text-center cursor-pointer transition-all ${filterLogType === 'incomplete' || selectedMetric === 'incomplete' ? 'border-purple-500/80 bg-purple-500/10 shadow-lg shadow-purple-500/10 ring-1 ring-purple-500/50' : 'border-white/5 hover:border-purple-500/30'
             }`}
         >
-          <span className="block text-[11px] text-purple-400 font-semibold uppercase font-khmer">Incomplete (មិនគ្រប់)</span>
+          <span className="block text-[11px] text-purple-400 font-semibold uppercase font-khmer">Incomplete</span>
           <span className="block text-xl font-bold mt-1 text-purple-400 font-mono">{totals.totalIncomplete}</span>
         </div>
       </div>
@@ -1123,11 +1123,11 @@ const Reports = () => {
                 {language === 'kh' ? 'ការប្រៀបធៀបដេប៉ាតឺម៉ង់តាមកម្រិត (Department Comparison Ranking)' : 'Department Metric Comparison & Ranking'}
               </h2>
             </div>
-            <p className="text-xs text-slate-400 font-khmer mt-1">
+            {/* <p className="text-xs text-slate-400 font-khmer mt-1">
               {language === 'kh'
                 ? 'ជ្រើសរើសប្រភេទ Metric ខាងក្រោមដើម្បីមើលថាដេប៉ាតឺម៉ង់ណាមានចំនួន ច្រើនជាងគេ (Highest), មធ្យម (Medium), ឬ តិចជាងគេ (Lowest)'
                 : 'Select a metric tab to analyze which departments rank Highest, Medium/Average, or Lowest'}
-            </p>
+            </p> */}
           </div>
 
           {/* Metric Filter Tabs */}
@@ -1141,7 +1141,7 @@ const Reports = () => {
                 }`}
             >
               <span className="h-2 w-2 rounded-full bg-amber-400"></span>
-              <span>Late (មកយឺត)</span>
+              <span>Late </span>
             </button>
 
             <button
@@ -1153,7 +1153,7 @@ const Reports = () => {
                 }`}
             >
               <span className="h-2 w-2 rounded-full bg-rose-500"></span>
-              <span>Early Out (ចេញមុន)</span>
+              <span>Early Out</span>
             </button>
 
             <button
@@ -1165,7 +1165,7 @@ const Reports = () => {
                 }`}
             >
               <span className="h-2 w-2 rounded-full bg-emerald-400"></span>
-              <span>Early In (មកមុន)</span>
+              <span>Early In</span>
             </button>
 
             <button
@@ -1177,7 +1177,7 @@ const Reports = () => {
                 }`}
             >
               <span className="h-2 w-2 rounded-full bg-purple-400"></span>
-              <span>Incomplete (ស្កេនមិនគ្រប់)</span>
+              <span>Incomplete</span>
             </button>
 
             <button
@@ -1189,7 +1189,7 @@ const Reports = () => {
                 }`}
             >
               <span className="h-2 w-2 rounded-full bg-indigo-400"></span>
-              <span>All Combined (សរុបទាំងអស់)</span>
+              <span>All Combined</span>
             </button>
           </div>
         </div>
@@ -1202,8 +1202,11 @@ const Reports = () => {
               <div className="absolute top-0 right-0 transform translate-x-2 -translate-y-2 w-20 h-20 bg-rose-500/10 rounded-full blur-xl pointer-events-none"></div>
               <div className="flex items-center justify-between">
                 <span className="px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider bg-rose-500/20 text-black dark:text-rose-300 border border-rose-500/30 font-khmer flex items-center gap-1">
-                  🚨 {language === 'kh' ? 'ច្រើនជាងគេ (Highest)' : 'Highest Ranked'}
+                  {language === 'kh' ? 'ច្រើនជាងគេ (Highest)' : 'Highest Ranked'}
                 </span>
+                {/* <span className="px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider bg-rose-500/20 text-black dark:text-rose-300 border border-rose-500/30 font-khmer flex items-center gap-1">
+                  🚨 {language === 'kh' ? 'ច្រើនជាងគេ (Highest)' : 'Highest Ranked'}
+                </span> */}
                 <span className="text-xl">🥇</span>
               </div>
               <div className="mt-3">
@@ -1211,14 +1214,14 @@ const Reports = () => {
                   {rankingAnalysis.highest.displayName}
                 </h3>
                 <div className="flex items-baseline gap-2 mt-1">
-                  <span className="text-2xl font-black font-mono text-rose-400">
+                  <span className="text-2xl font-black font-mono text-black-400">
                     {currentMetricConfig.formatValue(rankingAnalysis.highest[currentMetricConfig.key])}
                   </span>
                   <span className="text-xs text-slate-400 font-khmer">
                     ({currentMetricConfig.totalValue > 0 ? Math.round((rankingAnalysis.highest[currentMetricConfig.key] / currentMetricConfig.totalValue) * 100) : 0}% នៃសរុប)
                   </span>
                 </div>
-                <p className="text-[11px] text-slate-400 mt-2 font-mono">
+                <p className="text-[11px] text-slate-400 mt-2 font-medium">
                   បុគ្គលិក: {rankingAnalysis.highest.employeeCount} នាក់ • មធ្យម: {compareMode === 'hours' ? formatHMn(rankingAnalysis.highest[currentMetricConfig.key] / Math.max(rankingAnalysis.highest.employeeCount, 1)) : `${(rankingAnalysis.highest[currentMetricConfig.key] / Math.max(rankingAnalysis.highest.employeeCount, 1)).toFixed(1)} ${currentMetricConfig.unit}`}/នាក់
                 </p>
               </div>
@@ -1229,8 +1232,11 @@ const Reports = () => {
               <div className="absolute top-0 right-0 transform translate-x-2 -translate-y-2 w-20 h-20 bg-amber-500/10 rounded-full blur-xl pointer-events-none"></div>
               <div className="flex items-center justify-between">
                 <span className="px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider bg-amber-500/20 text-black border border-amber-500/40 font-khmer flex items-center gap-1">
-                  ⚖️ {language === 'kh' ? 'កម្រិតមធ្យម (Moderate)' : 'Moderate / Medium'}
+                  {language === 'kh' ? 'កម្រិតមធ្យម (Moderate)' : 'Moderate / Medium'}
                 </span>
+                {/* <span className="px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider bg-amber-500/20 text-black border border-amber-500/40 font-khmer flex items-center gap-1">
+                  ⚖️ {language === 'kh' ? 'កម្រិតមធ្យម (Moderate)' : 'Moderate / Medium'}
+                </span> */}
                 <span className="text-xl">🥈</span>
               </div>
               <div className="mt-3">
@@ -1238,14 +1244,14 @@ const Reports = () => {
                   {rankingAnalysis.medium ? rankingAnalysis.medium.displayName : '-'}
                 </h3>
                 <div className="flex items-baseline gap-2 mt-1">
-                  <span className="text-2xl font-black font-mono text-amber-400">
+                  <span className="text-2xl font-black font-mono text-black-400">
                     {rankingAnalysis.medium ? currentMetricConfig.formatValue(rankingAnalysis.medium[currentMetricConfig.key]) : '0'}
                   </span>
                   <span className="text-xs text-slate-400 font-khmer">
                     ({rankingAnalysis.medium && currentMetricConfig.totalValue > 0 ? Math.round((rankingAnalysis.medium[currentMetricConfig.key] / currentMetricConfig.totalValue) * 100) : 0}%)
                   </span>
                 </div>
-                <p className="text-[11px] text-slate-400 mt-2 font-mono">
+                <p className="text-[11px] text-slate-400 mt-2 font-medium">
                   បុគ្គលិក: {rankingAnalysis.medium ? rankingAnalysis.medium.employeeCount : 0} នាក់ • មធ្យម: {rankingAnalysis.medium ? (compareMode === 'hours' ? formatHMn(rankingAnalysis.medium[currentMetricConfig.key] / Math.max(rankingAnalysis.medium.employeeCount, 1)) : `${(rankingAnalysis.medium[currentMetricConfig.key] / Math.max(rankingAnalysis.medium.employeeCount, 1)).toFixed(1)} ${currentMetricConfig.unit}`) : 0}/នាក់
                 </p>
               </div>
@@ -1256,8 +1262,11 @@ const Reports = () => {
               <div className="absolute top-0 right-0 transform translate-x-2 -translate-y-2 w-20 h-20 bg-emerald-500/10 rounded-full blur-xl pointer-events-none"></div>
               <div className="flex items-center justify-between">
                 <span className="px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider bg-emerald-500/20 text-black dark:text-emerald-300 border border-emerald-500/30 font-khmer flex items-center gap-1">
-                  🏆 {language === 'kh' ? 'តិចជាងគេ / ល្អបំផុត (Lowest)' : 'Lowest / Best Compliance'}
+                  {language === 'kh' ? 'តិចជាងគេ / ល្អបំផុត (Lowest)' : 'Lowest / Best Compliance'}
                 </span>
+                {/* <span className="px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider bg-emerald-500/20 text-black dark:text-emerald-300 border border-emerald-500/30 font-khmer flex items-center gap-1">
+                  🏆 {language === 'kh' ? 'តិចជាងគេ / ល្អបំផុត (Lowest)' : 'Lowest / Best Compliance'}
+                </span> */}
                 <span className="text-xl">🎖️</span>
               </div>
               <div className="mt-3">
@@ -1265,14 +1274,14 @@ const Reports = () => {
                   {rankingAnalysis.lowest.displayName}
                 </h3>
                 <div className="flex items-baseline gap-2 mt-1">
-                  <span className="text-2xl font-black font-mono text-emerald-400">
+                  <span className="text-2xl font-black font-mono text-black-400">
                     {currentMetricConfig.formatValue(rankingAnalysis.lowest[currentMetricConfig.key])}
                   </span>
                   <span className="text-xs text-slate-400 font-khmer">
                     ({currentMetricConfig.totalValue > 0 ? Math.round((rankingAnalysis.lowest[currentMetricConfig.key] / currentMetricConfig.totalValue) * 100) : 0}%)
                   </span>
                 </div>
-                <p className="text-[11px] text-slate-400 mt-2 font-mono">
+                <p className="text-[11px] text-slate-400 mt-2 font-medium">
                   បុគ្គលិក: {rankingAnalysis.lowest.employeeCount} នាក់ • មធ្យម: {compareMode === 'hours' ? formatHMn(rankingAnalysis.lowest[currentMetricConfig.key] / Math.max(rankingAnalysis.lowest.employeeCount, 1)) : `${(rankingAnalysis.lowest[currentMetricConfig.key] / Math.max(rankingAnalysis.lowest.employeeCount, 1)).toFixed(1)} ${currentMetricConfig.unit}`}/នាក់
                 </p>
               </div>
@@ -1281,7 +1290,7 @@ const Reports = () => {
         )}
 
         {/* Smart AI-like Summary Insights Banner */}
-        {rankingAnalysis && selectedMetric !== 'all' && (
+        {/* {rankingAnalysis && selectedMetric !== 'all' && (
           <div className="bg-slate-950/60 border border-white/5 rounded-2xl p-4 flex items-start gap-3">
             <div className="p-2 bg-indigo-500/10 text-indigo-400 rounded-xl flex-shrink-0 mt-0.5">
               <SparklesIcon className="h-5 w-5" />
@@ -1313,7 +1322,7 @@ const Reports = () => {
               </p>
             </div>
           </div>
-        )}
+        )} */}
 
         {/* Comparative Department Rankings Section (Selectable: Vertical Chart vs Horizontal Bars) */}
         {selectedMetric !== 'all' ? (

@@ -592,25 +592,22 @@ const KioskSettings = () => {
     ctx.font = '500 20px "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
     ctx.fillStyle = '#64748b';
     ctx.fillText('Employee Attendance Management System', width / 2, inst2Y);
-
     // 12. Monospace Code Tag Pill
-    const codePillY = inst2Y + 36;
-    const codePillW = 340;
-    const codePillH = 48;
-    const codePillX = width / 2 - codePillW / 2;
-
-    ctx.beginPath();
-    drawRoundedRect(ctx, codePillX, codePillY, codePillW, codePillH, 24);
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.96)';
-    ctx.fill();
-    ctx.lineWidth = 1.5;
-    ctx.strokeStyle = '#cbd5e1';
-    ctx.stroke();
-
-    ctx.font = 'bold 22px "SFMono-Regular", Consolas, "Liberation Mono", Menlo, Courier, monospace';
-    ctx.fillStyle = '#334155';
+    // const codePillY = inst2Y + 36;
+    // const codePillW = 340;
+    // const codePillH = 48;
+    // const codePillX = width / 2 - codePillW / 2;
+    // ctx.beginPath();
+    // drawRoundedRect(ctx, codePillX, codePillY, codePillW, codePillH, 24);
+    // ctx.fillStyle = 'rgba(255, 255, 255, 0.96)';
+    // ctx.fill();
+    // ctx.lineWidth = 1.5;
+    // ctx.strokeStyle = '#cbd5e1';
+    // ctx.stroke();
+    // ctx.font = 'bold 22px "SFMono-Regular", Consolas, "Liberation Mono", Menlo, Courier, monospace';
+    // ctx.fillStyle = '#334155';
     //ctx.fillText(`branch_qr:${branch.id}`, width / 2, codePillY + codePillH / 2);
-    ctx.fillText(`branch qr:${branch.name}`, width / 2, codePillY + codePillH / 2);
+    // ctx.fillText(`branch qr:${branch.name}`, width / 2, codePillY + codePillH / 2);
     ctx.restore();
 
     return canvas;
@@ -770,11 +767,11 @@ const KioskSettings = () => {
             <h1 className="text-xl font-bold text-white font-khmer">
               {isKhmer ? 'ការកំណត់ទីតាំងសាខា (Branch Settings)' : 'Branch & Geofence Settings'}
             </h1>
-            <p className="text-xs text-slate-400 mt-0.5 font-khmer">
+            {/* <p className="text-xs text-slate-400 mt-0.5 font-khmer">
               {isKhmer
                 ? 'គ្រប់គ្រងទីតាំង Geofences និងកម្រិតកាំ (Radius) សម្រាប់គណនាវត្តមានតាមសាខាផ្សេងៗ។'
                 : 'Manage branch geofence coordinates and allowed radius for attendance check-ins.'}
-            </p>
+            </p> */}
           </div>
         </div>
 
@@ -1035,7 +1032,7 @@ const KioskSettings = () => {
                 <input
                   id="geofence-name"
                   type="text"
-                  placeholder={isKhmer ? "ឧ. ការិយាល័យកណ្តាល (Phnom Penh HQ)" : "e.g. Phnom Penh HQ"}
+                  placeholder={isKhmer ? "ឧ. ការិយាល័យកណ្តាល (Phnom Penh HQ)" : "Ex. Phnom Penh "}
                   value={name}
                   disabled={selectedId ? !canEdit : !canAdd}
                   onChange={(e) => setName(e.target.value)}
@@ -1271,9 +1268,12 @@ const KioskSettings = () => {
                 <p className="relative z-10 mt-5 text-[12px] sm:text-[12.5px] font-bold text-[#1e293b] text-center px-3 leading-tight">
                   Please scan this QR code with your mobile app to check in
                 </p>
-                <p className="relative z-10 mt-1 text-[10px] sm:text-[10.5px] font-medium text-slate-500 text-center">
+                <p className="relative z-10 mt-1 text-[10px] sm:text-[10.5px] font-medium font-bold  text-slate-500 text-center">
                   Employee Attendance Management System
                 </p>
+                {/* <p className="relative z-10 mt-1 inline-block text-[10px] sm:text-[10.5px] font-bold text-slate-500 text-center border border-slate-200 rounded-full px-2.5 py-0.5 bg-slate-50">
+                  Employee Attendance Management System
+                </p> */}
 
                 {/* Monospace Code Tag Pill */}
                 {/* <div className="relative z-10 mt-3 inline-flex items-center justify-center px-6 py-1.5 rounded-full bg-white/95 border border-slate-200/90 shadow-xs">

@@ -166,7 +166,7 @@ const LeaveTypes = () => {
   return (
     <div className="space-y-6">
       {/* Header Banner */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center glass-card p-6 rounded-2xl glow-indigo gap-4">
         <div className="flex items-center gap-3">
           <div className="p-2.5 rounded-xl bg-indigo-500/10 border border-indigo-500/20">
             <Cog6ToothIcon className="h-6 w-6 text-indigo-400" />
@@ -285,8 +285,8 @@ const LeaveTypes = () => {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-fade-in">
           <div className="w-full max-w-md bg-slate-900 border border-white/10 rounded-2xl overflow-hidden shadow-2xl p-6 relative">
             <h3 className="text-base font-bold text-white font-khmer border-b border-white/5 pb-2 mb-4">
-              {editId 
-                ? (isKh ? '📝 កែប្រែប្រភេទច្បាប់' : '📝 Edit Leave Type') 
+              {editId
+                ? (isKh ? '📝 កែប្រែប្រភេទច្បាប់' : '📝 Edit Leave Type')
                 : (isKh ? '➕ បន្ថែមប្រភេទច្បាប់ថ្មី' : '➕ Add New Leave Type')}
             </h3>
 

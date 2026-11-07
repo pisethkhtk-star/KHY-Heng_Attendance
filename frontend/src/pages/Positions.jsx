@@ -94,7 +94,7 @@ const Positions = () => {
       <div className="flex justify-between items-center glass-card p-6 rounded-2xl glow-indigo">
         <div>
           <h2 className="text-xl font-bold text-white font-khmer">{t("positions")}</h2>
-          <p className="text-slate-400 text-xs mt-1">Manage corporate organizational positions</p>
+          {/* <p className="text-slate-400 text-xs mt-1">Manage corporate organizational positions</p> */}
         </div>
         <button
           onClick={handleOpenAddModal}

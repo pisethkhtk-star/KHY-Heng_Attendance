@@ -74,10 +74,10 @@ const Permissions = () => {
   };
 
   const defaultRoles = [
-    { key: 'Admin', label: 'Admin 👑', descKh: 'សិទ្ធិពេញលេញលើប្រព័ន្ធទាំងអស់', descEn: 'Full system administrative access' },
-    { key: 'HR', label: 'HR 💼', descKh: 'គ្រប់គ្រងបុគ្គលិក វត្តមាន និងច្បាប់', descEn: 'Manage staff, attendance & policies' },
-    { key: 'Manager', label: 'Manager 👔', descKh: 'អនុម័តច្បាប់ ថែមម៉ោង និងមើលក្រុម', descEn: 'Approve leaves, overtime & reports' },
-    { key: 'Employee', label: 'Employee 👤', descKh: 'កត់ត្រាវត្តមាន ស្នើសុំច្បាប់ និង OT', descEn: 'Daily check-in & self-service' }
+    { key: 'Admin', label: 'Admin ', descKh: 'សិទ្ធិពេញលេញលើប្រព័ន្ធទាំងអស់', descEn: 'Full system administrative access' },
+    { key: 'HR', label: 'HR ', descKh: 'គ្រប់គ្រងបុគ្គលិក វត្តមាន និងច្បាប់', descEn: 'Manage staff, attendance & policies' },
+    { key: 'Manager', label: 'Manager ', descKh: 'អនុម័តច្បាប់ ថែមម៉ោង និងមើលក្រុម', descEn: 'Approve leaves, overtime & reports' },
+    { key: 'Employee', label: 'Employee ', descKh: 'កត់ត្រាវត្តមាន ស្នើសុំច្បាប់ និង OT', descEn: 'Daily check-in & self-service' }
   ];
 
   const roles = useMemo(() => {
@@ -453,7 +453,7 @@ const Permissions = () => {
         }
       ]
     },
-        {
+    {
       key: 'kiosk_group',
       labelEn: 'Branch Offices & Kiosk Terminals',
       labelKh: 'សាខាក្រុមហ៊ុន & ម៉ាស៊ីនស្កេនវត្តមាន (Kiosk)',
@@ -561,22 +561,22 @@ const Permissions = () => {
       ]
     },
     ...(SHOW_PAYROLL ? [
-    {
-      key: 'payroll_group',
-      labelEn: 'Payroll & Compensation',
-      labelKh: 'ប្រព័ន្ធបើកប្រាក់ខែ & បុគ្គលិក',
-      icon: BanknotesIcon,
-      modules: [
-        {
-          key: 'payroll',
-          labelEn: 'Payroll System',
-          labelKh: 'ប្រព័ន្ធបើកប្រាក់ខែ (Payroll System)',
-          descEn: 'Calculate monthly payroll, manage salary profiles, view payslips and bank export',
-          descKh: 'គណនាប្រាក់ខែប្រចាំខែ គ្រប់គ្រងរចនាសម្ព័ន្ធប្រាក់ខែ ប័ណ្ណបើកប្រាក់ខែ និង Export ធនាគារ',
-          actions: []
-        }
-      ]
-    }
+      {
+        key: 'payroll_group',
+        labelEn: 'Payroll & Compensation',
+        labelKh: 'ប្រព័ន្ធបើកប្រាក់ខែ & បុគ្គលិក',
+        icon: BanknotesIcon,
+        modules: [
+          {
+            key: 'payroll',
+            labelEn: 'Payroll System',
+            labelKh: 'ប្រព័ន្ធបើកប្រាក់ខែ (Payroll System)',
+            descEn: 'Calculate monthly payroll, manage salary profiles, view payslips and bank export',
+            descKh: 'គណនាប្រាក់ខែប្រចាំខែ គ្រប់គ្រងរចនាសម្ព័ន្ធប្រាក់ខែ ប័ណ្ណបើកប្រាក់ខែ និង Export ធនាគារ',
+            actions: []
+          }
+        ]
+      }
     ] : []),
     {
       key: 'system_group',
@@ -1247,18 +1247,18 @@ const Permissions = () => {
 
         <div className="relative z-10 flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6">
           <div>
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-500/15 border border-indigo-500/30 text-indigo-300 text-xs font-semibold mb-3">
+            {/* <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-500/15 border border-indigo-500/30 text-indigo-300 text-xs font-semibold mb-3">
               <ShieldCheckIcon className="h-4 w-4" />
               <span>{language === 'kh' ? 'ប្រព័ន្ធគ្រប់គ្រងសិទ្ធិសុវត្ថិភាពកម្រិតខ្ពស់' : 'Hierarchical RBAC Permission System'}</span>
-            </div>
+            </div> */}
             <h1 className="text-2xl md:text-3xl font-black text-white font-khmer tracking-tight">
               {t("permissions")}
             </h1>
-            <p className="text-slate-400 text-xs md:text-sm mt-1.5 font-khmer max-w-2xl leading-relaxed">
+            {/* <p className="text-slate-400 text-xs md:text-sm mt-1.5 font-khmer max-w-2xl leading-relaxed">
               {language === 'kh'
                 ? 'កំណត់ និងគ្រប់គ្រងសិទ្ធិប្រើប្រាស់ប្រព័ន្ធយ៉ាងលម្អិត ដោយបែងចែកតាមទំព័រនីមួយៗ និងមាន Dropdown បង្ហាញសិទ្ធិ Add, Edit, Delete យ៉ាងមានរបៀប។'
                 : 'Configure fine-grained system access organized with collapsible dropdown actions (Add, Edit, Delete) per page and module.'}
-            </p>
+            </p> */}
           </div>
 
           {/* Quick Metrics */}
@@ -1284,8 +1284,8 @@ const Permissions = () => {
             type="button"
             onClick={() => { setActiveTab('roles'); setSuccessMsg(''); setErrorMsg(''); }}
             className={`flex items-center gap-2.5 py-2.5 px-5 rounded-xl text-xs md:text-sm font-bold transition-all cursor-pointer font-khmer border ${activeTab === 'roles'
-                ? 'bg-gradient-to-r from-indigo-500 to-purple-600 border-indigo-400/50 text-white shadow-lg shadow-indigo-500/25'
-                : 'bg-slate-950/40 border-white/10 text-slate-400 hover:text-white hover:bg-white/5'
+              ? 'bg-gradient-to-r from-indigo-500 to-purple-600 border-indigo-400/50 text-white shadow-lg shadow-indigo-500/25'
+              : 'bg-slate-950/40 border-white/10 text-slate-400 hover:text-white hover:bg-white/5'
               }`}
           >
             <ShieldCheckIcon className="h-4 w-4" />
@@ -1296,8 +1296,8 @@ const Permissions = () => {
             type="button"
             onClick={() => { setActiveTab('employees'); setSuccessMsg(''); setErrorMsg(''); }}
             className={`flex items-center gap-2.5 py-2.5 px-5 rounded-xl text-xs md:text-sm font-bold transition-all cursor-pointer font-khmer border ${activeTab === 'employees'
-                ? 'bg-gradient-to-r from-indigo-500 to-purple-600 border-indigo-400/50 text-white shadow-lg shadow-indigo-500/25'
-                : 'bg-slate-950/40 border-white/10 text-slate-400 hover:text-white hover:bg-white/5'
+              ? 'bg-gradient-to-r from-indigo-500 to-purple-600 border-indigo-400/50 text-white shadow-lg shadow-indigo-500/25'
+              : 'bg-slate-950/40 border-white/10 text-slate-400 hover:text-white hover:bg-white/5'
               }`}
           >
             <UserIcon className="h-4 w-4" />
@@ -1383,8 +1383,8 @@ const Permissions = () => {
                     type="button"
                     onClick={() => setSelectedRoleFilter(rf)}
                     className={`py-1.5 px-3 rounded-lg font-bold transition-all cursor-pointer border-none ${selectedRoleFilter === rf
-                        ? 'bg-indigo-500 text-white shadow-sm'
-                        : 'text-slate-400 hover:text-white hover:bg-white/5'
+                      ? 'bg-indigo-500 text-white shadow-sm'
+                      : 'text-slate-400 hover:text-white hover:bg-white/5'
                       }`}
                   >
                     {rf}
@@ -1444,20 +1444,20 @@ const Permissions = () => {
                           <th key={role.key} className="py-4 px-6 text-center font-khmer whitespace-nowrap font-bold min-w-[130px]">
                             <div className="flex flex-col items-center gap-1">
                               <span className={`text-xs px-2.5 py-0.5 rounded-lg border font-bold ${isAdmin
-                                  ? 'bg-amber-500/15 border-amber-500/30 text-amber-300'
-                                  : role.key === 'HR'
-                                    ? 'bg-blue-500/15 border-blue-500/30 text-blue-300'
-                                    : role.key === 'Manager'
-                                      ? 'bg-purple-500/15 border-purple-500/30 text-purple-300'
-                                      : 'bg-slate-500/15 border-slate-500/30 text-slate-300'
+                                ? 'bg-amber-500/15 border-amber-500/30 text-black-300 '
+                                : role.key === 'HR'
+                                  ? 'bg-blue-500/15 border-blue-500/30 text-black-300'
+                                  : role.key === 'Manager'
+                                    ? 'bg-purple-500/15 border-purple-500/30 text-black-300'
+                                    : 'bg-slate-500/15 border-slate-500/30 text-black-300'
                                 }`}>
                                 {role.label}
                               </span>
-                              {isAdmin && (
+                              {/* {isAdmin && (
                                 <span className="text-[10px] text-slate-500 lowercase flex items-center gap-0.5">
                                   <LockClosedIcon className="h-3 w-3" /> Full
                                 </span>
-                              )}
+                              )} */}
                             </div>
                           </th>
                         );
@@ -1822,8 +1822,8 @@ const Permissions = () => {
                           key={emp.id || emp.staffId}
                           onClick={() => selectEmployee(emp)}
                           className={`py-3 px-4 text-xs cursor-pointer transition-all flex items-center justify-between ${isSelected
-                              ? 'bg-indigo-600 text-white font-bold'
-                              : 'text-slate-300 hover:bg-white/5 hover:text-white'
+                            ? 'bg-indigo-600 text-white font-bold'
+                            : 'text-slate-300 hover:bg-white/5 hover:text-white'
                             }`}
                         >
                           <div className="flex items-center gap-3 truncate">
@@ -2152,10 +2152,10 @@ const Permissions = () => {
                           </span>
                           <span>{groupLabel}</span>
                           <span className={`text-xs px-2.5 py-0.5 rounded-full font-mono font-bold ${allChecked
-                              ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
-                              : checkedCount > 0
-                                ? 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/30'
-                                : 'bg-white/5 text-slate-400'
+                            ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                            : checkedCount > 0
+                              ? 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/30'
+                              : 'bg-white/5 text-slate-400'
                             }`}>
                             {checkedCount}/{groupKeys.length}
                           </span>
@@ -2229,8 +2229,8 @@ const Permissions = () => {
                                         type="button"
                                         onClick={(e) => toggleModuleDropdown(mod.key, e)}
                                         className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-bold font-khmer transition-all cursor-pointer ${isModExpanded
-                                            ? 'bg-indigo-600/20 border-indigo-500/40 text-indigo-300'
-                                            : 'bg-white/5 border-white/10 text-slate-400 hover:text-white hover:bg-white/10'
+                                          ? 'bg-indigo-600/20 border-indigo-500/40 text-indigo-300'
+                                          : 'bg-white/5 border-white/10 text-slate-400 hover:text-white hover:bg-white/10'
                                           }`}
                                       >
                                         <span>{language === 'kh' ? 'សកម្មភាព' : 'Actions'}</span>
@@ -2268,8 +2268,8 @@ const Permissions = () => {
                                           key={act.key}
                                           onClick={() => handleToggleEmpPermission(act.key)}
                                           className={`p-3 rounded-xl border transition-all cursor-pointer flex items-start justify-between gap-2.5 ${isActChecked
-                                              ? 'bg-indigo-600/15 border-indigo-500/40 shadow-sm'
-                                              : 'bg-slate-900/40 border-white/5 hover:border-white/20'
+                                            ? 'bg-indigo-600/15 border-indigo-500/40 shadow-sm'
+                                            : 'bg-slate-900/40 border-white/5 hover:border-white/20'
                                             }`}
                                         >
                                           <div className="space-y-1 flex-1">

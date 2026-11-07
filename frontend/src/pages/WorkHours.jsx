@@ -130,17 +130,21 @@ const WorkHours = () => {
   return (
     <div className="max-w-4xl mx-auto space-y-6">
       {/* Header Banner */}
-      <div className="flex items-center gap-3">
-        <div className="p-2.5 rounded-xl bg-indigo-500/10 border border-indigo-500/20">
-          <ClockIcon className="h-6 w-6 text-indigo-400" />
-        </div>
-        <div>
-          <h1 className="text-xl font-bold text-white font-khmer">Company Work Hours</h1>
-          <p className="text-xs text-slate-400 mt-0.5 font-khmer">
-            {isFlexible ? t("flexibleHoursDesc") : t("fixedShiftsDesc")}
-          </p>
+      <div className='flex justify-between items-center glass-card p-6 rounded-2xl glow-indigo'>
+        <div className="flex items-center gap-3">
+          <div className="p-2.5 rounded-xl bg-indigo-500/10 border border-indigo-500/20">
+            <ClockIcon className="h-6 w-6 text-indigo-400" />
+          </div>
+          <div>
+            <h1 className="text-xl font-bold text-white font-khmer">Company Work Hours</h1>
+            <p className="text-xs text-slate-400 mt-0.5 font-khmer">
+              {/* {isFlexible ? t("flexibleHoursDesc") : t("fixedShiftsDesc")} */}
+            </p>
+          </div>
         </div>
       </div>
+
+
 
       {/* Messages */}
       {successMsg && (
@@ -160,8 +164,8 @@ const WorkHours = () => {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-2xl bg-slate-950/60 border border-indigo-500/20">
           <div className="flex items-center gap-3">
             <div className={`p-2.5 rounded-xl border transition-all ${isFlexible
-                ? 'bg-purple-500/20 border-purple-500/40 text-purple-300'
-                : 'bg-indigo-500/10 border-indigo-500/20 text-indigo-400'
+              ? 'bg-purple-500/20 border-purple-500/40 text-purple-300'
+              : 'bg-indigo-500/10 border-indigo-500/20 text-indigo-400'
               }`}>
               {isFlexible ? (
                 <CalendarDaysIcon className="h-6 w-6 text-purple-400" />
@@ -180,9 +184,9 @@ const WorkHours = () => {
                   </span>
                 )}
               </div>
-              <p className="text-[11px] text-slate-400 font-khmer mt-0.5">
+              {/* <p className="text-[11px] text-slate-400 font-khmer mt-0.5">
                 {t("flexibleHoursDesc")}
-              </p>
+              </p> */}
             </div>
           </div>
 
@@ -213,9 +217,9 @@ const WorkHours = () => {
             <div className="space-y-6 animate-fade-in">
               {/* Working Days Checkboxes (Monday - Sunday) */}
               <div className="space-y-2">
-                <label className="block text-xs font-semibold text-slate-400 uppercase font-khmer">
+                {/* <label className="block text-xs font-semibold text-slate-400 uppercase font-khmer">
                   {t("workingDaysWeekly")} * ({language === 'kh' ? 'ជ្រើសរើសថ្ងៃធ្វើការប្រចាំសប្ដាហ៍' : 'Select working days of the week'})
-                </label>
+                </label> */}
                 <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-7 gap-2.5 p-3.5 bg-slate-950/60 border border-white/10 rounded-xl">
                   {WEEKDAYS.map(day => {
                     const isChecked = workingDays.includes(day.key);
@@ -245,9 +249,9 @@ const WorkHours = () => {
                   <h3 className="text-sm font-bold text-white font-khmer">
                     {t("shiftConfig")}
                   </h3>
-                  <p className="text-[11px] text-slate-400 font-khmer mt-0.5">
+                  {/* <p className="text-[11px] text-slate-400 font-khmer mt-0.5">
                     {enableShift2 ? t("twoShiftsDesc") : t("singleShift")}
-                  </p>
+                  </p> */}
                 </div>
 
                 {/* 1 Shift / 2 Shifts Switch Toggle */}
@@ -423,8 +427,8 @@ const WorkHours = () => {
                       type="button"
                       onClick={() => setLateGraceMinutes(mins)}
                       className={`px-2.5 py-1.5 text-xs rounded-lg font-bold transition-all cursor-pointer font-mono ${lateGraceMinutes === mins
-                          ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
-                          : 'bg-slate-900/60 hover:bg-slate-900 text-slate-300 border border-white/10'
+                        ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
+                        : 'bg-slate-900/60 hover:bg-slate-900 text-slate-300 border border-white/10'
                         }`}
                     >
                       {mins === 0 ? '0m (Off)' : `${mins}mn`}
@@ -435,11 +439,11 @@ const WorkHours = () => {
             </div>
 
             {/* Example Description Note */}
-            <div className="p-3 rounded-lg bg-indigo-500/5 border border-indigo-500/10 text-[11px] text-slate-300 font-khmer leading-relaxed">
+            {/* <div className="p-3 rounded-lg bg-indigo-500/5 border border-indigo-500/10 text-[11px] text-slate-300 font-khmer leading-relaxed">
               💡 <strong>{language === 'kh' ? 'ឧទាហរណ៍៖' : 'Example:'}</strong> {language === 'kh'
                 ? `បើកំណត់ ${lateGraceMinutes} នាទី ហើយវេនទី ១ ចាប់ផ្ដើមម៉ោង ${shift1Start || '08:00'} នោះបុគ្គលិកដែលស្កេនចូលមុន ឬត្រឹមម៉ោង ${shift1Start || '08:00'} + ${lateGraceMinutes}mn គឺមិនទាន់រាប់ថាយឺតទេ (មិនលោតផ្ទាំងបំពេញមូលហេតុយឺតឡើយ)។ លុះត្រាតែស្កេនចាប់ពី ១ នាទីក្រោយមកទៀត ទើបប្រព័ន្ធរាប់ថាមកយឺត និងតម្រូវឱ្យ Submit មូលហេតុ។`
                 : `If set to ${lateGraceMinutes} minutes and Shift 1 starts at ${shift1Start || '08:00'}, check-in up to ${lateGraceMinutes} minutes after shift start is NOT considered late and will not trigger late modal. Check-in after that is marked late.`}
-            </div>
+            </div> */}
           </div>
 
           {/* Alert Note info */}

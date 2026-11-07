@@ -731,7 +731,7 @@ const ApprovalManage = () => {
           : 'border-emerald-500/30 shadow-emerald-500/10'
         }`}>
         <div>
-          <div className="flex items-center gap-2 mb-1">
+          {/* <div className="flex items-center gap-2 mb-1">
             <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold font-mono uppercase tracking-wider ${activeCategory === 'LEAVE'
               ? 'bg-indigo-500/20 text-black dark:text-indigo-300 border border-indigo-500/30'
               : activeCategory === 'OVERTIME'
@@ -744,7 +744,7 @@ const ApprovalManage = () => {
                   ? 'Overtime Approval Rules'
                   : 'Check-in on Behalf Permissions'}
             </span>
-          </div>
+          </div> */}
           <h2 className="text-xl font-bold text-white font-khmer">
             {activeCategory === 'LEAVE'
               ? (isKhmer ? 'កំណត់អ្នកអនុម័តច្បាប់ឈប់សម្រាក' : 'Leave Approval Management')
@@ -752,13 +752,13 @@ const ApprovalManage = () => {
                 ? (isKhmer ? 'កំណត់អ្នកអនុម័តការថែមម៉ោង (Overtime)' : 'Overtime Approval Management')
                 : (isKhmer ? 'កំណត់សិទ្ធិចុះវត្តមានជំនួស (Check-in on Behalf)' : 'Check-in on Behalf Permissions')}
           </h2>
-          <p className="text-xs text-slate-400 mt-1 font-khmer">
+          {/* <p className="text-xs text-slate-400 mt-1 font-khmer">
             {activeCategory === 'LEAVE'
               ? (isKhmer ? 'កំណត់បុគ្គលិក ឬដេប៉ាតឺម៉ង់ណាដែលត្រូវអនុម័តច្បាប់ឈប់សម្រាករបស់បុគ្គលិក' : 'Assign designated managers to review and approve leave requests for specific employees or departments')
               : activeCategory === 'OVERTIME'
                 ? (isKhmer ? 'កំណត់បុគ្គលិក ឬដេប៉ាតឺម៉ង់ណាដែលត្រូវអនុម័តការថែមម៉ោង (OT) របស់បុគ្គលិក' : 'Assign designated managers to review and approve overtime requests for specific employees or departments')
                 : (isKhmer ? 'កំណត់បុគ្គលិកដែលមានសិទ្ធិចុះវត្តមានស្កេន Check In/Out ជំនួសបុគ្គលិក ឬដេប៉ាតឺម៉ង់ជាក់លាក់' : 'Assign authorized employees who can check in attendance on behalf of specific employees or departments')}
-          </p>
+          </p> */}
         </div>
         <div className="flex items-center gap-3">
           {/* Tree View Toggle Button */}
@@ -916,10 +916,10 @@ const ApprovalManage = () => {
                     <tr>
                       <td colSpan={(canEditCurrent || canDeleteCurrent) ? 5 : 4} className="py-6 text-center text-slate-500 font-khmer">
                         {activeCategory === 'LEAVE'
-                          ? 'មិនទាន់មានច្បាប់កំណត់អ្នកអនុម័តច្បាប់នៅឡើយទេ'
+                          ? 'Permissions for Leave approval have not yet been set'
                           : activeCategory === 'OVERTIME'
-                            ? 'មិនទាន់មានច្បាប់កំណត់អ្នកអនុម័តថែមម៉ោងនៅឡើយទេ'
-                            : 'មិនទាន់មានការកំណត់សិទ្ធិចុះវត្តមានជំនួសនៅឡើយទេ'}
+                            ? 'Permissions for Overtime approval have not yet been set. '
+                            : 'Permissions for Check on behalf have not yet been set'}
                       </td>
                     </tr>
                   ) : (

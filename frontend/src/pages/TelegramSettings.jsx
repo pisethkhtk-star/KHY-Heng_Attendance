@@ -155,19 +155,21 @@ const TelegramSettings = () => {
   return (
     <div className="max-w-4xl mx-auto space-y-6">
       {/* Header Banner */}
-      <div className="flex items-center gap-3">
-        <div className="p-2.5 rounded-xl bg-indigo-500/10 border border-indigo-500/20">
-          <PaperAirplaneIcon className="h-6 w-6 text-indigo-400 -rotate-45" />
-        </div>
-        <div>
-          <h1 className="text-xl font-bold text-white font-khmer">
-            {language === 'kh' ? 'ការកំណត់ Telegram Notification Groups' : 'Telegram Notification Channels'}
-          </h1>
-          <p className="text-xs text-slate-400 mt-0.5 font-khmer">
+      <div className='flex flex-col md:flex-row md:items-center md:justify-between gap-4 bg-[var(--bg-card)] border border-[var(--border-card)] p-6 rounded-2xl shadow-sm'>
+        <div className="flex items-center gap-3">
+          <div className="p-2.5 rounded-xl bg-indigo-500/10 border border-indigo-500/20">
+            <PaperAirplaneIcon className="h-6 w-6 text-indigo-400 -rotate-45" />
+          </div>
+          <div>
+            <h1 className="text-xl font-bold text-white font-khmer">
+              {language === 'kh' ? 'ការកំណត់ Telegram Notification Groups' : 'Telegram Notification Channels'}
+            </h1>
+            {/* <p className="text-xs text-slate-400 mt-0.5 font-khmer">
             {language === 'kh'
               ? 'បែងចែកការផ្ញើសារជូនដំណឹងដោយស្វ័យប្រវត្តរវាង វត្តមាន (Attendance) និង ច្បាប់ឈប់សម្រាក (Leave Requests)'
               : 'Configure dedicated Telegram groups for Attendance check-ins and Leave requests'}
-          </p>
+          </p> */}
+          </div>
         </div>
       </div>
 
@@ -244,11 +246,11 @@ const TelegramSettings = () => {
                         </span>
                       )}
                     </div>
-                    <p className="text-[11px] text-slate-400 font-khmer mt-0.5">
+                    {/* <p className="text-[11px] text-slate-400 font-khmer mt-0.5">
                       {language === 'kh'
                         ? 'ផ្ញើសាររាល់ពេលបុគ្គលិកស្កេន Check In 1/2 ឬ Check Out 1/2'
                         : 'Dispatches real-time alerts on Check-In and Check-Out scans'}
-                    </p>
+                    </p> */}
                   </div>
                 </div>
 
@@ -392,11 +394,11 @@ const TelegramSettings = () => {
                         </span>
                       )}
                     </div>
-                    <p className="text-[11px] text-slate-400 font-khmer mt-0.5">
+                    {/* <p className="text-[11px] text-slate-400 font-khmer mt-0.5">
                       {language === 'kh'
                         ? 'ផ្ញើសារទៅកាន់ Group របស់ថ្នាក់ដឹកនាំ/HR រាល់ពេលមានបុគ្គលិកសុំច្បាប់ ឬអនុម័តច្បាប់'
                         : 'Alerts management/HR group whenever an employee requests or gets leave approved'}
-                    </p>
+                    </p> */}
                   </div>
                 </div>
 
@@ -476,7 +478,7 @@ const TelegramSettings = () => {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <label className="p-3.5 rounded-xl border border-white/5 bg-slate-900/60 flex items-center justify-between cursor-pointer hover:border-indigo-500/30 transition-all">
                     <div>
-                      <p className="text-xs font-bold text-white font-khmer">🌴 {language === 'kh' ? 'ពេលបុគ្គលិកស្នើសុំច្បាប់' : 'On Leave Request'}</p>
+                      <p className="text-xs font-bold text-white font-khmer"> {language === 'kh' ? 'ពេលបុគ្គលិកស្នើសុំច្បាប់' : 'On Leave Request'}</p>
                       <p className="text-[10px] text-slate-400 font-khmer">{language === 'kh' ? 'ផ្ញើព័ត៌មានសុំច្បាប់ និងមូលហេតុភ្លាមៗ' : 'Alert on new leave submission'}</p>
                     </div>
                     <input
@@ -489,7 +491,7 @@ const TelegramSettings = () => {
 
                   <label className="p-3.5 rounded-xl border border-white/5 bg-slate-900/60 flex items-center justify-between cursor-pointer hover:border-indigo-500/30 transition-all">
                     <div>
-                      <p className="text-xs font-bold text-white font-khmer">✅ {language === 'kh' ? 'ពេលអនុម័ត ឬបដិសេធច្បាប់' : 'On Approval / Reject'}</p>
+                      <p className="text-xs font-bold text-white font-khmer"> {language === 'kh' ? 'ពេលអនុម័ត ឬបដិសេធច្បាប់' : 'On Approval / Reject'}</p>
                       <p className="text-[10px] text-slate-400 font-khmer">{language === 'kh' ? 'ផ្ញើសារប្រាប់លទ្ធផលច្បាប់' : 'Alert on status update'}</p>
                     </div>
                     <input

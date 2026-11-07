@@ -1093,7 +1093,7 @@ const Attendance = () => {
       <div className="glass-card p-6 rounded-2xl glow-indigo flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h2 className="text-xl font-bold text-white font-khmer">{t("attendance")}</h2>
-          <p className="text-slate-400 text-xs mt-1">Review check-in history logs and shifts compliance</p>
+          {/* <p className="text-slate-400 text-xs mt-1">Review check-in history logs and shifts compliance</p> */}
         </div>
         <div className="flex gap-2">
           <button
@@ -1980,9 +1980,8 @@ const Attendance = () => {
                         {excelRows.map((r, idx) => (
                           <tr
                             key={idx}
-                            className={`hover:bg-white/5 transition-colors ${
-                              !r.isValid ? 'bg-amber-500/5' : ''
-                            }`}
+                            className={`hover:bg-white/5 transition-colors ${!r.isValid ? 'bg-amber-500/5' : ''
+                              }`}
                           >
                             <td className="px-3 py-2 text-center text-slate-500 font-mono">{r.rowIndex}</td>
                             <td className="px-3 py-2 font-mono font-semibold text-white">{r.staffId || '-'}</td>

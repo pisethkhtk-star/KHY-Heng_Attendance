@@ -446,11 +446,11 @@ const AttendanceEarlyOut = () => {
                 {overallStats.totalCount} {language === 'kh' ? 'ដង' : 'records'}
               </span>
             </h1>
-            <p className="text-xs text-slate-400 mt-0.5 font-khmer">
+            {/* <p className="text-xs text-slate-400 mt-0.5 font-khmer">
               {language === 'kh'
                 ? 'តាមដាន និងគ្រប់គ្រងម៉ោងចេញមុនរបស់បុគ្គលិកនីមួយៗ'
                 : 'Track and review exact early departure duration for each employee'}
-            </p>
+            </p> */}
           </div>
         </div>
 

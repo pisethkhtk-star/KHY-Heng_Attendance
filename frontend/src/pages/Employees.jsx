@@ -1479,7 +1479,7 @@ const Employees = () => {
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center glass-card p-6 rounded-2xl glow-indigo gap-4">
         <div>
           <h2 className="text-xl font-bold text-white font-khmer">{t("employees")}</h2>
-          <p className="text-slate-400 text-xs mt-1">Manage corporate personnel records</p>
+          {/* <p className="text-slate-400 text-xs mt-1">Manage corporate personnel records</p> */}
         </div>
         <div className="flex items-center gap-3">
           <button
@@ -1676,16 +1676,7 @@ const Employees = () => {
                               </button>
                             )}
 
-                            {/* Face Modal button: Admin, and HR for non-admins */}
-                            {(user?.role === 'Admin' || (user?.role === 'HR' && emp.role !== 'Admin')) && (
-                              <button
-                                onClick={() => handleOpenFaceModal(emp)}
-                                className="inline-flex p-2 bg-purple-500/10 text-purple-400 hover:bg-purple-500/25 border border-purple-500/20 rounded-lg transition-colors cursor-pointer"
-                                title="Enroll Face Descriptor"
-                              >
-                                <CameraIcon className="h-4 w-4" />
-                              </button>
-                            )}
+                            {/* Face Modal button (Hidden as requested) */}
 
                             {/* Edit button: Admin (all), HR (self, manager, employee), Manager (self only) */}
                             {canEditEmployee(emp) && (
@@ -2169,7 +2160,7 @@ const Employees = () => {
                           </span>
                         )}
                       </div>
-                      <p className="text-[10px] text-slate-400 font-khmer mt-0.5">{t("flexibleHoursDesc")}</p>
+                      {/* <p className="text-[10px] text-slate-400 font-khmer mt-0.5">{t("flexibleHoursDesc")}</p> */}
                     </div>
                   </div>
 

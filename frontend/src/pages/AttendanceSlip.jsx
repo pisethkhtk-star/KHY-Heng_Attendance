@@ -88,7 +88,7 @@ const AttendanceSlip = () => {
   const [companyWorkHours, setCompanyWorkHours] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  // Filter States
+  // Filter States (Default to full current month)
   const [startDate, setStartDate] = useState(() => {
     const now = new Date();
     const year = now.getFullYear();
@@ -98,9 +98,9 @@ const AttendanceSlip = () => {
   const [endDate, setEndDate] = useState(() => {
     const now = new Date();
     const year = now.getFullYear();
-    const month = String(now.getMonth() + 1).padStart(2, '0');
-    const day = String(now.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
+    const month = now.getMonth() + 1;
+    const lastDay = new Date(year, month, 0).getDate();
+    return `${year}-${String(month).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
   });
   const [filterDept, setFilterDept] = useState('');
   const [filterBranch, setFilterBranch] = useState('');
@@ -383,16 +383,24 @@ const AttendanceSlip = () => {
     const defaultS2End = companyWorkHours?.shift2End || '17:00';
     const grace = Number(companyWorkHours?.lateGraceMinutes) || 0;
 
-    // Build leaves map by staffId
+    // Build leaves map by staffId (matching this month or selected date range)
     const employeeLeavesMap = new Map();
+    const slipMonth = startDate ? startDate.substring(0, 7) : '';
+
     leaves.forEach(lv => {
-      const st = (lv.status || '').toLowerCase();
-      if (st === 'approved') {
-        const sId = lv.staffId || lv.employee?.staffId;
+      const st = (lv.status || '').trim().toLowerCase();
+      // Include approved and pending leaves (exclude rejected only)
+      if (st !== 'rejected') {
+        const sId = String(lv.staffId || lv.employee?.staffId || lv.employeeId || '').trim().toUpperCase();
         if (sId) {
           const rawDate = lv.leaveDate || lv.startDate || lv.createdAt || '';
           const dateStr = typeof rawDate === 'string' ? rawDate.split('T')[0] : '';
-          if (dateStr >= startDate && dateStr <= endDate) {
+
+          // Match if date falls in date range OR in the slip's month (this month)
+          const inDateRange = Boolean(dateStr && dateStr >= startDate && dateStr <= endDate);
+          const inThisMonth = Boolean(slipMonth && dateStr && dateStr.startsWith(slipMonth));
+
+          if (inDateRange || inThisMonth) {
             if (!employeeLeavesMap.has(sId)) {
               employeeLeavesMap.set(sId, []);
             }
@@ -433,9 +441,37 @@ const AttendanceSlip = () => {
       }
     });
 
+    // Dynamic Leave Types from database (fallback to common types if none configured)
+    const activeLeaveTypes = (Array.isArray(leaveTypes) && leaveTypes.length > 0)
+      ? leaveTypes
+      : [
+        { code: 'AL', nameKh: 'ច្បាប់ឈប់សម្រាកប្រចាំឆ្នាំ', nameEn: 'Annual Leave' },
+        { code: 'SL', nameKh: 'ច្បាប់ឈឺ', nameEn: 'Sick Leave' },
+        { code: 'PL', nameKh: 'ច្បាប់ផ្ទាល់ខ្លួន', nameEn: 'Personal Leave' },
+        { code: 'UP', nameKh: 'ច្បាប់មិនគិតប្រាក់ឈ្នួល', nameEn: 'Unpaid Leave' }
+      ];
+
     return filteredEmployees.map(emp => {
       const empLogs = employeeLogsMap.get(emp.staffId) || [];
-      const empLeaves = employeeLeavesMap.get(emp.staffId) || [];
+      const empStaffId = String(emp.staffId || '').trim().toUpperCase();
+      const empIdStr = String(emp.id || '').trim().toUpperCase();
+
+      // Retrieve leaves matching by staffId or employee ID
+      const rawLeaves = [
+        ...(employeeLeavesMap.get(empStaffId) || []),
+        ...(empIdStr && empIdStr !== empStaffId ? (employeeLeavesMap.get(empIdStr) || []) : [])
+      ];
+      // Deduplicate leaves by id
+      const seenLeaveIds = new Set();
+      const empLeaves = [];
+      rawLeaves.forEach(l => {
+        const k = l.id || `${l.staffId}-${l.leaveDate}-${l.leaveType}`;
+        if (!seenLeaveIds.has(k)) {
+          seenLeaveIds.add(k);
+          empLeaves.push(l);
+        }
+      });
+
       const empOvertimes = employeeOvertimesMap.get(emp.staffId) || [];
 
       const s1StartStr = (emp.shift1Start && emp.shift1Start.trim() !== '') ? emp.shift1Start : defaultS1Start;
@@ -670,32 +706,79 @@ const AttendanceSlip = () => {
         }
       });
 
-      // Leave Requests Calculation by Category
-      let annualLeaveDays = 0;
-      let sickLeaveDays = 0;
-      let specialLeaveDays = 0;
-      let maternityLeaveDays = 0;
-      let unpaidLeaveDays = 0;
+      // Dynamic Leave Requests Calculation matching database Leave Types
+      const isLeaveMatchingType = (lv, type) => {
+        const typeCode = (type.code || '').trim().toUpperCase();
+        const typeNameEn = (type.nameEn || '').trim().toLowerCase();
+        const typeNameKh = (type.nameKh || '').trim().toLowerCase();
 
-      empLeaves.forEach(lv => {
-        const days = Number(lv.amountDays) || 1;
-        const code = (lv.leaveTypeCode || lv.leaveType?.code || '').toUpperCase();
-        const name = (lv.leaveType?.nameEn || lv.leaveType?.nameKh || lv.reason || '').toLowerCase();
+        const lvCode = (lv.leaveTypeCode || lv.leaveType?.code || (typeof lv.leaveType === 'string' ? lv.leaveType : '') || '').trim().toUpperCase();
+        const lvNameEn = (lv.leaveType?.nameEn || (typeof lv.leaveType === 'string' ? lv.leaveType : '') || lv.reason || '').trim().toLowerCase();
+        const lvNameKh = (lv.leaveType?.nameKh || (typeof lv.leaveType === 'string' ? lv.leaveType : '') || '').trim().toLowerCase();
+        const lvReason = (lv.reason || '').toLowerCase();
 
-        if (code === 'AL' || name.includes('annual') || name.includes('ប្រចាំឆ្នាំ')) {
-          annualLeaveDays += days;
-        } else if (code === 'SL' || name.includes('sick') || name.includes('ឈឺ')) {
-          sickLeaveDays += days;
-        } else if (code === 'SPL' || name.includes('special') || name.includes('ពិសេស')) {
-          specialLeaveDays += days;
-        } else if (code === 'ML' || name.includes('maternity') || name.includes('សម្រាល')) {
-          maternityLeaveDays += days;
-        } else if (code === 'UP' || name.includes('unpaid') || name.includes('ឥតប្រាក់ឈ្នួល') || name.includes('មិនគិតប្រាក់')) {
-          unpaidLeaveDays += days;
-        } else {
-          annualLeaveDays += days;
+        // 1. Direct code matching
+        if (typeCode && (lvCode === typeCode || lvCode.startsWith(typeCode + ' ') || lvCode.includes(`(${typeCode})`))) {
+          return true;
         }
+
+        // 2. English name match
+        if (typeNameEn && (lvNameEn === typeNameEn || lvNameEn.includes(typeNameEn) || lvReason.includes(typeNameEn))) {
+          return true;
+        }
+
+        // 3. Khmer name match
+        if (typeNameKh && (lvNameKh.includes(typeNameKh) || lvNameEn.includes(typeNameKh) || lvReason.includes(typeNameKh))) {
+          return true;
+        }
+
+        // 4. Aliases for common standard statutory types
+        if (typeCode === 'AL' && (lvNameEn.includes('annual') || lvNameKh.includes('ប្រចាំឆ្នាំ') || lvReason.includes('annual'))) return true;
+        if (typeCode === 'SL' && (lvNameEn.includes('sick') || lvNameKh.includes('ឈឺ') || lvReason.includes('sick'))) return true;
+        if ((typeCode === 'PL' || typeCode === 'SPL') && (lvNameEn.includes('personal') || lvNameEn.includes('special') || lvNameKh.includes('ផ្ទាល់ខ្លួន') || lvNameKh.includes('ពិសេស'))) return true;
+        if (typeCode === 'ML' && (lvNameEn.includes('maternity') || lvNameKh.includes('សម្រាល') || lvNameKh.includes('មាតុភាព') || lvReason.includes('maternity'))) return true;
+        if (typeCode === 'UP' && (lvNameEn.includes('unpaid') || lvNameKh.includes('ឥតប្រាក់') || lvNameKh.includes('មិនគិតប្រាក់') || lvReason.includes('unpaid'))) return true;
+
+        return false;
+      };
+
+      const leaveTypeStats = activeLeaveTypes.map(lt => {
+        let countDays = 0;
+        empLeaves.forEach(lv => {
+          if (isLeaveMatchingType(lv, lt)) {
+            const days = (lv.amountDays !== undefined && lv.amountDays !== null)
+              ? Number(lv.amountDays)
+              : (Number(lv.durationDays) || Number(lv.days) || 1);
+            countDays += days;
+          }
+        });
+
+        const nameKh = (lt.nameKh || '').trim();
+        const nameEn = (lt.nameEn || '').trim();
+        let displayLabel = lt.code || '';
+        if (nameKh && nameEn) {
+          displayLabel = `${nameKh}/${nameEn}`;
+        } else if (nameKh) {
+          displayLabel = nameKh;
+        } else if (nameEn) {
+          displayLabel = nameEn;
+        }
+
+        return {
+          id: lt.id || lt.code,
+          code: lt.code,
+          nameKh: lt.nameKh,
+          nameEn: lt.nameEn,
+          label: displayLabel,
+          days: countDays,
+        };
       });
+
+      const annualLeaveDays = leaveTypeStats.find(s => s.code === 'AL')?.days || 0;
+      const sickLeaveDays = leaveTypeStats.find(s => s.code === 'SL')?.days || 0;
+      const specialLeaveDays = leaveTypeStats.find(s => s.code === 'PL' || s.code === 'SPL')?.days || 0;
+      const maternityLeaveDays = leaveTypeStats.find(s => s.code === 'ML')?.days || 0;
+      const unpaidLeaveDays = leaveTypeStats.find(s => s.code === 'UP')?.days || 0;
 
       const totalLateCount = lateMorningDays + lateAfternoonDays;
       const totalLateMinutes = lateMorningMinutes + lateAfternoonMinutes;
@@ -718,6 +801,7 @@ const AttendanceSlip = () => {
         incompleteDaysCount: missedCheckinDays,
         normalOtHours,
         holidayOtHours,
+        leaveTypeStats,
         annualLeaveDays,
         sickLeaveDays,
         specialLeaveDays,
@@ -728,7 +812,7 @@ const AttendanceSlip = () => {
         totalLateMinutes,
       };
     });
-  }, [filteredEmployees, logs, leaves, overtimes, companyWorkHours, startDate, endDate]);
+  }, [filteredEmployees, logs, leaves, overtimes, companyWorkHours, leaveTypes, startDate, endDate]);
 
   // Paginated slips for UI display
   const totalSlips = employeeSlipsData.length;
@@ -965,9 +1049,9 @@ const AttendanceSlip = () => {
                 <td colspan="2" style="border: 1px solid #000000; text-align: center; font-weight: bold; padding: 5px 8px;">${slip.holidayOtHours}</td>
               </tr>
 
-              <!-- Leave Requests Section -->
+              <!-- Leave Requests Section (Dynamic based on Database Leave Types) -->
               <tr>
-                <td rowspan="6" style="border: 1px solid #000000; vertical-align: middle; text-align: center; font-weight: bold; background-color: #ffffff; padding: 6px 8px;">
+                <td rowspan="${(slip.leaveTypeStats?.length || 1) + 1}" style="border: 1px solid #000000; vertical-align: middle; text-align: center; font-weight: bold; background-color: #ffffff; padding: 6px 8px;">
                   ការស្នើសុំច្បាប់ឈប់សម្រាក
                 </td>
                 <td style="border: 1px solid #000000; font-weight: bold; text-align: center; padding: 4px 6px;">
@@ -977,46 +1061,16 @@ const AttendanceSlip = () => {
                   ចំនួនថ្ងៃ
                 </td>
               </tr>
-              <tr>
-                <td style="border: 1px solid #000000; text-align: center; font-size: 8.5pt; padding: 3px 5px;">
-                  ច្បាប់ឈប់សម្រាកប្រចាំឆ្នាំ/Annual Leave
-                </td>
-                <td style="border: 1px solid #000000; text-align: center; font-weight: bold; padding: 3px 5px;">
-                  ${slip.annualLeaveDays}
-                </td>
-              </tr>
-              <tr>
-                <td style="border: 1px solid #000000; text-align: center; font-size: 8.5pt; padding: 3px 5px;">
-                  ច្បាប់ឈឺ/Sick Leave
-                </td>
-                <td style="border: 1px solid #000000; text-align: center; font-weight: bold; padding: 3px 5px;">
-                  ${slip.sickLeaveDays}
-                </td>
-              </tr>
-              <tr>
-                <td style="border: 1px solid #000000; text-align: center; font-size: 8.5pt; padding: 3px 5px;">
-                  ច្បាប់ពិសេស/Special Leave
-                </td>
-                <td style="border: 1px solid #000000; text-align: center; font-weight: bold; padding: 3px 5px;">
-                  ${slip.specialLeaveDays}
-                </td>
-              </tr>
-              <tr>
-                <td style="border: 1px solid #000000; text-align: center; font-size: 8.5pt; padding: 3px 5px;">
-                  ML (Maternity Leave)
-                </td>
-                <td style="border: 1px solid #000000; text-align: center; font-weight: bold; padding: 3px 5px;">
-                  ${slip.maternityLeaveDays}
-                </td>
-              </tr>
-              <tr>
-                <td style="border: 1px solid #000000; text-align: center; font-size: 8.5pt; padding: 3px 5px;">
-                  ច្បាប់មិនគិតប្រាក់ឈ្នួល/Unpaid
-                </td>
-                <td style="border: 1px solid #000000; text-align: center; font-weight: bold; padding: 3px 5px;">
-                  ${slip.unpaidLeaveDays}
-                </td>
-              </tr>
+              ${(slip.leaveTypeStats || []).map(stat => `
+                <tr>
+                  <td style="border: 1px solid #000000; text-align: center; font-size: 8.5pt; padding: 3px 5px;">
+                    ${stat.label}
+                  </td>
+                  <td style="border: 1px solid #000000; text-align: center; font-weight: bold; padding: 3px 5px;">
+                    ${Number(stat.days) % 1 === 0 ? Number(stat.days) : Number(stat.days).toFixed(1)}
+                  </td>
+                </tr>
+              `).join('')}
             </tbody>
           </table>
 
@@ -1361,19 +1415,21 @@ const AttendanceSlip = () => {
               <h2 className="text-xl font-bold text-white font-khmer flex items-center gap-2">
                 <span>{locale === 'kh' ? 'ប័ណ្ណវត្តមានបុគ្គលិក (Attendance Slip)' : 'Employee Attendance Slip'}</span>
               </h2>
-              <p className="text-slate-400 text-xs mt-0.5">
+              {/* <p className="text-slate-400 text-xs mt-0.5">
                 {locale === 'kh'
                   ? 'ទាញយក កែប្រែការរចនា ហត្ថលេខា និងបោះពុម្ពប័ណ្ណសង្ខេបវត្តមានសម្រាប់បុគ្គលិកទាំងអស់'
                   : 'Customize template, signature, header and print attendance slips for all employees'}
-              </p>
+              </p> */}
             </div>
           </div>
         </div>
 
         {/* Action Buttons */}
+
+
         <div className="flex items-center gap-2.5 flex-wrap">
           {/* Print Layout Selector */}
-          <div className="flex items-center gap-1.5 bg-slate-900/80 border border-slate-700/70 rounded-xl px-2.5 py-1 text-xs">
+          {/* <div className="flex items-center gap-1.5 bg-slate-900/80 border border-slate-700/70 rounded-xl px-2.5 py-1 text-xs">
             <span className="text-slate-400 font-khmer text-[11px] whitespace-nowrap">
               {locale === 'kh' ? 'ទម្រង់បោះពុម្ព:' : 'Layout:'}
             </span>
@@ -1396,7 +1452,7 @@ const AttendanceSlip = () => {
                 {locale === 'kh' ? '📋 A5 ទំហំប័ណ្ណស្ដង់ដារ' : '📋 A5 Standard Slip'}
               </option>
             </select>
-          </div>
+          </div> */}
 
           {/* Settings & Design Modal Button */}
           <button
@@ -1406,7 +1462,7 @@ const AttendanceSlip = () => {
             title="Design & Settings"
           >
             <Cog6ToothIcon className="h-4 w-4" />
-            <span>{locale === 'kh' ? 'ការកំណត់ & ហត្ថលេខា' : 'Settings & Signature'}</span>
+            <span>{locale === 'kh' ? 'ការកំណត់ & ហត្ថលេខា' : 'Config Slip'}</span>
           </button>
 
           {/* Export Excel Button */}
@@ -1431,6 +1487,7 @@ const AttendanceSlip = () => {
             <span>{t('printPdf')}</span>
           </button>
         </div>
+
       </div>
 
       {/* Filter & Toolbar */}
@@ -1509,7 +1566,7 @@ const AttendanceSlip = () => {
               className="w-full py-2 px-3 border border-white/10 bg-slate-950/60 text-white rounded-xl text-xs focus:border-indigo-500 focus:bg-slate-900 outline-none font-khmer cursor-pointer"
             >
               <option value="ALL" className="bg-slate-900">
-                ⭐ {locale === 'kh' ? 'បង្ហាញបុគ្គលិកទាំងអស់ (Show All)' : 'Show All Employees'}
+                {locale === 'kh' ? 'បង្ហាញបុគ្គលិកទាំងអស់ (Show All)' : 'Show All Employees'}
               </option>
               {employees.map(emp => (
                 <option key={emp.id} value={emp.staffId} className="bg-slate-900">
@@ -1546,7 +1603,7 @@ const AttendanceSlip = () => {
             </div>
 
             {/* Quick Signature Upload Button */}
-            <button
+            {/* <button
               type="button"
               onClick={() => preparedSignatureInputRef.current?.click()}
               className="flex items-center gap-1.5 px-2.5 py-1.5 bg-slate-800/80 hover:bg-slate-700/80 border border-white/10 rounded-lg text-slate-200 text-xs transition-colors cursor-pointer font-khmer"
@@ -1554,7 +1611,7 @@ const AttendanceSlip = () => {
             >
               <PhotoIcon className="w-3.5 h-3.5 text-amber-400" />
               <span>{locale === 'kh' ? 'Upload ហត្ថលេខា' : 'Upload Signature'}</span>
-            </button>
+            </button> */}
 
             {/* Reset to default signature */}
             {preparedSignatureUrl && (
@@ -1656,9 +1713,8 @@ const AttendanceSlip = () => {
             return (
               <div
                 key={`${emp.id || emp.staffId}-${idx}`}
-                className={`slip-page-item w-full max-w-4xl mx-auto space-y-4 ${
-                  printLayout === 'a4_two_slips' && isSecondSlipOnPage ? 'page-break-after-two' : ''
-                } ${isVisibleOnScreen ? 'block' : 'hidden print:block'}`}
+                className={`slip-page-item w-full max-w-4xl mx-auto space-y-4 ${printLayout === 'a4_two_slips' && isSecondSlipOnPage ? 'page-break-after-two' : ''
+                  } ${isVisibleOnScreen ? 'block' : 'hidden print:block'}`}
               >
                 {/* Visual Label (Page 1) in UI (hidden in print) */}
                 <div className="no-print flex items-center justify-between text-xs text-slate-400 font-semibold px-1">
@@ -1691,377 +1747,339 @@ const AttendanceSlip = () => {
                                     alt="Company Logo"
                                     className="slip-logo-img h-16 sm:h-20 object-contain mx-auto"
                                   />
-                                {/* Quick change logo hover in UI (hidden in print) */}
+                                  {/* Quick change logo hover in UI (hidden in print) */}
+                                  <button
+                                    type="button"
+                                    onClick={() => logoInputRef.current?.click()}
+                                    className="no-print absolute inset-0 bg-black/50 text-white rounded opacity-0 group-hover:opacity-100 flex items-center justify-center text-[10px] font-bold transition-opacity cursor-pointer font-khmer"
+                                    title="Change Logo"
+                                  >
+                                    ផ្លាស់ប្ដូរ Logo
+                                  </button>
+                                </div>
+                              </td>
+                            )}
+                            <td className="border border-black p-3 text-center align-middle bg-white relative">
+                              {/* Individual Action Buttons (Screen only, hidden in print) */}
+                              <div className="no-print absolute top-2 right-2 sm:top-2.5 sm:right-2.5 flex items-center gap-1.5">
+                                {/* Save as Excel Button */}
                                 <button
                                   type="button"
-                                  onClick={() => logoInputRef.current?.click()}
-                                  className="no-print absolute inset-0 bg-black/50 text-white rounded opacity-0 group-hover:opacity-100 flex items-center justify-center text-[10px] font-bold transition-opacity cursor-pointer font-khmer"
-                                  title="Change Logo"
+                                  onClick={() => handleExportExcel(data)}
+                                  className="flex items-center gap-1 px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold font-khmer shadow-sm hover:shadow transition-all cursor-pointer"
+                                  title={locale === 'kh' ? 'ទាញយកជា Excel សម្រាប់បុគ្គលិកនេះ' : 'Download Excel for this employee'}
                                 >
-                                  ផ្លាស់ប្ដូរ Logo
+                                  <ArrowDownTrayIcon className="w-3.5 h-3.5" />
+                                  <span>Excel</span>
+                                </button>
+
+                                {/* Print Button */}
+                                <button
+                                  type="button"
+                                  onClick={() => handlePrintSingleEmployee(emp.staffId)}
+                                  className="flex items-center gap-1 px-2.5 py-1.5 bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white rounded-lg text-xs font-bold font-khmer shadow-sm hover:shadow transition-all cursor-pointer"
+                                  title={locale === 'kh' ? 'បោះពុម្ពប័ណ្ណបុគ្គលិកនេះ' : 'Print this employee slip'}
+                                >
+                                  <PrinterIcon className="w-3.5 h-3.5" />
+                                  <span>{locale === 'kh' ? 'បោះពុម្ព' : 'Print'}</span>
                                 </button>
                               </div>
+
+                              <h1
+                                className="slip-title-muol text-lg sm:text-[18pt] font-bold text-black tracking-wide leading-tight px-12 sm:px-16"
+                                style={{
+                                  fontFamily: "'Khmer OS Muol Light', 'Khmer OS Muol', 'Moul', serif",
+                                  fontSize: '18pt',
+                                  fontWeight: 'bold',
+                                }}
+                              >
+                                {projectTitleKh}
+                              </h1>
+                              <h2 className="text-sm sm:text-[14pt] font-bold text-black tracking-wider mt-1.5">
+                                {projectName}
+                              </h2>
                             </td>
-                          )}
-                          <td className="border border-black p-3 text-center align-middle bg-white relative">
-                            {/* Individual Action Buttons (Screen only, hidden in print) */}
-                            <div className="no-print absolute top-2 right-2 sm:top-2.5 sm:right-2.5 flex items-center gap-1.5">
-                              {/* Save as Excel Button */}
-                              <button
-                                type="button"
-                                onClick={() => handleExportExcel(data)}
-                                className="flex items-center gap-1 px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold font-khmer shadow-sm hover:shadow transition-all cursor-pointer"
-                                title={locale === 'kh' ? 'ទាញយកជា Excel សម្រាប់បុគ្គលិកនេះ' : 'Download Excel for this employee'}
-                              >
-                                <ArrowDownTrayIcon className="w-3.5 h-3.5" />
-                                <span>Excel</span>
-                              </button>
+                          </tr>
+                        </tbody>
+                      </table>
 
-                              {/* Print Button */}
-                              <button
-                                type="button"
-                                onClick={() => handlePrintSingleEmployee(emp.staffId)}
-                                className="flex items-center gap-1 px-2.5 py-1.5 bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white rounded-lg text-xs font-bold font-khmer shadow-sm hover:shadow transition-all cursor-pointer"
-                                title={locale === 'kh' ? 'បោះពុម្ពប័ណ្ណបុគ្គលិកនេះ' : 'Print this employee slip'}
-                              >
-                                <PrinterIcon className="w-3.5 h-3.5" />
-                                <span>{locale === 'kh' ? 'បោះពុម្ព' : 'Print'}</span>
-                              </button>
-                            </div>
+                      {/* Employee Info Table */}
+                      <table className="slip-table w-full border-collapse border border-black mb-0 text-xs sm:text-sm -mt-[1px]">
+                        <tbody>
+                          <tr>
+                            <td className="border border-black px-3 py-1.5 font-bold font-khmer w-5/12 bg-white">
+                              ឈ្មោះបុគ្គលិក / Employee Name:
+                            </td>
+                            <td className="border border-black px-3 py-1.5 font-semibold text-center bg-white">
+                              {emp.nameEn || ''} {emp.nameKh ? `(${emp.nameKh})` : ''}
+                            </td>
+                          </tr>
+                          <tr>
+                            <td className="border border-black px-3 py-1.5 font-bold font-khmer bg-white">
+                              ភេទ / Sex:
+                            </td>
+                            <td className="border border-black px-3 py-1.5 text-center bg-white">
+                              {emp.gender === 'Female' ? 'Female' : 'Male'}
+                            </td>
+                          </tr>
+                          <tr>
+                            <td className="border border-black px-3 py-1.5 font-bold font-khmer bg-white">
+                              អត្តលេខ / ID:
+                            </td>
+                            <td className="border border-black px-3 py-1.5 font-mono font-bold text-center bg-white">
+                              {emp.staffId}
+                            </td>
+                          </tr>
+                          <tr>
+                            <td className="border border-black px-3 py-1.5 font-bold font-khmer bg-white">
+                              តួនាទី / Position:
+                            </td>
+                            <td className="border border-black px-3 py-1.5 text-center bg-white">
+                              {getLocalizedName(emp.position?.titleEn, emp.position?.titleKh) || '-'}
+                            </td>
+                          </tr>
+                          <tr>
+                            <td className="border border-black px-3 py-1.5 font-bold font-khmer bg-white">
+                              នាយកដ្ឋាន / Department:
+                            </td>
+                            <td className="border border-black px-3 py-1.5 text-center bg-white">
+                              {getLocalizedName(emp.department?.nameEn, emp.department?.nameKh) || '-'}
+                            </td>
+                          </tr>
+                        </tbody>
+                      </table>
 
-                            <h1
-                              className="slip-title-muol text-lg sm:text-[18pt] font-bold text-black tracking-wide leading-tight px-12 sm:px-16"
-                              style={{
-                                fontFamily: "'Khmer OS Muol Light', 'Khmer OS Muol', 'Moul', serif",
-                                fontSize: '18pt',
-                                fontWeight: 'bold',
-                              }}
+                      {/* Attendance Summary & Overtime & Leave Request Table */}
+                      <table className="slip-table w-full border-collapse border border-black text-xs sm:text-sm -mt-[1px]">
+                        <thead>
+                          <tr className="bg-[#f59e0b] text-black">
+                            <th className="border border-black px-3 py-1.5 font-bold font-khmer text-center w-5/12">
+                              បរិយាយ
+                            </th>
+                            <th className="border border-black px-3 py-1.5 font-bold font-khmer text-center w-3/12">
+                              ចំនួនថ្ងៃ
+                            </th>
+                            <th className="border border-black px-3 py-1.5 font-bold font-khmer text-center w-4/12">
+                              ចំនួនម៉ោង
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {/* Late Morning */}
+                          <tr>
+                            <td className="border border-black px-3 py-1 font-khmer">
+                              មកយឺតពេលព្រឹក/Late Morning
+                            </td>
+                            <td className="border border-black px-3 py-1 text-center font-bold font-mono">
+                              {data.lateMorningDays}
+                            </td>
+                            <td className="border border-black px-3 py-1 text-center font-mono font-semibold">
+                              {data.lateMorningTime}
+                            </td>
+                          </tr>
+
+                          {/* Late Afternoon */}
+                          <tr>
+                            <td className="border border-black px-3 py-1 font-khmer">
+                              មកយឺតពេលថ្ងៃ/Late Afternoon
+                            </td>
+                            <td className="border border-black px-3 py-1 text-center font-bold font-mono">
+                              {data.lateAfternoonDays}
+                            </td>
+                            <td className="border border-black px-3 py-1 text-center font-mono font-semibold">
+                              {data.lateAfternoonTime}
+                            </td>
+                          </tr>
+
+                          {/* Early Morning Out */}
+                          <tr>
+                            <td className="border border-black px-3 py-1 font-khmer">
+                              ចេញលឿនព្រឹក/Early Morning
+                            </td>
+                            <td className="border border-black px-3 py-1 text-center font-bold font-mono">
+                              {data.earlyMorningDays}
+                            </td>
+                            <td className="border border-black px-3 py-1 text-center font-mono font-semibold">
+                              {data.earlyMorningTime}
+                            </td>
+                          </tr>
+
+                          {/* Early Afternoon Out */}
+                          <tr>
+                            <td className="border border-black px-3 py-1 font-khmer">
+                              ចេញលឿនល្ងាច/Early Afternoon
+                            </td>
+                            <td className="border border-black px-3 py-1 text-center font-bold font-mono">
+                              {data.earlyAfternoonDays}
+                            </td>
+                            <td className="border border-black px-3 py-1 text-center font-mono font-semibold">
+                              {data.earlyAfternoonTime}
+                            </td>
+                          </tr>
+
+                          {/* Missed Checkin */}
+                          <tr>
+                            <td className="border border-black px-3 py-1 font-khmer">
+                              ភ្លេចស្កេន Check-in
+                            </td>
+                            <td className="border border-black px-3 py-1 text-center font-bold font-mono">
+                              {data.missedCheckinDays}
+                            </td>
+                            <td className="border border-black px-3 py-1 text-center font-mono font-semibold">
+                              0
+                            </td>
+                          </tr>
+
+                          {/* Overtime Header (Green) */}
+                          <tr className="bg-[#84cc16] text-black">
+                            <td colSpan={3} className="border border-black px-3 py-1.5 font-bold font-khmer text-center">
+                              ធ្វើការថែមម៉ោង/Overtime
+                            </td>
+                          </tr>
+
+                          {/* Overtime Subheader (Orange) */}
+                          <tr className="bg-[#f59e0b] text-black">
+                            <td className="border border-black px-3 py-1.5 font-bold font-khmer text-center">
+                              បរិយាយ
+                            </td>
+                            <td colSpan={2} className="border border-black px-3 py-1.5 font-bold font-khmer text-center">
+                              ចំនួនម៉ោង
+                            </td>
+                          </tr>
+
+                          {/* Normal OT */}
+                          <tr>
+                            <td className="border border-black px-3 py-1 font-khmer">
+                              ថែមម៉ោងថ្ងៃធម្មតា/Normal OT
+                            </td>
+                            <td colSpan={2} className="border border-black px-3 py-1 text-center font-mono font-bold">
+                              {data.normalOtHours}
+                            </td>
+                          </tr>
+
+                          {/* Holiday / Sunday OT */}
+                          <tr>
+                            <td className="border border-black px-3 py-1 font-khmer">
+                              ថែមម៉ោងថ្ងៃអាទិត្យ ឬបុណ្យ/Holiday OT
+                            </td>
+                            <td colSpan={2} className="border border-black px-3 py-1 text-center font-mono font-bold">
+                              {data.holidayOtHours}
+                            </td>
+                          </tr>
+
+                          {/* Leave Request Rows (Dynamic based on Database Leave Types) */}
+                          <tr>
+                            <td
+                              rowSpan={(data.leaveTypeStats?.length || 1) + 1}
+                              className="border border-black px-3 py-3 text-center font-bold font-khmer align-middle bg-slate-50/50"
                             >
-                              {projectTitleKh}
-                            </h1>
-                            <h2 className="text-sm sm:text-[14pt] font-bold text-black tracking-wider mt-1.5">
-                              {projectName}
-                            </h2>
-                          </td>
-                        </tr>
-                      </tbody>
-                    </table>
+                              ការស្នើសុំច្បាប់ឈប់សម្រាក
+                            </td>
+                            <td className="border border-black px-3 py-1 font-bold font-khmer text-center bg-slate-100">
+                              ប្រភេទច្បាប់
+                            </td>
+                            <td className="border border-black px-3 py-1 font-bold font-khmer text-center bg-slate-100">
+                              ចំនួនថ្ងៃ
+                            </td>
+                          </tr>
 
-                    {/* Employee Info Table */}
-                    <table className="slip-table w-full border-collapse border border-black mb-0 text-xs sm:text-sm -mt-[1px]">
-                      <tbody>
-                        <tr>
-                          <td className="border border-black px-3 py-1.5 font-bold font-khmer w-5/12 bg-white">
-                            ឈ្មោះបុគ្គលិក / Employee Name:
-                          </td>
-                          <td className="border border-black px-3 py-1.5 font-semibold text-center bg-white">
-                            {emp.nameEn || ''} {emp.nameKh ? `(${emp.nameKh})` : ''}
-                          </td>
-                        </tr>
-                        <tr>
-                          <td className="border border-black px-3 py-1.5 font-bold font-khmer bg-white">
-                            ភេទ / Sex:
-                          </td>
-                          <td className="border border-black px-3 py-1.5 text-center bg-white">
-                            {emp.gender === 'Female' ? 'Female' : 'Male'}
-                          </td>
-                        </tr>
-                        <tr>
-                          <td className="border border-black px-3 py-1.5 font-bold font-khmer bg-white">
-                            អត្តលេខ / ID:
-                          </td>
-                          <td className="border border-black px-3 py-1.5 font-mono font-bold text-center bg-white">
-                            {emp.staffId}
-                          </td>
-                        </tr>
-                        <tr>
-                          <td className="border border-black px-3 py-1.5 font-bold font-khmer bg-white">
-                            តួនាទី / Position:
-                          </td>
-                          <td className="border border-black px-3 py-1.5 text-center bg-white">
-                            {getLocalizedName(emp.position?.titleEn, emp.position?.titleKh) || '-'}
-                          </td>
-                        </tr>
-                        <tr>
-                          <td className="border border-black px-3 py-1.5 font-bold font-khmer bg-white">
-                            នាយកដ្ឋាន / Department:
-                          </td>
-                          <td className="border border-black px-3 py-1.5 text-center bg-white">
-                            {getLocalizedName(emp.department?.nameEn, emp.department?.nameKh) || '-'}
-                          </td>
-                        </tr>
-                      </tbody>
-                    </table>
-
-                    {/* Attendance Summary & Overtime & Leave Request Table */}
-                    <table className="slip-table w-full border-collapse border border-black text-xs sm:text-sm -mt-[1px]">
-                      <thead>
-                        <tr className="bg-[#f59e0b] text-black">
-                          <th className="border border-black px-3 py-1.5 font-bold font-khmer text-center w-5/12">
-                            បរិយាយ
-                          </th>
-                          <th className="border border-black px-3 py-1.5 font-bold font-khmer text-center w-3/12">
-                            ចំនួនថ្ងៃ
-                          </th>
-                          <th className="border border-black px-3 py-1.5 font-bold font-khmer text-center w-4/12">
-                            ចំនួនម៉ោង
-                          </th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {/* Late Morning */}
-                        <tr>
-                          <td className="border border-black px-3 py-1 font-khmer">
-                            មកយឺតពេលព្រឹក/Late Morning
-                          </td>
-                          <td className="border border-black px-3 py-1 text-center font-bold font-mono">
-                            {data.lateMorningDays}
-                          </td>
-                          <td className="border border-black px-3 py-1 text-center font-mono font-semibold">
-                            {data.lateMorningTime}
-                          </td>
-                        </tr>
-
-                        {/* Late Afternoon */}
-                        <tr>
-                          <td className="border border-black px-3 py-1 font-khmer">
-                            មកយឺតពេលថ្ងៃ/Late Afternoon
-                          </td>
-                          <td className="border border-black px-3 py-1 text-center font-bold font-mono">
-                            {data.lateAfternoonDays}
-                          </td>
-                          <td className="border border-black px-3 py-1 text-center font-mono font-semibold">
-                            {data.lateAfternoonTime}
-                          </td>
-                        </tr>
-
-                        {/* Early Morning Out */}
-                        <tr>
-                          <td className="border border-black px-3 py-1 font-khmer">
-                            ចេញលឿនព្រឹក/Early Morning
-                          </td>
-                          <td className="border border-black px-3 py-1 text-center font-bold font-mono">
-                            {data.earlyMorningDays}
-                          </td>
-                          <td className="border border-black px-3 py-1 text-center font-mono font-semibold">
-                            {data.earlyMorningTime}
-                          </td>
-                        </tr>
-
-                        {/* Early Afternoon Out */}
-                        <tr>
-                          <td className="border border-black px-3 py-1 font-khmer">
-                            ចេញលឿនល្ងាច/Early Afternoon
-                          </td>
-                          <td className="border border-black px-3 py-1 text-center font-bold font-mono">
-                            {data.earlyAfternoonDays}
-                          </td>
-                          <td className="border border-black px-3 py-1 text-center font-mono font-semibold">
-                            {data.earlyAfternoonTime}
-                          </td>
-                        </tr>
-
-                        {/* Missed Checkin */}
-                        <tr>
-                          <td className="border border-black px-3 py-1 font-khmer">
-                            ភ្លេចស្កេន Check-in
-                          </td>
-                          <td className="border border-black px-3 py-1 text-center font-bold font-mono">
-                            {data.missedCheckinDays}
-                          </td>
-                          <td className="border border-black px-3 py-1 text-center font-mono font-semibold">
-                            0
-                          </td>
-                        </tr>
-
-                        {/* Overtime Header (Green) */}
-                        <tr className="bg-[#84cc16] text-black">
-                          <td colSpan={3} className="border border-black px-3 py-1.5 font-bold font-khmer text-center">
-                            ធ្វើការថែមម៉ោង/Overtime
-                          </td>
-                        </tr>
-
-                        {/* Overtime Subheader (Orange) */}
-                        <tr className="bg-[#f59e0b] text-black">
-                          <td className="border border-black px-3 py-1.5 font-bold font-khmer text-center">
-                            បរិយាយ
-                          </td>
-                          <td colSpan={2} className="border border-black px-3 py-1.5 font-bold font-khmer text-center">
-                            ចំនួនម៉ោង
-                          </td>
-                        </tr>
-
-                        {/* Normal OT */}
-                        <tr>
-                          <td className="border border-black px-3 py-1 font-khmer">
-                            ថែមម៉ោងថ្ងៃធម្មតា/Normal OT
-                          </td>
-                          <td colSpan={2} className="border border-black px-3 py-1 text-center font-mono font-bold">
-                            {data.normalOtHours}
-                          </td>
-                        </tr>
-
-                        {/* Holiday / Sunday OT */}
-                        <tr>
-                          <td className="border border-black px-3 py-1 font-khmer">
-                            ថែមម៉ោងថ្ងៃអាទិត្យ ឬបុណ្យ/Holiday OT
-                          </td>
-                          <td colSpan={2} className="border border-black px-3 py-1 text-center font-mono font-bold">
-                            {data.holidayOtHours}
-                          </td>
-                        </tr>
-
-                        {/* Leave Request Rows */}
-                        <tr>
-                          <td
-                            rowSpan={6}
-                            className="border border-black px-3 py-3 text-center font-bold font-khmer align-middle bg-slate-50/50"
-                          >
-                            ការស្នើសុំច្បាប់ឈប់សម្រាក
-                          </td>
-                          <td className="border border-black px-3 py-1 font-bold font-khmer text-center bg-slate-100">
-                            ប្រភេទច្បាប់
-                          </td>
-                          <td className="border border-black px-3 py-1 font-bold font-khmer text-center bg-slate-100">
-                            ចំនួនថ្ងៃ
-                          </td>
-                        </tr>
-
-                        {/* Annual Leave */}
-                        <tr>
-                          <td className="border border-black px-3 py-0.5 font-khmer text-center text-xs">
-                            ច្បាប់ឈប់សម្រាកប្រចាំឆ្នាំ/Annual Leave
-                          </td>
-                          <td className="border border-black px-3 py-0.5 text-center font-mono font-bold">
-                            {data.annualLeaveDays}
-                          </td>
-                        </tr>
-
-                        {/* Sick Leave */}
-                        <tr>
-                          <td className="border border-black px-3 py-0.5 font-khmer text-center text-xs">
-                            ច្បាប់ឈឺ/Sick Leave
-                          </td>
-                          <td className="border border-black px-3 py-0.5 text-center font-mono font-bold">
-                            {data.sickLeaveDays}
-                          </td>
-                        </tr>
-
-                        {/* Special Leave */}
-                        <tr>
-                          <td className="border border-black px-3 py-0.5 font-khmer text-center text-xs">
-                            ច្បាប់ពិសេស/Special Leave
-                          </td>
-                          <td className="border border-black px-3 py-0.5 text-center font-mono font-bold">
-                            {data.specialLeaveDays}
-                          </td>
-                        </tr>
-
-                        {/* Maternity Leave */}
-                        <tr>
-                          <td className="border border-black px-3 py-0.5 font-khmer text-center text-xs">
-                            ML (Maternity Leave)
-                          </td>
-                          <td className="border border-black px-3 py-0.5 text-center font-mono font-bold">
-                            {data.maternityLeaveDays}
-                          </td>
-                        </tr>
-
-                        {/* Unpaid Leave */}
-                        <tr>
-                          <td className="border border-black px-3 py-0.5 font-khmer text-center text-xs">
-                            ច្បាប់មិនគិតប្រាក់ឈ្នួល/Unpaid
-                          </td>
-                          <td className="border border-black px-3 py-0.5 text-center font-mono font-bold">
-                            {data.unpaidLeaveDays}
-                          </td>
-                        </tr>
-                      </tbody>
-                    </table>
-                  </div>
-
-                  {/* Signatures Section */}
-                  <div className="slip-signatures grid grid-cols-2 gap-8 mt-4 pt-2 text-xs sm:text-sm">
-                    {/* Left: Prepared By */}
-                    <div className="flex flex-col items-center text-center">
-                      <h4 className="font-bold font-khmer mb-1">រៀបចំដោយ</h4>
-                      {showPreparedSignature ? (
-                        <div className="relative group h-14 flex items-center justify-center">
-                          <img
-                            src={effectivePreparedSignature}
-                            alt="Prepared Signature"
-                            className="slip-signature-img h-12 object-contain"
-                          />
-                          {/* Quick change signature on hover in UI */}
-                          <button
-                            type="button"
-                            onClick={() => preparedSignatureInputRef.current?.click()}
-                            className="no-print absolute inset-0 bg-indigo-900/70 text-white rounded opacity-0 group-hover:opacity-100 flex items-center justify-center text-[10px] font-bold transition-opacity cursor-pointer font-khmer gap-1"
-                            title="Upload new signature"
-                          >
-                            <PhotoIcon className="w-3 h-3" />
-                            <span>ផ្លាស់ប្ដូរ</span>
-                          </button>
-                        </div>
-                      ) : (
-                        <div className="h-14"></div>
-                      )}
-                      <div className="font-bold font-khmer text-indigo-950 mt-1">
-                        {preparedByName}
-                      </div>
-                      <div className="w-40 border-b border-dotted border-black my-1"></div>
-                      <div className="text-xs font-mono">{preparedDate}</div>
+                          {/* Dynamic Leave Types from database */}
+                          {(data.leaveTypeStats || []).map((stat, idx) => (
+                            <tr key={stat.id || stat.code || idx}>
+                              <td className="border border-black px-3 py-0.5 font-khmer text-center text-xs">
+                                {stat.label}
+                              </td>
+                              <td className="border border-black px-3 py-0.5 text-center font-mono font-bold">
+                                {Number(stat.days) % 1 === 0 ? Number(stat.days) : Number(stat.days).toFixed(1)}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
                     </div>
 
-                    {/* Right: Approved By */}
-                    <div className="flex flex-col items-center text-center justify-between">
-                      <h4 className="font-bold font-khmer mb-1">យល់ព្រមដោយ</h4>
-                      {approvedSignatureUrl && showApprovedSignature ? (
-                        <div className="relative group h-14 flex items-center justify-center">
-                          <img
-                            src={approvedSignatureUrl}
-                            alt="Approved Signature / Stamp"
-                            className="slip-signature-img h-12 object-contain"
-                          />
-                          <button
-                            type="button"
-                            onClick={() => approvedSignatureInputRef.current?.click()}
-                            className="no-print absolute inset-0 bg-indigo-900/70 text-white rounded opacity-0 group-hover:opacity-100 flex items-center justify-center text-[10px] font-bold transition-opacity cursor-pointer font-khmer gap-1"
-                          >
-                            <PhotoIcon className="w-3 h-3" />
-                            <span>ផ្លាស់ប្ដូរ</span>
-                          </button>
-                        </div>
-                      ) : (
-                        <div className="h-14 flex items-center justify-center">
-                          <div
-                            onClick={() => approvedSignatureInputRef.current?.click()}
-                            className="no-print group h-14 w-32 border border-dashed border-slate-300 hover:border-indigo-500 rounded flex flex-col items-center justify-center text-[10px] text-slate-400 hover:text-indigo-600 transition-colors cursor-pointer"
-                            title="Click to upload stamp / approved signature"
-                          >
-                            <PhotoIcon className="w-4 h-4 mb-0.5" />
-                            <span className="font-khmer">+ ដាក់ហត្ថលេខា/ត្រា</span>
+                    {/* Signatures Section */}
+                    <div className="slip-signatures grid grid-cols-2 gap-8 mt-4 pt-2 text-xs sm:text-sm">
+                      {/* Left: Prepared By */}
+                      <div className="flex flex-col items-center text-center">
+                        <h4 className="font-bold font-khmer mb-1">រៀបចំដោយ</h4>
+                        {showPreparedSignature ? (
+                          <div className="relative group h-14 flex items-center justify-center">
+                            <img
+                              src={effectivePreparedSignature}
+                              alt="Prepared Signature"
+                              className="slip-signature-img h-12 object-contain"
+                            />
+                            {/* Quick change signature on hover in UI */}
+                            <button
+                              type="button"
+                              onClick={() => preparedSignatureInputRef.current?.click()}
+                              className="no-print absolute inset-0 bg-indigo-900/70 text-white rounded opacity-0 group-hover:opacity-100 flex items-center justify-center text-[10px] font-bold transition-opacity cursor-pointer font-khmer gap-1"
+                              title="Upload new signature"
+                            >
+                              <PhotoIcon className="w-3 h-3" />
+                              <span>ផ្លាស់ប្ដូរ</span>
+                            </button>
                           </div>
-                        </div>
-                      )}
-                      {approvedByName && (
+                        ) : (
+                          <div className="h-14"></div>
+                        )}
                         <div className="font-bold font-khmer text-indigo-950 mt-1">
-                          {approvedByName}
+                          {preparedByName}
                         </div>
-                      )}
-                      <div className="w-44 border-b border-dotted border-black my-1"></div>
-                      <div className="text-xs font-mono">{approvedDate}</div>
+                        <div className="w-40 border-b border-dotted border-black my-1"></div>
+                        <div className="text-xs font-mono">{preparedDate}</div>
+                      </div>
+
+                      {/* Right: Approved By */}
+                      <div className="flex flex-col items-center text-center justify-between">
+                        <h4 className="font-bold font-khmer mb-1">យល់ព្រមដោយ</h4>
+                        {approvedSignatureUrl && showApprovedSignature ? (
+                          <div className="relative group h-14 flex items-center justify-center">
+                            <img
+                              src={approvedSignatureUrl}
+                              alt="Approved Signature / Stamp"
+                              className="slip-signature-img h-12 object-contain"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => approvedSignatureInputRef.current?.click()}
+                              className="no-print absolute inset-0 bg-indigo-900/70 text-white rounded opacity-0 group-hover:opacity-100 flex items-center justify-center text-[10px] font-bold transition-opacity cursor-pointer font-khmer gap-1"
+                            >
+                              <PhotoIcon className="w-3 h-3" />
+                              <span>ផ្លាស់ប្ដូរ</span>
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="h-14 flex items-center justify-center">
+                            <div
+                              onClick={() => approvedSignatureInputRef.current?.click()}
+                              className="no-print group h-14 w-32 border border-dashed border-slate-300 hover:border-indigo-500 rounded flex flex-col items-center justify-center text-[10px] text-slate-400 hover:text-indigo-600 transition-colors cursor-pointer"
+                              title="Click to upload stamp / approved signature"
+                            >
+                              <PhotoIcon className="w-4 h-4 mb-0.5" />
+                              <span className="font-khmer">+ ដាក់ហត្ថលេខា/ត្រា</span>
+                            </div>
+                          </div>
+                        )}
+                        {approvedByName && (
+                          <div className="font-bold font-khmer text-indigo-950 mt-1">
+                            {approvedByName}
+                          </div>
+                        )}
+                        <div className="w-44 border-b border-dotted border-black my-1"></div>
+                        <div className="text-xs font-mono">{approvedDate}</div>
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
 
-              {/* Cutting line between 2 slips on A4 */}
-              {printLayout === 'a4_two_slips' && isFirstSlipOnPage && !isLastSlip && (
-                <div className="hidden print:flex items-center justify-between text-[8.5pt] text-gray-400 my-0.5 py-0 border-b border-dashed border-gray-400 select-none">
-                  <span>✂ - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - ✂</span>
-                </div>
-              )}
+                {/* Cutting line between 2 slips on A4 */}
+                {printLayout === 'a4_two_slips' && isFirstSlipOnPage && !isLastSlip && (
+                  <div className="hidden print:flex items-center justify-between text-[8.5pt] text-gray-400 my-0.5 py-0 border-b border-dashed border-gray-400 select-none">
+                    <span>✂ - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - ✂</span>
+                  </div>
+                )}
 
                 {/* ================= PAGE 2: CHECKIN LATE REPORT (A4 Page 2) ================= */}
                 {showDetailedBreakdown && data.incidentList.length > 0 && (
@@ -2085,10 +2103,10 @@ const AttendanceSlip = () => {
                               className="h-16 sm:h-20 object-contain mb-1.5"
                             />
                           )}
-                          <div className="font-khmer font-bold text-amber-600 text-sm tracking-wide">
+                          <div className="font-khmer font-bold text-amber-600 text-black text-sm tracking-wide">
                             {projectTitleKh || 'បុរី ឃីហេង កំបូលស៊ីធី'}
                           </div>
-                          <div className="font-semibold text-amber-600 text-xs tracking-wider">
+                          <div className="font-semibold text-amber-600 text-xs text-black tracking-wider">
                             {projectName || 'Borey KhyHeng Kambol City'}
                           </div>
                           <h3 className="text-xl sm:text-2xl font-bold text-black mt-2 font-serif tracking-tight">
@@ -2178,9 +2196,9 @@ const AttendanceSlip = () => {
                     <h3 className="text-base font-bold text-white font-khmer">
                       {locale === 'kh' ? 'ការកំណត់ប័ណ្ណវត្តមាន & ហត្ថលេខា' : 'Slip Design & Signature Settings'}
                     </h3>
-                    <p className="text-[11px] text-slate-400">
+                    {/* <p className="text-[11px] text-slate-400">
                       {locale === 'kh' ? 'កែប្រែហត្ថលេខា ឡូហ្គោ និងព័ត៌មានប័ណ្ណវត្តមាន' : 'Upload custom signature, company logo and header info'}
-                    </p>
+                    </p> */}
                   </div>
                 </div>
                 <button
@@ -2234,7 +2252,7 @@ const AttendanceSlip = () => {
                     {/* Prepared By Signature Card */}
                     <div className="p-4 rounded-xl bg-slate-950/60 border border-white/10 space-y-3.5">
                       <h4 className="text-xs font-bold text-amber-400 uppercase tracking-wider font-khmer flex items-center justify-between">
-                        <span>1. ហត្ថលេខាអ្នករៀបចំ (Prepared By Signature)</span>
+                        <span className='text-black'>1. Prepared By Signature</span>
                         <label className="flex items-center gap-1.5 text-xs text-slate-300 font-normal cursor-pointer">
                           <input
                             type="checkbox"
@@ -2245,7 +2263,7 @@ const AttendanceSlip = () => {
                             }}
                             className="rounded border-white/20 bg-slate-900 text-indigo-600 focus:ring-indigo-500 h-3.5 w-3.5 cursor-pointer"
                           />
-                          <span>បង្ហាញហត្ថលេខា</span>
+                          <span> Show Signature</span>
                         </label>
                       </h4>
 
@@ -2260,9 +2278,9 @@ const AttendanceSlip = () => {
                         </div>
 
                         <div className="space-y-2 flex-1 text-center sm:text-left">
-                          <p className="text-xs text-slate-300 font-khmer">
-                            {preparedSignatureUrl ? '✅ កំពុងប្រើហត្ថលេខាផ្ទាល់ខ្លួន' : '⚡ កំពុងប្រើហត្ថលេខាដើម'}
-                          </p>
+                          {/* <p className="text-xs text-slate-300 font-khmer">
+                            {preparedSignatureUrl ? '✅ កំពុងប្រើហត្ថលេខាផ្ទាល់ខ្លួន' : ' កំពុងប្រើហត្ថលេខាដើម'}
+                          </p> */}
                           <div className="flex items-center gap-2 flex-wrap justify-center sm:justify-start">
                             <button
                               type="button"
@@ -2287,7 +2305,7 @@ const AttendanceSlip = () => {
                             )}
                           </div>
                           <p className="text-[10px] text-slate-500 font-khmer">
-                            អនុញ្ញាតប្រភេទ PNG, JPG (ផ្ទៃថ្លា Transparent រឹតតែស្អាត)
+                            Phototype PNG, JPG ,and remoed background
                           </p>
                         </div>
                       </div>
@@ -2295,7 +2313,7 @@ const AttendanceSlip = () => {
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
                         <div>
                           <label className="block text-[11px] font-semibold text-slate-400 mb-1 font-khmer">
-                            ឈ្មោះអ្នករៀបចំ (Prepared By Name)
+                            Prepared By Name
                           </label>
                           <input
                             type="text"
@@ -2309,7 +2327,7 @@ const AttendanceSlip = () => {
                         </div>
                         <div>
                           <label className="block text-[11px] font-semibold text-slate-400 mb-1 font-khmer">
-                            កាលបរិច្ឆេទ (Prepared Date)
+                            Prepared Date
                           </label>
                           <input
                             type="text"
@@ -2327,7 +2345,7 @@ const AttendanceSlip = () => {
                     {/* Approved By Signature / Stamp Card */}
                     <div className="p-4 rounded-xl bg-slate-950/60 border border-white/10 space-y-3.5">
                       <h4 className="text-xs font-bold text-emerald-400 uppercase tracking-wider font-khmer flex items-center justify-between">
-                        <span>2. ហត្ថលេខាអ្នកយល់ព្រម / ត្រា (Approved By / Stamp)</span>
+                        <span className='text-black'>2. Approved By</span>
                         <label className="flex items-center gap-1.5 text-xs text-slate-300 font-normal cursor-pointer">
                           <input
                             type="checkbox"
@@ -2338,7 +2356,7 @@ const AttendanceSlip = () => {
                             }}
                             className="rounded border-white/20 bg-slate-900 text-indigo-600 focus:ring-indigo-500 h-3.5 w-3.5 cursor-pointer"
                           />
-                          <span>បង្ហាញហត្ថលេខា/ត្រា</span>
+                          <span> Show Signature</span>
                         </label>
                       </h4>
 
@@ -2352,7 +2370,7 @@ const AttendanceSlip = () => {
                               className="max-h-full max-w-full object-contain"
                             />
                           ) : (
-                            <span className="text-[11px] text-slate-400 font-khmer text-center">មិនទាន់មានត្រា/ហត្ថលេខា</span>
+                            <span className="text-[11px] text-slate-400 font-khmer text-center">No / Prepared</span>
                           )}
                         </div>
 
@@ -2361,10 +2379,10 @@ const AttendanceSlip = () => {
                             <button
                               type="button"
                               onClick={() => approvedSignatureInputRef.current?.click()}
-                              className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer font-khmer"
+                              className="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer font-khmer"
                             >
                               <PhotoIcon className="w-3.5 h-3.5" />
-                              <span>{locale === 'kh' ? 'Upload ហត្ថលេខា/ត្រា' : 'Upload Stamp/Sign'}</span>
+                              <span>{locale === 'kh' ? 'Upload ហត្ថលេខា/ត្រា' : 'Upload Sign'}</span>
                             </button>
                             {approvedSignatureUrl && (
                               <button
@@ -2381,7 +2399,7 @@ const AttendanceSlip = () => {
                             )}
                           </div>
                           <p className="text-[10px] text-slate-500 font-khmer">
-                            (ជាជម្រើស) អ្នកអាច upload ត្រាក្រុមហ៊ុន ឬទុកនៅទំនេរដើម្បីចុះហត្ថលេខាដោយដៃ
+                            Phototype PNG, JPG ,and remoed background
                           </p>
                         </div>
                       </div>
@@ -2389,7 +2407,7 @@ const AttendanceSlip = () => {
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
                         <div>
                           <label className="block text-[11px] font-semibold text-slate-400 mb-1 font-khmer">
-                            ឈ្មោះអ្នកយល់ព្រម (Approved By Name)
+                            Approved By Name
                           </label>
                           <input
                             type="text"
@@ -2398,13 +2416,13 @@ const AttendanceSlip = () => {
                               setApprovedByName(e.target.value);
                               saveSettingsToStorage({ approvedByName: e.target.value });
                             }}
-                            placeholder="ឧ. នាយកប្រតិបត្តិ..."
+                            placeholder="Ex. Employee..."
                             className="w-full py-2 px-3 border border-white/10 bg-slate-950 text-white rounded-xl text-xs focus:border-indigo-500 outline-none font-khmer"
                           />
                         </div>
                         <div>
                           <label className="block text-[11px] font-semibold text-slate-400 mb-1 font-khmer">
-                            កាលបរិច្ឆេទយល់ព្រម (Approved Date Line)
+                            Approved Date Line
                           </label>
                           <input
                             type="text"
@@ -2485,12 +2503,12 @@ const AttendanceSlip = () => {
                     {/* Project Titles */}
                     <div className="p-4 rounded-xl bg-slate-950/60 border border-white/10 space-y-3">
                       <h4 className="text-xs font-bold text-slate-300 uppercase tracking-wider font-khmer">
-                        ចំណងជើងគម្រោង & របាយការណ៍ (Header Titles)
+                        Header Titles
                       </h4>
 
                       <div>
                         <label className="block text-[11px] font-semibold text-slate-400 mb-1 font-khmer">
-                          ឈ្មោះគម្រោងជាភាសាខ្មែរ (Project Title Khmer)
+                          Company Name Khmer
                         </label>
                         <input
                           type="text"
@@ -2505,7 +2523,7 @@ const AttendanceSlip = () => {
 
                       <div>
                         <label className="block text-[11px] font-semibold text-slate-400 mb-1 font-khmer">
-                          ឈ្មោះគម្រោងជាភាសាអង់គ្លេស (Project Name English)
+                          Company Name English
                         </label>
                         <input
                           type="text"
@@ -2540,12 +2558,12 @@ const AttendanceSlip = () => {
                 {activeSettingsTab === 'display' && (
                   <div className="p-4 rounded-xl bg-slate-950/60 border border-white/10 space-y-4">
                     <h4 className="text-xs font-bold text-slate-300 uppercase tracking-wider font-khmer">
-                      ជម្រើសនៃការបង្ហាញលើប័ណ្ណ (Display Options)
+                      Display Options
                     </h4>
 
                     <div className="space-y-3 text-xs">
                       <label className="flex items-center justify-between p-3 rounded-xl bg-white/5 border border-white/5 cursor-pointer">
-                        <span className="font-khmer">បង្ហាញតារាងលម្អិត (Checkin Late Detailed Table)</span>
+                        <span className="font-khmer">Checkin Late Detailed Table</span>
                         <input
                           type="checkbox"
                           checked={showDetailedBreakdown}
@@ -2558,7 +2576,7 @@ const AttendanceSlip = () => {
                       </label>
 
                       <label className="flex items-center justify-between p-3 rounded-xl bg-white/5 border border-white/5 cursor-pointer">
-                        <span className="font-khmer">បង្ហាញឡូហ្គោក្រុមហ៊ុន (Show Company Logo)</span>
+                        <span className="font-khmer">Show Company Logo</span>
                         <input
                           type="checkbox"
                           checked={showLogo}
@@ -2571,7 +2589,7 @@ const AttendanceSlip = () => {
                       </label>
 
                       <label className="flex items-center justify-between p-3 rounded-xl bg-white/5 border border-white/5 cursor-pointer">
-                        <span className="font-khmer">បង្ហាញហត្ថលេខាអ្នករៀបចំ (Show Prepared Signature)</span>
+                        <span className="font-khmer">Show Prepared Signature</span>
                         <input
                           type="checkbox"
                           checked={showPreparedSignature}
@@ -2584,7 +2602,7 @@ const AttendanceSlip = () => {
                       </label>
 
                       <label className="flex items-center justify-between p-3 rounded-xl bg-white/5 border border-white/5 cursor-pointer">
-                        <span className="font-khmer">បង្ហាញហត្ថលេខា/ត្រាអ្នកយល់ព្រម (Show Approved Stamp/Sign)</span>
+                        <span className="font-khmer">Show Approved Stamp/Sign</span>
                         <input
                           type="checkbox"
                           checked={showApprovedSignature}
@@ -2609,13 +2627,12 @@ const AttendanceSlip = () => {
                             setPrintLayout('a4_full');
                             saveSettingsToStorage({ printLayout: 'a4_full' });
                           }}
-                          className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
-                            printLayout === 'a4_full'
-                              ? 'bg-indigo-600/30 border-indigo-500 text-white shadow-sm'
-                              : 'bg-slate-900/60 border-white/10 text-slate-400 hover:text-slate-200'
-                          }`}
+                          className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${printLayout === 'a4_full'
+                            ? 'bg-indigo-600/30 border-indigo-500 text-white shadow-sm'
+                            : 'bg-slate-900/60 border-white/10 text-slate-400 hover:text-slate-200'
+                            }`}
                         >
-                          <div className="font-bold text-xs font-khmer">📄 A4 ពេញទំព័រ</div>
+                          <div className="font-bold text-xs font-khmer">📄 A4 </div>
                           <div className="text-[10px] text-slate-400 mt-1 font-khmer">១ ប័ណ្ណពេញសន្លឹក គ្មានសល់ផ្ទៃស</div>
                         </button>
                         <button
@@ -2624,11 +2641,10 @@ const AttendanceSlip = () => {
                             setPrintLayout('a4_two_slips');
                             saveSettingsToStorage({ printLayout: 'a4_two_slips' });
                           }}
-                          className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
-                            printLayout === 'a4_two_slips'
-                              ? 'bg-indigo-600/30 border-indigo-500 text-white shadow-sm'
-                              : 'bg-slate-900/60 border-white/10 text-slate-400 hover:text-slate-200'
-                          }`}
+                          className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${printLayout === 'a4_two_slips'
+                            ? 'bg-indigo-600/30 border-indigo-500 text-white shadow-sm'
+                            : 'bg-slate-900/60 border-white/10 text-slate-400 hover:text-slate-200'
+                            }`}
                         >
                           <div className="font-bold text-xs font-khmer">📑 A4 ចែក ២ ប័ណ្ណ</div>
                           <div className="text-[10px] text-slate-400 mt-1 font-khmer">២ ប័ណ្ណលើ ១ សន្លឹក + បន្ទាត់កាត់</div>
@@ -2639,11 +2655,10 @@ const AttendanceSlip = () => {
                             setPrintLayout('a5');
                             saveSettingsToStorage({ printLayout: 'a5' });
                           }}
-                          className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
-                            printLayout === 'a5'
-                              ? 'bg-indigo-600/30 border-indigo-500 text-white shadow-sm'
-                              : 'bg-slate-900/60 border-white/10 text-slate-400 hover:text-slate-200'
-                          }`}
+                          className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${printLayout === 'a5'
+                            ? 'bg-indigo-600/30 border-indigo-500 text-white shadow-sm'
+                            : 'bg-slate-900/60 border-white/10 text-slate-400 hover:text-slate-200'
+                            }`}
                         >
                           <div className="font-bold text-xs font-khmer">📋 A5 ស្ដង់ដារ</div>
                           <div className="text-[10px] text-slate-400 mt-1 font-khmer">បោះពុម្ពលើក្រដាស A5 ដោយផ្ទាល់</div>

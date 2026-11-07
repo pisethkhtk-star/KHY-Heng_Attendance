@@ -8,7 +8,7 @@ const Departments = () => {
   const [departments, setDepartments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
-  
+
   // Form State
   const [editId, setEditId] = useState(null);
   const [nameEn, setNameEn] = useState('');
@@ -90,7 +90,7 @@ const Departments = () => {
       <div className="flex justify-between items-center glass-card p-6 rounded-2xl glow-indigo">
         <div>
           <h2 className="text-xl font-bold text-white font-khmer">{t("departments")}</h2>
-          <p className="text-slate-400 text-xs mt-1">Manage corporate business departments</p>
+          {/* <p className="text-slate-400 text-xs mt-1">Manage corporate business departments</p> */}
         </div>
         <button
           onClick={handleOpenAddModal}
@@ -167,7 +167,7 @@ const Departments = () => {
                 {editId ? t("edit") : t("add")} {t("departments")}
               </h3>
             </div>
-            
+
             <form onSubmit={handleSubmit} className="p-6 space-y-4">
               {errorMsg && (
                 <div className="rounded-lg bg-rose-500/10 border border-rose-500/20 p-3 text-xs text-rose-300 text-center">

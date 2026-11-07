@@ -304,8 +304,8 @@ const LeaveReport = () => {
       const deptLeaves = filteredLeaves.filter(lv => {
         const emp = lv.employee || {};
         const matchesDept = String(emp.departmentId) === String(dept.id) ||
-                            String(emp.department?.id) === String(dept.id) ||
-                            (emp.department?.nameEn && dept.nameEn && emp.department.nameEn === dept.nameEn);
+          String(emp.department?.id) === String(dept.id) ||
+          (emp.department?.nameEn && dept.nameEn && emp.department.nameEn === dept.nameEn);
         if (!matchesDept) return false;
         if (filterBranch && emp.branch !== filterBranch) return false;
         return true;
@@ -389,8 +389,8 @@ const LeaveReport = () => {
     const deptList = targetDepts.map(dept => {
       const deptEmployees = employees.filter(e => {
         const matchesDept = String(e.departmentId) === String(dept.id) ||
-                            String(e.department?.id) === String(dept.id) ||
-                            (e.department?.nameEn && dept.nameEn && e.department.nameEn === dept.nameEn);
+          String(e.department?.id) === String(dept.id) ||
+          (e.department?.nameEn && dept.nameEn && e.department.nameEn === dept.nameEn);
         if (!matchesDept) return false;
         if (filterBranch && e.branch !== filterBranch) return false;
         if (e.status === 'Inactive' || e.status === 'Resigned' || e.status === 'Terminated') return false;
@@ -401,8 +401,8 @@ const LeaveReport = () => {
       const deptLeaves = filteredLeaves.filter(lv => {
         const emp = lv.employee || {};
         const matchesDept = String(emp.departmentId) === String(dept.id) ||
-                            String(emp.department?.id) === String(dept.id) ||
-                            (emp.department?.nameEn && dept.nameEn && emp.department.nameEn === dept.nameEn);
+          String(emp.department?.id) === String(dept.id) ||
+          (emp.department?.nameEn && dept.nameEn && emp.department.nameEn === dept.nameEn);
         if (!matchesDept) return false;
         if (filterBranch && emp.branch !== filterBranch) return false;
         return true;
@@ -747,11 +747,11 @@ const LeaveReport = () => {
             <h1 className="text-xl sm:text-2xl font-bold text-white font-khmer">
               {language === 'kh' ? 'របាយការណ៍ច្បាប់សម្រាក (Leave Report)' : 'Leave Requests & Analytics Report'}
             </h1>
-            <p className="text-xs text-slate-400 font-khmer mt-0.5">
+            {/* <p className="text-xs text-slate-400 font-khmer mt-0.5">
               {language === 'kh'
                 ? 'តាមដាន ពិនិត្យ និងទាញយករបាយការណ៍សុំច្បាប់តាមដេប៉ាតឺម៉ង់ ប្រភេទច្បាប់ និងស្ថានភាពអនុម័ត'
                 : 'Track, review, and export employee leave requests across departments, types, and approval statuses'}
-            </p>
+            </p> */}
           </div>
         </div>
         <div className="flex gap-2">
@@ -878,36 +878,32 @@ const LeaveReport = () => {
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
         <div
           onClick={() => { setFilterStatus(''); setCurrentPage(1); }}
-          className={`glass-card p-4 rounded-2xl border text-center cursor-pointer transition-all ${
-            filterStatus === '' ? 'border-indigo-500/80 bg-indigo-500/10 shadow-lg shadow-indigo-500/10 ring-1 ring-indigo-500/50' : 'border-white/5 hover:border-indigo-500/30'
-          }`}
+          className={`glass-card p-4 rounded-2xl border text-center cursor-pointer transition-all ${filterStatus === '' ? 'border-indigo-500/80 bg-indigo-500/10 shadow-lg shadow-indigo-500/10 ring-1 ring-indigo-500/50' : 'border-white/5 hover:border-indigo-500/30'
+            }`}
         >
           <span className="block text-[11px] text-slate-400 font-semibold uppercase font-khmer">{language === 'kh' ? 'សំណើសរុប' : 'Total Requests'}</span>
           <span className="block text-xl font-bold mt-1 text-white font-mono">{stats.totalRequests}</span>
         </div>
         <div
           onClick={() => { setFilterStatus('Approved'); setCurrentPage(1); }}
-          className={`glass-card p-4 rounded-2xl border text-center cursor-pointer transition-all ${
-            filterStatus === 'Approved' ? 'border-emerald-500/80 bg-emerald-500/10 shadow-lg shadow-emerald-500/10 ring-1 ring-emerald-500/50' : 'border-white/5 hover:border-emerald-500/30'
-          }`}
+          className={`glass-card p-4 rounded-2xl border text-center cursor-pointer transition-all ${filterStatus === 'Approved' ? 'border-emerald-500/80 bg-emerald-500/10 shadow-lg shadow-emerald-500/10 ring-1 ring-emerald-500/50' : 'border-white/5 hover:border-emerald-500/30'
+            }`}
         >
           <span className="block text-[11px] text-emerald-400 font-semibold uppercase font-khmer">{language === 'kh' ? 'បានអនុម័ត' : 'Approved'}</span>
           <span className="block text-xl font-bold mt-1 text-emerald-400 font-mono">{stats.approved}</span>
         </div>
         <div
           onClick={() => { setFilterStatus('Pending'); setCurrentPage(1); }}
-          className={`glass-card p-4 rounded-2xl border text-center cursor-pointer transition-all ${
-            filterStatus === 'Pending' ? 'border-amber-500/80 bg-amber-500/10 shadow-lg shadow-amber-500/10 ring-1 ring-amber-500/50' : 'border-white/5 hover:border-amber-500/30'
-          }`}
+          className={`glass-card p-4 rounded-2xl border text-center cursor-pointer transition-all ${filterStatus === 'Pending' ? 'border-amber-500/80 bg-amber-500/10 shadow-lg shadow-amber-500/10 ring-1 ring-amber-500/50' : 'border-white/5 hover:border-amber-500/30'
+            }`}
         >
           <span className="block text-[11px] text-amber-400 font-semibold uppercase font-khmer">{language === 'kh' ? 'រង់ចាំពិនិត្យ' : 'Pending'}</span>
           <span className="block text-xl font-bold mt-1 text-amber-400 font-mono">{stats.pending}</span>
         </div>
         <div
           onClick={() => { setFilterStatus('Rejected'); setCurrentPage(1); }}
-          className={`glass-card p-4 rounded-2xl border text-center cursor-pointer transition-all ${
-            filterStatus === 'Rejected' ? 'border-rose-500/80 bg-rose-500/10 shadow-lg shadow-rose-500/10 ring-1 ring-rose-500/50' : 'border-white/5 hover:border-rose-500/30'
-          }`}
+          className={`glass-card p-4 rounded-2xl border text-center cursor-pointer transition-all ${filterStatus === 'Rejected' ? 'border-rose-500/80 bg-rose-500/10 shadow-lg shadow-rose-500/10 ring-1 ring-rose-500/50' : 'border-white/5 hover:border-rose-500/30'
+            }`}
         >
           <span className="block text-[11px] text-rose-400 font-semibold uppercase font-khmer">{language === 'kh' ? 'បដិសេធ' : 'Rejected'}</span>
           <span className="block text-xl font-bold mt-1 text-rose-400 font-mono">{stats.rejected}</span>
@@ -1056,9 +1052,9 @@ const LeaveReport = () => {
             {/* Total Row matching user's summary requirement */}
             <tfoot className="bg-slate-950/90 border-t-2 border-indigo-500/40 font-bold print:bg-slate-200">
               <tr>
-                <td className="py-4 px-4 text-center font-mono text-slate-500">#</td>
+                <td className="py-4 px-4 text-center font-mono text-slate-500"></td>
                 <td className="py-4 px-6">
-                  <span className="inline-block px-3 py-1 rounded bg-[#86efac] text-emerald-950 font-black text-xs tracking-wider uppercase border border-emerald-400 shadow-sm font-mono">
+                  <span className="inline-block px-3 py-1 rounded text-emerald-950 font-black text-xs tracking-wider uppercase shadow-sm font-mono">
                     Total
                   </span>
                 </td>
@@ -1083,218 +1079,222 @@ const LeaveReport = () => {
       </div>
 
       {/* Detailed Leaves Table - Designed identically to Attendance Report */}
-      <div className="glass-card rounded-2xl overflow-hidden print-card">
-        <div className="p-4 bg-slate-950/80 border-b border-white/10 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-2">
-            <span className="h-2 w-2 rounded-full bg-indigo-500"></span>
-            <h3 className="text-sm font-bold text-white font-khmer">
-              {language === 'kh' ? 'តារាងសំណើសុំច្បាប់លម្អិត (Detailed Leave Requests)' : 'Detailed Leave Requests'}
-            </h3>
-          </div>
-          <span className="text-xs text-slate-400 font-mono font-khmer">
-            Total : <span className="text-white font-bold">{filteredLeaves.length}</span> records
-          </span>
-        </div>
 
-        {loading ? (
-          <div className="py-12 text-center text-slate-400 font-khmer">{t('loading')}</div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm text-slate-300 print:text-xs">
-              <thead className="bg-slate-950/80 text-xs text-slate-300 uppercase border-b border-white/10 print:bg-slate-100">
-                <tr>
-                  <th className="py-4 px-4 font-khmer w-14 text-center">No.</th>
-                  <th className="py-4 px-6 font-khmer whitespace-nowrap">{t('date')}</th>
-                  <th className="py-4 px-6 font-khmer">{t('employees')}</th>
-                  <th className="py-4 px-6 font-khmer whitespace-nowrap">{language === 'kh' ? 'ប្រភេទច្បាប់' : 'Leave Type'}</th>
-                  <th className="py-4 px-6 font-khmer whitespace-nowrap">{language === 'kh' ? 'រយៈពេល / វេន' : 'Duration'}</th>
-                  <th className="py-4 px-6 font-khmer text-center whitespace-nowrap">{language === 'kh' ? 'ចំនួនថ្ងៃ' : 'Days'}</th>
-                  <th className="py-4 px-6 font-khmer">{language === 'kh' ? 'មូលហេតុ' : 'Reason'}</th>
-                  <th className="py-4 px-6 font-khmer whitespace-nowrap">{t('status')}</th>
-                  <th className="py-4 px-6 font-khmer whitespace-nowrap">{language === 'kh' ? 'អ្នកស្នើសុំ / បង្កើត' : 'Created By'}</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-white/5 print:divide-slate-200">
-                {paginatedLeaves.length === 0 ? (
-                  <tr>
-                    <td colSpan={9} className="py-8 text-center text-slate-500 font-khmer">
-                      {language === 'kh' ? 'មិនមានទិន្នន័យច្បាប់សម្រាកត្រូវនឹងលក្ខខណ្ឌចម្រោះនេះឡើយ' : 'No leave requests match the selected filters.'}
-                    </td>
-                  </tr>
-                ) : (
-                  paginatedLeaves.map((item, index) => {
-                    const rowNumber = (currentPage - 1) * pageSize + index + 1;
-                    const emp = item.employee || {};
-                    const photo = getEmployeePhoto(emp);
-                    const nameEn = emp.nameEn || item.employeeName || item.staffId || '';
-                    const nameKh = emp.nameKh || '';
-                    const empName = getLocalizedName(nameEn, nameKh) || nameEn || item.staffId;
-                    const deptName = emp.department ? getLocalizedName(emp.department.nameEn, emp.department.nameKh) : '';
-                    const posTitle = emp.position ? getLocalizedName(emp.position.titleEn, emp.position.titleKh) : '';
-                    const branchName = emp.branch || '';
-
-                    const sDate = formatDateDDMMYYYY(item.startDate || item.leaveDate);
-                    const eDate = formatDateDDMMYYYY(item.endDate || item.leaveDate);
-                    const dateStr = !item.endDate || item.startDate === item.endDate
-                      ? sDate
-                      : `${sDate} ~ ${eDate}`;
-
-                    return (
-                      <tr key={item.id || index} className="hover:bg-white/5 transition-colors print:hover:bg-transparent">
-                        {/* No. */}
-                        <td className="py-4 px-4 text-center font-bold text-slate-400 whitespace-nowrap font-mono">
-                          {rowNumber}
-                        </td>
-
-                        {/* Date */}
-                        <td className="py-4 px-6 font-semibold text-white whitespace-nowrap font-mono">
-                          {dateStr}
-                        </td>
-
-                        {/* Employee Card matching Attendance Report */}
-                        <td className="py-4 px-6 min-w-[220px]">
-                          <div className="flex items-center gap-3">
-                            {photo ? (
-                              <img
-                                src={photo}
-                                alt={nameEn}
-                                className="w-10 h-10 rounded-full object-cover border-2 border-indigo-500/30 flex-shrink-0 shadow-md print:hidden"
-                              />
-                            ) : (
-                              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center flex-shrink-0 text-white font-bold text-sm shadow-md print:hidden">
-                                {(nameEn || item.staffId || 'E').charAt(0).toUpperCase()}
-                              </div>
-                            )}
-                            <div>
-                              <p className="font-semibold text-white whitespace-nowrap">
-                                {empName}
-                              </p>
-                              <p className="text-xs text-slate-400 font-mono">
-                                ID: <span className="text-indigo-400 font-semibold">{item.staffId}</span>
-                                {emp.role ? ` • ${emp.role}` : ''}
-                              </p>
-                              {(deptName || posTitle || branchName) && (
-                                <p className="text-[11px] text-indigo-400 truncate">
-                                  {[deptName, posTitle, branchName].filter(Boolean).join(' • ')}
-                                </p>
-                              )}
-                            </div>
-                          </div>
-                        </td>
-
-                        {/* Leave Type */}
-                        <td className="py-4 px-6 whitespace-nowrap font-mono">
-                          <span className="font-semibold text-purple-300">
-                            {getLeaveTypeLabel(item.leaveType)}
-                          </span>
-                        </td>
-
-                        {/* Duration / Shift */}
-                        <td className="py-4 px-6 whitespace-nowrap font-mono text-xs text-slate-300">
-                          {item.durationType || 'Full Day'}
-                        </td>
-
-                        {/* Days */}
-                        <td className="py-4 px-6 text-center font-mono font-bold text-white whitespace-nowrap">
-                          {item.amountDays || 1}
-                        </td>
-
-                        {/* Reason */}
-                        <td className="py-4 px-6 text-xs text-slate-300 font-khmer max-w-[220px] truncate" title={item.reason}>
-                          {item.reason || '-'}
-                        </td>
-
-                        {/* Status badges matching Attendance Report */}
-                        <td className="py-4 px-6 space-y-1 whitespace-nowrap">
-                          {item.status === 'Approved' && (
-                            <span className="inline-flex items-center rounded-full bg-emerald-500/10 px-2.5 py-0.5 text-xs font-medium text-emerald-300 ring-1 ring-inset ring-emerald-500/20 font-khmer">
-                              {language === 'kh' ? 'បានអនុម័ត' : 'Approved'}
-                            </span>
-                          )}
-                          {item.status === 'Pending' && (
-                            <span className="inline-flex items-center rounded-full bg-amber-500/10 px-2.5 py-0.5 text-xs font-medium text-amber-300 ring-1 ring-inset ring-amber-500/20 font-khmer">
-                              {language === 'kh' ? 'រង់ចាំ' : 'Pending'}
-                            </span>
-                          )}
-                          {item.status === 'Rejected' && (
-                            <span className="inline-flex items-center rounded-full bg-rose-500/10 px-2.5 py-0.5 text-xs font-medium text-rose-300 ring-1 ring-inset ring-rose-500/20 font-khmer">
-                              {language === 'kh' ? 'បដិសេធ' : 'Rejected'}
-                            </span>
-                          )}
-                          {item.status !== 'Approved' && item.status !== 'Pending' && item.status !== 'Rejected' && (
-                            <span className="inline-flex items-center rounded-full bg-slate-500/10 px-2.5 py-0.5 text-xs font-medium text-slate-400 ring-1 ring-inset ring-slate-500/20 font-khmer">
-                              {item.status || '-'}
-                            </span>
-                          )}
-                        </td>
-
-                        {/* Created By */}
-                        <td className="py-4 px-6 whitespace-nowrap text-xs text-slate-400 font-khmer">
-                          {item.createdBy || '-'}
-                        </td>
-                      </tr>
-                    );
-                  })
-                )}
-              </tbody>
-            </table>
-          </div>
-        )}
-
-        {/* Pagination Controls identical to Attendance Report */}
-        {!loading && filteredLeaves.length > 0 && (
-          <div className="p-4 bg-slate-950/60 border-t border-white/5 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs no-print">
-            <div className="text-slate-400 font-khmer">
-              Total : <span className="font-bold text-white font-mono">{filteredLeaves.length}</span> records
+      <div>
+        <div className="glass-card rounded-2xl overflow-hidden print-card">
+          <div className="p-4 bg-slate-950/80 border-b border-white/10 flex items-center justify-between gap-4">
+            <div className="flex items-center gap-2">
+              <span className="h-2 w-2 rounded-full bg-indigo-500"></span>
+              <h3 className="text-sm font-bold text-white font-khmer">
+                {language === 'kh' ? 'តារាងសំណើសុំច្បាប់លម្អិត (Detailed Leave Requests)' : 'Detailed Leave Requests'}
+              </h3>
             </div>
+            <span className="text-xs text-slate-400 font-mono font-khmer">
+              Total : <span className="text-white font-bold">{filteredLeaves.length}</span> records
+            </span>
+          </div>
 
-            <div className="flex items-center gap-1 overflow-x-auto max-w-full pb-1 sm:pb-0">
-              <button
-                type="button"
-                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                disabled={currentPage === 1}
-                className="h-8 min-w-[32px] px-2 rounded-lg border border-white/10 bg-slate-900/60 hover:bg-slate-800 text-slate-300 disabled:opacity-30 disabled:cursor-not-allowed transition-all font-mono font-bold flex items-center justify-center cursor-pointer"
-              >
-                &lsaquo;
-              </button>
+          {loading ? (
+            <div className="py-12 text-center text-slate-400 font-khmer">{t('loading')}</div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-sm text-slate-300 print:text-xs">
+                <thead className="bg-slate-950/80 text-xs text-slate-300 uppercase border-b border-white/10 print:bg-slate-100">
+                  <tr>
+                    <th className="py-4 px-4 font-khmer w-14 text-center">No.</th>
+                    <th className="py-4 px-6 font-khmer whitespace-nowrap">{t('date')}</th>
+                    <th className="py-4 px-6 font-khmer">{t('employees')}</th>
+                    <th className="py-4 px-6 font-khmer whitespace-nowrap">{language === 'kh' ? 'ប្រភេទច្បាប់' : 'Leave Type'}</th>
+                    <th className="py-4 px-6 font-khmer whitespace-nowrap">{language === 'kh' ? 'រយៈពេល / វេន' : 'Duration'}</th>
+                    <th className="py-4 px-6 font-khmer text-center whitespace-nowrap">{language === 'kh' ? 'ចំនួនថ្ងៃ' : 'Days'}</th>
+                    <th className="py-4 px-6 font-khmer">{language === 'kh' ? 'មូលហេតុ' : 'Reason'}</th>
+                    <th className="py-4 px-6 font-khmer whitespace-nowrap">{t('status')}</th>
+                    <th className="py-4 px-6 font-khmer whitespace-nowrap">{language === 'kh' ? 'អ្នកស្នើសុំ / បង្កើត' : 'Created By'}</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-white/5 print:divide-slate-200">
+                  {paginatedLeaves.length === 0 ? (
+                    <tr>
+                      <td colSpan={9} className="py-8 text-center text-slate-500 font-khmer">
+                        {language === 'kh' ? 'មិនមានទិន្នន័យច្បាប់សម្រាកត្រូវនឹងលក្ខខណ្ឌចម្រោះនេះឡើយ' : 'No leave requests match the selected filters.'}
+                      </td>
+                    </tr>
+                  ) : (
+                    paginatedLeaves.map((item, index) => {
+                      const rowNumber = (currentPage - 1) * pageSize + index + 1;
+                      const emp = item.employee || {};
+                      const photo = getEmployeePhoto(emp);
+                      const nameEn = emp.nameEn || item.employeeName || item.staffId || '';
+                      const nameKh = emp.nameKh || '';
+                      const empName = getLocalizedName(nameEn, nameKh) || nameEn || item.staffId;
+                      const deptName = emp.department ? getLocalizedName(emp.department.nameEn, emp.department.nameKh) : '';
+                      const posTitle = emp.position ? getLocalizedName(emp.position.titleEn, emp.position.titleKh) : '';
+                      const branchName = emp.branch || '';
 
-              {getPaginationItems().map((pageItem, idx) => {
-                if (pageItem === '...') {
+                      const sDate = formatDateDDMMYYYY(item.startDate || item.leaveDate);
+                      const eDate = formatDateDDMMYYYY(item.endDate || item.leaveDate);
+                      const dateStr = !item.endDate || item.startDate === item.endDate
+                        ? sDate
+                        : `${sDate} ~ ${eDate}`;
+
+                      return (
+                        <tr key={item.id || index} className="hover:bg-white/5 transition-colors print:hover:bg-transparent">
+                          {/* No. */}
+                          <td className="py-4 px-4 text-center font-bold text-slate-400 whitespace-nowrap font-mono">
+                            {rowNumber}
+                          </td>
+
+                          {/* Date */}
+                          <td className="py-4 px-6 font-semibold text-white whitespace-nowrap font-mono">
+                            {dateStr}
+                          </td>
+
+                          {/* Employee Card matching Attendance Report */}
+                          <td className="py-4 px-6 min-w-[220px]">
+                            <div className="flex items-center gap-3">
+                              {photo ? (
+                                <img
+                                  src={photo}
+                                  alt={nameEn}
+                                  className="w-10 h-10 rounded-full object-cover border-2 border-indigo-500/30 flex-shrink-0 shadow-md print:hidden"
+                                />
+                              ) : (
+                                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center flex-shrink-0 text-white font-bold text-sm shadow-md print:hidden">
+                                  {(nameEn || item.staffId || 'E').charAt(0).toUpperCase()}
+                                </div>
+                              )}
+                              <div>
+                                <p className="font-semibold text-white whitespace-nowrap">
+                                  {empName}
+                                </p>
+                                <p className="text-xs text-slate-400 font-mono">
+                                  ID: <span className="text-indigo-400 font-semibold">{item.staffId}</span>
+                                  {emp.role ? ` • ${emp.role}` : ''}
+                                </p>
+                                {(deptName || posTitle || branchName) && (
+                                  <p className="text-[11px] text-indigo-400 truncate">
+                                    {[deptName, posTitle, branchName].filter(Boolean).join(' • ')}
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+                          </td>
+
+                          {/* Leave Type */}
+                          <td className="py-4 px-6 whitespace-nowrap font-mono">
+                            <span className="font-semibold text-purple-300">
+                              {getLeaveTypeLabel(item.leaveType)}
+                            </span>
+                          </td>
+
+                          {/* Duration / Shift */}
+                          <td className="py-4 px-6 whitespace-nowrap font-mono text-xs text-slate-300">
+                            {item.durationType || 'Full Day'}
+                          </td>
+
+                          {/* Days */}
+                          <td className="py-4 px-6 text-center font-mono font-bold text-white whitespace-nowrap">
+                            {item.amountDays || 1}
+                          </td>
+
+                          {/* Reason */}
+                          <td className="py-4 px-6 text-xs text-slate-300 font-khmer max-w-[220px] truncate" title={item.reason}>
+                            {item.reason || '-'}
+                          </td>
+
+                          {/* Status badges matching Attendance Report */}
+                          <td className="py-4 px-6 space-y-1 whitespace-nowrap">
+                            {item.status === 'Approved' && (
+                              <span className="inline-flex items-center rounded-full bg-emerald-500/10 px-2.5 py-0.5 text-xs font-medium text-emerald-300 ring-1 ring-inset ring-emerald-500/20 font-khmer">
+                                {language === 'kh' ? 'បានអនុម័ត' : 'Approved'}
+                              </span>
+                            )}
+                            {item.status === 'Pending' && (
+                              <span className="inline-flex items-center rounded-full bg-amber-500/10 px-2.5 py-0.5 text-xs font-medium text-amber-300 ring-1 ring-inset ring-amber-500/20 font-khmer">
+                                {language === 'kh' ? 'រង់ចាំ' : 'Pending'}
+                              </span>
+                            )}
+                            {item.status === 'Rejected' && (
+                              <span className="inline-flex items-center rounded-full bg-rose-500/10 px-2.5 py-0.5 text-xs font-medium text-rose-300 ring-1 ring-inset ring-rose-500/20 font-khmer">
+                                {language === 'kh' ? 'បដិសេធ' : 'Rejected'}
+                              </span>
+                            )}
+                            {item.status !== 'Approved' && item.status !== 'Pending' && item.status !== 'Rejected' && (
+                              <span className="inline-flex items-center rounded-full bg-slate-500/10 px-2.5 py-0.5 text-xs font-medium text-slate-400 ring-1 ring-inset ring-slate-500/20 font-khmer">
+                                {item.status || '-'}
+                              </span>
+                            )}
+                          </td>
+
+                          {/* Created By */}
+                          <td className="py-4 px-6 whitespace-nowrap text-xs text-slate-400 font-khmer">
+                            {item.createdBy || '-'}
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {/* Pagination Controls identical to Attendance Report */}
+          {!loading && filteredLeaves.length > 0 && (
+            <div className="p-4 bg-slate-950/60 border-t border-white/5 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs no-print">
+              <div className="text-slate-400 font-khmer">
+                Total : <span className="font-bold text-white font-mono">{filteredLeaves.length}</span> records
+              </div>
+
+              <div className="flex items-center gap-1 overflow-x-auto max-w-full pb-1 sm:pb-0">
+                <button
+                  type="button"
+                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                  disabled={currentPage === 1}
+                  className="h-8 min-w-[32px] px-2 rounded-lg border border-white/10 bg-slate-900/60 hover:bg-slate-800 text-slate-300 disabled:opacity-30 disabled:cursor-not-allowed transition-all font-mono font-bold flex items-center justify-center cursor-pointer"
+                >
+                  &lsaquo;
+                </button>
+
+                {getPaginationItems().map((pageItem, idx) => {
+                  if (pageItem === '...') {
+                    return (
+                      <span key={`dots-${idx}`} className="h-8 min-w-[32px] flex items-center justify-center text-slate-500 font-mono">
+                        ...
+                      </span>
+                    );
+                  }
+                  const isCurrent = pageItem === currentPage;
                   return (
-                    <span key={`dots-${idx}`} className="h-8 min-w-[32px] flex items-center justify-center text-slate-500 font-mono">
-                      ...
-                    </span>
-                  );
-                }
-                const isCurrent = pageItem === currentPage;
-                return (
-                  <button
-                    key={`page-${pageItem}`}
-                    type="button"
-                    onClick={() => setCurrentPage(pageItem)}
-                    className={`h-8 min-w-[32px] px-2 rounded-lg text-xs font-mono font-bold transition-all cursor-pointer ${
-                      isCurrent
+                    <button
+                      key={`page-${pageItem}`}
+                      type="button"
+                      onClick={() => setCurrentPage(pageItem)}
+                      className={`h-8 min-w-[32px] px-2 rounded-lg text-xs font-mono font-bold transition-all cursor-pointer ${isCurrent
                         ? 'bg-indigo-600 text-white shadow-md shadow-indigo-500/20'
                         : 'bg-slate-900/60 border border-white/10 text-slate-300 hover:bg-slate-800 hover:text-white'
-                    }`}
-                  >
-                    {pageItem}
-                  </button>
-                );
-              })}
+                        }`}
+                    >
+                      {pageItem}
+                    </button>
+                  );
+                })}
 
-              <button
-                type="button"
-                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                disabled={currentPage === totalPages}
-                className="h-8 min-w-[32px] px-2 rounded-lg border border-white/10 bg-slate-900/60 hover:bg-slate-800 text-slate-300 disabled:opacity-30 disabled:cursor-not-allowed transition-all font-mono font-bold flex items-center justify-center cursor-pointer"
-              >
-                &rsaquo;
-              </button>
+                <button
+                  type="button"
+                  onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                  disabled={currentPage === totalPages}
+                  className="h-8 min-w-[32px] px-2 rounded-lg border border-white/10 bg-slate-900/60 hover:bg-slate-800 text-slate-300 disabled:opacity-30 disabled:cursor-not-allowed transition-all font-mono font-bold flex items-center justify-center cursor-pointer"
+                >
+                  &rsaquo;
+                </button>
+              </div>
             </div>
-          </div>
-        )}
+          )}
+        </div>
       </div>
+
+
     </div>
   );
 };

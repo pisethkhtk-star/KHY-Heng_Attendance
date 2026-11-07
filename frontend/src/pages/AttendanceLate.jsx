@@ -455,15 +455,15 @@ const AttendanceLate = () => {
           <div>
             <h1 className="text-xl font-bold text-white font-khmer flex items-center gap-2">
               <span>{t("lateRecords")}</span>
-              <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">
+              <span className="px-2.5 py-0.5 rounded-full text-xs font-bold text-black bg-amber-500/20 text-amber-300 border border-amber-500/30">
                 {overallStats.totalCount} {language === 'kh' ? 'ដង' : 'records'}
               </span>
             </h1>
-            <p className="text-xs text-slate-400 mt-0.5 font-khmer">
+            {/* <p className="text-xs text-slate-400 mt-0.5 font-khmer">
               {language === 'kh'
                 ? 'តាមដាន និងគ្រប់គ្រងម៉ោងមកយឺតរបស់បុគ្គលិកនីមួយៗ'
                 : 'Track and review exact late arrival duration for each employee'}
-            </p>
+            </p> */}
           </div>
         </div>
 
@@ -568,9 +568,8 @@ const AttendanceLate = () => {
               <div
                 onClick={() => setIsEmpDropdownOpen(!isEmpDropdownOpen)}
                 style={{ backgroundColor: '#FFFFFF', borderColor: isEmpDropdownOpen ? '#2D60FF' : '#CBD5E1' }}
-                className={`w-full py-2 px-3 border rounded-xl text-sm flex items-center justify-between cursor-pointer transition-all shadow-sm ${
-                  isEmpDropdownOpen ? 'ring-2 ring-blue-500/20' : 'hover:border-slate-400'
-                }`}
+                className={`w-full py-2 px-3 border rounded-xl text-sm flex items-center justify-between cursor-pointer transition-all shadow-sm ${isEmpDropdownOpen ? 'ring-2 ring-blue-500/20' : 'hover:border-slate-400'
+                  }`}
               >
                 <span
                   style={{ color: selectedStaffId ? '#000000' : '#475569' }}
@@ -648,9 +647,8 @@ const AttendanceLate = () => {
                               color: isSelected ? '#FFFFFF' : '#000000',
                               backgroundColor: isSelected ? '#2D60FF' : 'transparent',
                             }}
-                            className={`py-2.5 px-3 text-xs cursor-pointer transition-colors flex items-center justify-between font-semibold ${
-                              isSelected ? 'font-bold' : 'hover:!bg-blue-50 hover:!text-[#2D60FF]'
-                            }`}
+                            className={`py-2.5 px-3 text-xs cursor-pointer transition-colors flex items-center justify-between font-semibold ${isSelected ? 'font-bold' : 'hover:!bg-blue-50 hover:!text-[#2D60FF]'
+                              }`}
                           >
                             <span className="truncate">{label}</span>
                             {emp.status === 'Resigned' && (
