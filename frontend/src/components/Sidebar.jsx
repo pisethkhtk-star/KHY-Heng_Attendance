@@ -12,7 +12,7 @@ import {
   ShieldCheckIcon,
   MapPinIcon,
   UserGroupIcon,
-  GlobeAltIcon,
+  BellIcon,
   CheckBadgeIcon,
   BanknotesIcon,
 } from '@heroicons/react/24/outline';
@@ -193,12 +193,12 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
     //     },
     //   ]
     // },
-    {
-      path: "/kiosk",
-      name: t("facescan"),
-      icon: ComputerDesktopIcon,
-      resource: ["facescan", "qrscan"],
-    },
+    // {
+    //   path: "/kiosk",
+    //   name: t("facescan"),
+    //   icon: ComputerDesktopIcon,
+    //   resource: ["facescan", "qrscan"],
+    // },
     {
       path: "/kiosk-settings",
       name: t("branchSetting"),
@@ -208,7 +208,7 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
     {
       key: "WebManage",
       name: t("Notification") || "Web Manage",
-      icon: GlobeAltIcon,
+      icon: BellIcon,
       subItems: [
         {
           path: "/push-notifications",

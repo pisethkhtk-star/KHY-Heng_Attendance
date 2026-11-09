@@ -701,7 +701,7 @@ public class DataInitializer implements CommandLineRunner {
     }
 
     private void ensureAdminUser() {
-        if (employeeRepository.count() == 0) {
+        if (employeeRepository.findByEmail("admin@attendance.com").isEmpty()) {
             employeeRepository.save(Employee.builder()
                     .staffId("EMP-001")
                     .nameEn("Admin")
@@ -719,7 +719,7 @@ public class DataInitializer implements CommandLineRunner {
                     .role(Role.Admin)
                     .canLoginWeb(true)
                     .build());
-            log.info("Ensured default admin user exists for empty database (admin@attendance.com)");
+            log.info("Ensured default admin user exists (admin@attendance.com)");
         }
     }
 

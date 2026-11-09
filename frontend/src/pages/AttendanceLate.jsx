@@ -447,7 +447,7 @@ const AttendanceLate = () => {
   return (
     <div className="space-y-6 max-w-7xl mx-auto animate-fade-in pb-12">
       {/* Top Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center glass-card p-6 rounded-2xl glow-indigo gap-4">
         <div className="flex items-center gap-3">
           <div className="p-3 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-400 shadow-lg shadow-amber-500/5">
             <ClockIcon className="h-7 w-7" />

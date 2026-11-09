@@ -759,6 +759,7 @@ const KioskSettings = () => {
     <div className="space-y-6">
       {/* Page Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        {/* flex flex-col sm:flex-row justify-between items-start sm:items-center glass-card p-6 rounded-2xl glow-indigo gap-4 */}
         <div className="flex items-center gap-3">
           <div className="p-2.5 rounded-xl bg-indigo-500/10 border border-indigo-500/20">
             <MapPinIcon className="h-6 w-6 text-indigo-400" />

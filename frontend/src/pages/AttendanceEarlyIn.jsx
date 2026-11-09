@@ -418,7 +418,7 @@ const AttendanceEarlyIn = () => {
   return (
     <div className="space-y-6">
       {/* Header Banner */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center glass-card p-6 rounded-2xl glow-indigo gap-4">
         <div>
           <h1 className="text-xl font-bold text-white font-khmer flex items-center gap-2">
             <ClockIcon className="h-6 w-6 text-emerald-400" />

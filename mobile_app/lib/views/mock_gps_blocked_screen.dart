@@ -226,7 +226,7 @@ class _MockGpsBlockedScreenState extends State<MockGpsBlockedScreen> {
                             )
                           : const Icon(LucideIcons.refreshCw, size: 18),
                       label: Text(
-                        _isRechecking ? 'កំពុងពិនិត្យឡើងវិញ...' : 'ពិនិត្យទីតាំងឡើងវិញ (Re-check)',
+                        _isRechecking ? 'កំពុងពិនិត្យឡើងវិញ...' : 'ពិនិត្យទីតាំងឡើងវិញ',
                         style: const TextStyle(
                           fontSize: 14.5,
                           fontWeight: FontWeight.bold,

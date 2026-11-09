@@ -764,7 +764,7 @@ const AttendanceIncomplete = () => {
   return (
     <div className="space-y-6 max-w-7xl mx-auto animate-fade-in pb-12">
       {/* Top Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center glass-card p-6 rounded-2xl glow-indigo gap-4">
         <div className="flex items-center gap-3">
           <div className="p-3 bg-gradient-to-tr from-amber-500/20 to-rose-500/20 border border-amber-500/30 rounded-2xl shadow-inner">
             <ExclamationTriangleIcon className="h-7 w-7 text-amber-400" />

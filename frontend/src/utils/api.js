@@ -71,19 +71,32 @@ export const initApiConfig = () => {
   if (!initPromise) {
     initPromise = (async () => {
       try {
-        const isLanHost = typeof window !== 'undefined' &&
-          window.location?.hostname &&
-          window.location.hostname !== 'localhost' &&
-          window.location.hostname !== '127.0.0.1';
+        if (import.meta.env.VITE_API_BASE_URL && import.meta.env.VITE_API_BASE_URL !== '/api') {
+          cachedBaseUrl = formatBaseUrl(import.meta.env.VITE_API_BASE_URL);
+          api.defaults.baseURL = cachedBaseUrl;
+          console.log('[API] baseURL configured from VITE_API_BASE_URL:', cachedBaseUrl);
+          return cachedBaseUrl;
+        }
+
+        const hostname = typeof window !== 'undefined' ? window.location?.hostname : '';
+        const isLocalDev = hostname === 'localhost' || hostname === '127.0.0.1';
+        const isLanIp = /^192\.168\./.test(hostname) || /^10\./.test(hostname) || /^172\.(1[6-9]|2[0-9]|3[0-1])\./.test(hostname);
 
         const host = await getRemoteServerHost();
-        if (host && host !== '192.168.88.133') {
-          // If already browsing on a specific LAN host, keep using it unless remote config specifies a different non-default host
-          const effectiveHost = isLanHost ? window.location.hostname : host;
-          const newBaseUrl = formatBaseUrl(effectiveHost);
+        if (host && host !== '192.168.88.133' && host !== '192.168.88.77') {
+          // If Firebase Remote Config provided a specific host, prioritize it over public web hostname
+          const newBaseUrl = formatBaseUrl(host);
           cachedBaseUrl = newBaseUrl;
           api.defaults.baseURL = newBaseUrl;
-          console.log('[API] baseURL configured:', newBaseUrl);
+          console.log('[API] baseURL configured from Remote Config:', newBaseUrl);
+          return newBaseUrl;
+        }
+
+        if (isLanIp) {
+          const newBaseUrl = formatBaseUrl(hostname);
+          cachedBaseUrl = newBaseUrl;
+          api.defaults.baseURL = newBaseUrl;
+          console.log('[API] baseURL configured from LAN hostname:', newBaseUrl);
           return newBaseUrl;
         }
       } catch (err) {

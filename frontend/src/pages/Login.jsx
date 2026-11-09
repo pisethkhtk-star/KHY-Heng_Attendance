@@ -212,7 +212,7 @@ const Login = () => {
           </h1>
           {isKhmer && (
             <p className="text-white/80 font-khmer text-lg mt-3 font-medium">
-              ប្រព័ន្ធគ្រប់គ្រងវត្តមានបុគ្គលិក
+
             </p>
           )}
         </div>

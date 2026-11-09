@@ -275,8 +275,8 @@ const Overtime = () => {
     if (!creatorVal) return '-';
     const emp = employees.find(
       e => e.staffId?.toLowerCase() === String(creatorVal).toLowerCase() ||
-           e.email?.toLowerCase() === String(creatorVal).toLowerCase() ||
-           e.nameEn?.toLowerCase() === String(creatorVal).toLowerCase()
+        e.email?.toLowerCase() === String(creatorVal).toLowerCase() ||
+        e.nameEn?.toLowerCase() === String(creatorVal).toLowerCase()
     );
     if (emp) {
       return getLocalizedName(emp.nameEn, emp.nameKh);
@@ -425,9 +425,9 @@ const Overtime = () => {
             <ClockIcon className="h-6 w-6 text-indigo-400" />
             <span>{t('overtime')}</span>
           </h2>
-          <p className="text-slate-400 text-xs mt-1 font-khmer">
+          {/* <p className="text-slate-400 text-xs mt-1 font-khmer">
             {t('overtimeSubtitle')}
-          </p>
+          </p> */}
         </div>
 
         <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
@@ -733,16 +733,14 @@ const Overtime = () => {
 
                       {/* 10. Status */}
                       <td className="py-4 px-6 whitespace-nowrap">
-                        <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium font-khmer ring-1 ${
-                          item.status === 'Approved'
+                        <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium font-khmer ring-1 ${item.status === 'Approved'
                             ? 'bg-emerald-500/10 text-emerald-300 ring-emerald-500/20'
                             : item.status === 'Rejected'
                               ? 'bg-rose-500/10 text-rose-300 ring-rose-500/20'
                               : 'bg-amber-500/10 text-amber-300 ring-amber-500/20'
-                        }`}>
-                          <span className={`h-1.5 w-1.5 rounded-full ${
-                            item.status === 'Approved' ? 'bg-emerald-400' : item.status === 'Rejected' ? 'bg-rose-400' : 'bg-amber-400'
-                          }`} />
+                          }`}>
+                          <span className={`h-1.5 w-1.5 rounded-full ${item.status === 'Approved' ? 'bg-emerald-400' : item.status === 'Rejected' ? 'bg-rose-400' : 'bg-amber-400'
+                            }`} />
                           {item.status === 'Approved' ? t('approved') : item.status === 'Rejected' ? t('rejected') : t('pending')}
                         </span>
                       </td>
@@ -1086,11 +1084,10 @@ const Overtime = () => {
                   type="button"
                   onClick={handleSubmitDecision}
                   disabled={isSubmittingDecision}
-                  className={`py-2 px-4 text-xs font-semibold rounded-xl shadow-md transition-all font-khmer cursor-pointer border-none outline-none disabled:opacity-50 text-white ${
-                    decisionType === 'Approved'
+                  className={`py-2 px-4 text-xs font-semibold rounded-xl shadow-md transition-all font-khmer cursor-pointer border-none outline-none disabled:opacity-50 text-white ${decisionType === 'Approved'
                       ? 'bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 shadow-emerald-500/25'
                       : 'bg-gradient-to-r from-rose-500 to-red-600 hover:from-rose-600 hover:to-red-700 shadow-rose-500/25'
-                  }`}
+                    }`}
                 >
                   {isSubmittingDecision
                     ? t('loading')
