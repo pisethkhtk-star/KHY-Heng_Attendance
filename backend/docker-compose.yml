@@ -2,7 +2,7 @@ services:
   postgres:
     image: postgres:16-alpine
     container_name: hr_attendance_postgres
-    restart: unless-stopped
+    restart: always
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-khyheng_att}
       POSTGRES_USER: ${DB_USERNAME:-postgres}
@@ -27,7 +27,7 @@ services:
       dockerfile: Dockerfile
     image: hr-chomnan-backend:latest
     container_name: hr_attendance_backend
-    restart: unless-stopped
+    restart: always
     environment:
       DATABASE_URL: ${DATABASE_URL:-jdbc:postgresql://postgres:5432/khyheng_att}
       DB_USERNAME: ${DB_USERNAME:-postgres}
